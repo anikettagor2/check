@@ -5,7 +5,9 @@ import {
     collection, 
     query, 
     orderBy, 
-    onSnapshot 
+    onSnapshot,
+    updateDoc,
+    doc
 } from "firebase/firestore";
 import { db } from "@/lib/firebase/config";
 import { Project, User } from "@/types/schema";
@@ -46,7 +48,8 @@ import {
     ExternalLink,
     LayoutGrid,
     TrendingUp,
-    FolderOpen
+    FolderOpen,
+    Save
 } from "lucide-react";
 
 import { cn } from "@/lib/utils";
@@ -57,7 +60,7 @@ import { Modal } from "@/components/ui/modal";
 import { Button } from "@/components/ui/button"; 
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { 
     DropdownMenu, 
     DropdownMenuContent, 
@@ -69,14 +72,14 @@ import {
 
 import { useSearchParams } from "next/navigation";
 import { useAuth } from "@/lib/context/auth-context";
-import { assignEditor, updateProject, togglePayLater, deleteProject, deleteUser, toggleUserStatus, rejectDeletionRequest, verifyEditor } from "@/app/actions/admin-actions";
+import { assignEditor, updateProject, togglePayLater, deleteProject, deleteUser, toggleUserStatus, rejectDeletionRequest, verifyEditor, getWhatsAppTemplates, updateWhatsAppTemplates, settleProjectPayment } from "@/app/actions/admin-actions";
 import { AdminOverviewGraphs } from "./admin-overview-graphs";
 
 export function AdminDashboard() {
   const { user: currentUser } = useAuth();
   const searchParams = useSearchParams();
-  const initialTab = (searchParams.get('tab') as 'overview' | 'projects' | 'users' | 'team' | 'terminations' | 'requests') || 'overview';
-  const [activeTab, setActiveTab] = useState<'overview' | 'projects' | 'users' | 'team' | 'terminations' | 'requests'>(initialTab);
+  const initialTab = (searchParams.get('tab') as 'overview' | 'projects' | 'users' | 'team' | 'terminations' | 'requests' | 'whatsapp') || 'overview';
+  const [activeTab, setActiveTab] = useState<'overview' | 'projects' | 'users' | 'team' | 'terminations' | 'requests' | 'whatsapp'>(initialTab);
   const [projects, setProjects] = useState<Project[]>([]);
   const [users, setUsers] = useState<User[]>([]);
   const [loading, setLoading] = useState(true);
@@ -99,6 +102,11 @@ export function AdminDashboard() {
   const [isCreatingUser, setIsCreatingUser] = useState(false);
   const [newUser, setNewUser] = useState({ name: '', email: '', password: '', role: 'sales_executive', phoneNumber: '' });
 
+  // Add Editor State
+  const [isAddEditorModalOpen, setIsAddEditorModalOpen] = useState(false);
+  const [isCreatingEditor, setIsCreatingEditor] = useState(false);
+  const [newEditor, setNewEditor] = useState({ name: '', email: '', password: '', whatsapp: '', portfolio: '' });
+
   const [editForm, setEditForm] = useState({
       totalCost: 0,
       status: ''
@@ -108,8 +116,13 @@ export function AdminDashboard() {
     revenue: 0,
     activeProjects: 0,
     pendingAssignment: 0,
-    totalUsers: 0
+    totalClients: 0
   });
+
+  const [whatsappTemplates, setWhatsappTemplates] = useState<any>({});
+  const [isUpdatingTemplates, setIsUpdatingTemplates] = useState(false);
+
+
 
   useEffect(() => {
     setLoading(true);
@@ -126,6 +139,14 @@ export function AdminDashboard() {
         setUsers(fetchedUsers);
     });
 
+    getWhatsAppTemplates().then(res => {
+        if (res.success && res.data) {
+            setWhatsappTemplates(res.data);
+        }
+    });
+
+
+
     return () => {
         unsubProjects();
         unsubUsers();
@@ -139,12 +160,12 @@ export function AdminDashboard() {
           revenue: projects.reduce((acc, curr) => acc + (curr.amountPaid || 0), 0),
           activeProjects: projects.filter(p => !['completed', 'approved'].includes(p.status)).length,
           pendingAssignment: projects.filter(p => p.status === 'pending_assignment').length,
-          totalUsers: users.length
+          totalClients: users.filter(u => u.role === 'client').length
       });
     }
   }, [projects, users]);
 
-  const handleCreateUser = async (e: React.FormEvent) => {
+   const handleCreateUser = async (e: React.FormEvent) => {
       e.preventDefault();
       setIsCreatingUser(true);
       try {
@@ -173,6 +194,53 @@ export function AdminDashboard() {
       } finally {
           setIsCreatingUser(false);
       }
+  };
+
+  const handleAddEditor = async (e: React.FormEvent) => {
+      e.preventDefault();
+      setIsCreatingEditor(true);
+      try {
+          const res = await fetch('/api/admin/create-user', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                  email: newEditor.email,
+                  password: newEditor.password,
+                  displayName: newEditor.name,
+                  role: 'editor',
+                  phoneNumber: newEditor.whatsapp,
+                  createdBy: currentUser?.uid || 'admin'
+              })
+          });
+          
+          const responseData = await res.json();
+          if (!res.ok) {
+              throw new Error(responseData.error || "Failed");
+          }
+
+          if (responseData.uid) {
+              await updateDoc(doc(db, "users", responseData.uid), {
+                 whatsappNumber: newEditor.whatsapp,
+                 portfolio: newEditor.portfolio ? [{ name: "Main Portfolio", url: newEditor.portfolio, date: Date.now() }] : [],
+                 onboardingStatus: 'approved'
+              });
+          }
+
+          toast.success(`Editor account created successfully`);
+          setNewEditor({ name: '', email: '', password: '', whatsapp: '', portfolio: '' });
+          setIsAddEditorModalOpen(false);
+       } catch (err: any) {
+          toast.error(err.message);
+      } finally {
+          setIsCreatingEditor(false);
+      }
+  };
+
+  const handleSettlePayment = async (projectId: string) => {
+    if(!confirm("Are you sure you want to mark this Pay Later project as Settled (fully paid)?")) return;
+    const res = await settleProjectPayment(projectId, currentUser!.uid, currentUser!.displayName || "Admin", currentUser?.role || 'admin');
+    if(res.success) toast.success("Payment settled successfully");
+    else toast.error("Failed to settle payment");
   };
 
   const handleDeleteProject = async (projectId: string) => {
@@ -206,16 +274,36 @@ export function AdminDashboard() {
         return;
     }
     const price = Number(assignEditorPrice);
+
+    // Prevent negative platform revenue
+    if (price > (selectedProject.totalCost || 0)) {
+        toast.error(`Editor revenue cannot exceed project cost (₹${selectedProject.totalCost || 0}). Negative platform margin is not allowed.`);
+        return;
+    }
+
     try {
         const res = await assignEditor(selectedProject.id, editorId, price);
         if (res.success) {
-            toast.success("Editor assigned successfully.");
+            toast.success("Editor assigned successfully. Pending their acceptance.");
             setIsAssignModalOpen(false);
             setAssignEditorPrice("");
         } else {
             toast.error(res.error || "Assignment failed.");
         }
     } catch (err) { toast.error("Assignment failed."); }
+  };
+
+  const handleReimburseEditor = async (projectId: string) => {
+      try {
+          await updateDoc(doc(db, "projects", projectId), {
+              editorPaid: true,
+              editorPaidAt: Date.now()
+          });
+          toast.success("Editor payment marked as cleared.");
+      } catch (error) {
+          toast.error("Failed to clear payment.");
+          console.error(error);
+      }
   };
 
    const handleUpdateProject = async () => {
@@ -245,6 +333,21 @@ export function AdminDashboard() {
       if (res.success) toast.success(disabled ? "Access suspended" : "Access restored");
       else toast.error("Status error");
   }
+
+  const handleUpdateWhatsAppTemplates = async () => {
+      setIsUpdatingTemplates(true);
+      try {
+          const res = await updateWhatsAppTemplates(whatsappTemplates);
+          if (res.success) toast.success("Notification protocols updated globally");
+          else toast.error(res.error || "Update failed");
+      } catch (e: any) {
+          toast.error(e.message);
+      } finally {
+          setIsUpdatingTemplates(false);
+      }
+  };
+
+
 
   const filteredProjects = projects.filter(p => 
       !searchQuery || 
@@ -299,7 +402,7 @@ export function AdminDashboard() {
                className="flex flex-wrap items-center gap-3"
             >
                 <div className="flex bg-muted/50 border border-border rounded-lg p-1">
-                    {['overview', 'projects', 'users', 'team', 'terminations', 'requests'].map(tab => (
+                    {['overview', 'projects', 'users', 'team', 'terminations', 'requests', 'whatsapp'].map(tab => (
                         <button
                             key={tab}
                             onClick={() => setActiveTab(tab as any)}
@@ -325,35 +428,37 @@ export function AdminDashboard() {
        )}
 
        {/* Statistics Grid */}
-       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-            <IndicatorCard 
-                label="Total Revenue" 
-                value={`₹${stats.revenue.toLocaleString()}`} 
-                trend="+15.2%" 
-                trendUp={true}
-                icon={<IndianRupee className="h-4 w-4" />}
-                subtext="Total earnings to date"
-            />
-            <IndicatorCard 
-                label="Active Projects" 
-                value={stats.activeProjects} 
-                icon={<Cpu className="h-4 w-4" />}
-                subtext="Currently being edited"
-            />
-            <IndicatorCard 
-                label="New Requests" 
-                value={stats.pendingAssignment} 
-                alert={stats.pendingAssignment > 0}
-                icon={<Database className="h-4 w-4" />}
-                subtext="Waiting for an editor"
-            />
-            <IndicatorCard 
-                label="Total Users" 
-                value={stats.totalUsers} 
-                icon={<Users className="h-4 w-4" />}
-                subtext="Clients, editors, and team"
-            />
-       </div>
+       {activeTab === 'overview' && (
+           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+                <IndicatorCard 
+                    label="Total Revenue" 
+                    value={`₹${stats.revenue.toLocaleString()}`} 
+                    trend="+15.2%" 
+                    trendUp={true}
+                    icon={<IndianRupee className="h-4 w-4" />}
+                    subtext="Total earnings to date"
+                />
+                <IndicatorCard 
+                    label="Active Projects" 
+                    value={stats.activeProjects} 
+                    icon={<Cpu className="h-4 w-4" />}
+                    subtext="Currently being edited"
+                />
+                <IndicatorCard 
+                    label="New Requests" 
+                    value={stats.pendingAssignment} 
+                    alert={stats.pendingAssignment > 0}
+                    icon={<Database className="h-4 w-4" />}
+                    subtext="Waiting for an editor"
+                />
+                <IndicatorCard 
+                    label="Total Clients" 
+                    value={stats.totalClients} 
+                    icon={<Users className="h-4 w-4" />}
+                    subtext="Registered clients"
+                />
+           </div>
+       )}
 
        {/* Main Content Area */}
        <motion.div 
@@ -452,7 +557,9 @@ export function AdminDashboard() {
                                         <div className="text-sm font-bold text-foreground tracking-tight">{project.name}</div>
                                         <div className="text-[10px] text-muted-foreground font-bold uppercase tracking-wider mt-0.5">ID: {project.id.slice(0,12)}</div>
                                     </td>
-                                    <td className="px-6 py-5"><StatusIndicator status={project.status} /></td>
+                                    <td className="px-6 py-5">
+                                        <ProjectStatusBadges project={project} />
+                                    </td>
                                     <td className="px-6 py-5 text-zinc-400 text-[11px] font-medium uppercase tracking-tight" suppressHydrationWarning>
                                         {new Date(project.updatedAt).toLocaleDateString()} — {new Date(project.updatedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                                     </td>
@@ -512,7 +619,7 @@ export function AdminDashboard() {
                                              <span className="text-xs text-foreground font-bold truncate max-w-[100px]">{project.clientName}</span>
                                          </div>
                                     </td>
-                                    <td className="px-6 py-6 border-b border-transparent group-hover:border-border"><StatusIndicator status={project.status} /></td>
+                                    <td className="px-6 py-6 border-b border-transparent group-hover:border-border"><ProjectStatusBadges project={project} /></td>
                                     <td className="px-6 py-6 border-b border-transparent group-hover:border-border text-lg font-bold text-foreground tracking-tighter tabular-nums">₹{project.totalCost?.toLocaleString()}</td>
                                    <td className="px-6 py-6">
                                         {project.assignedEditorId ? (
@@ -553,6 +660,11 @@ export function AdminDashboard() {
                                                 <DropdownMenuItem className="p-2.5 text-xs text-popover-foreground hover:bg-muted transition-colors cursor-pointer rounded-lg" onClick={() => { setSelectedProject(project); setIsAssignModalOpen(true); }}>
                                                     <UserPlus className="mr-2.5 h-3.5 w-3.5 text-muted-foreground" /> Assign Editor
                                                 </DropdownMenuItem>
+                                                {(project as any).paymentOption === 'pay_later' && project.paymentStatus !== 'full_paid' && (
+                                                    <DropdownMenuItem className="p-2.5 text-xs text-emerald-500 hover:bg-emerald-500/10 transition-colors cursor-pointer rounded-lg font-bold" onClick={() => handleSettlePayment(project.id)}>
+                                                        <IndianRupee className="mr-2.5 h-3.5 w-3.5" /> Settle Payment
+                                                    </DropdownMenuItem>
+                                                )}
                                                 <DropdownMenuSeparator className="my-1 bg-border" />
                                                  <DropdownMenuItem className="p-2.5 text-xs text-popover-foreground hover:bg-muted transition-colors cursor-pointer rounded-lg" onClick={() => { setInspectProject(project); setIsProjectDetailModalOpen(true); }}>
                                                     <Search className="mr-2.5 h-3.5 w-3.5 text-muted-foreground" /> Inspect History
@@ -599,6 +711,7 @@ export function AdminDashboard() {
                                     <td className="px-6 py-4 cursor-pointer group/profile" onClick={() => { setSelectedUserDetail(u); setIsUserDetailModalOpen(true); }}>
                                         <div className="flex items-center gap-3">
                                             <Avatar className="h-8 w-8 border border-border rounded-md bg-muted/50 group-hover/profile:border-primary/50 transition-all">
+                                                <AvatarImage src={u.photoURL || undefined} className="object-cover" />
                                                 <AvatarFallback className="text-muted-foreground font-bold text-xs uppercase group-hover/profile:text-primary">{u.displayName?.[0]}</AvatarFallback>
                                             </Avatar>
                                             <div>
@@ -654,7 +767,7 @@ export function AdminDashboard() {
                                                             const res = await togglePayLater(u.uid, !u.payLater);
                                                             if(res.success) toast.success(`Payment protocol adjusted`);
                                                         }}>
-                                                            <IndianRupee className="mr-2.5 h-3.5 w-3.5 text-muted-foreground" /> {u.payLater ? "Lock Credit" : "Unlink Credit"}
+                                                            <IndianRupee className="mr-2.5 h-3.5 w-3.5 text-muted-foreground" /> {u.payLater ? "Revoke Pay Later" : "Allow Pay Later"}
                                                         </DropdownMenuItem>
                                                     )}
                                                     <DropdownMenuItem className="p-2.5 text-xs text-popover-foreground hover:bg-muted transition-colors cursor-pointer rounded-lg" onClick={() => handleToggleUserStatus(u.uid, (u as any).status !== 'inactive')}>
@@ -770,7 +883,9 @@ export function AdminDashboard() {
                                         {users.filter(u => u.role === 'sales_executive').map(u => (
                                             <div key={u.uid} className="px-6 py-4 flex justify-between items-center hover:bg-white/[0.02] transition-colors group">
                                                  <div className="flex items-center gap-4">
-                                                     <div className="h-10 w-10 rounded-lg bg-emerald-500/10 border border-emerald-500/20 shadow-[0_0_15px_rgba(16,185,129,0.1)] flex items-center justify-center text-emerald-500 font-bold text-xs uppercase group-hover:scale-110 transition-transform">{u.displayName?.[0]}</div>
+                                                     <div className="h-10 w-10 rounded-lg bg-emerald-500/10 border border-emerald-500/20 shadow-[0_0_15px_rgba(16,185,129,0.1)] flex items-center justify-center text-emerald-500 font-bold text-xs uppercase group-hover:scale-110 transition-transform overflow-hidden">
+                                                         {u.photoURL ? <Image src={u.photoURL} alt={u.displayName || "User"} width={40} height={40} className="w-full h-full object-cover" /> : u.displayName?.[0]}
+                                                     </div>
                                                      <div>
                                                          <div className="text-sm font-bold text-white tracking-tight leading-tight">{u.displayName}</div>
                                                          <div className="text-xs text-zinc-300 font-semibold tracking-tight truncate max-w-[180px]">{u.email}</div>
@@ -796,7 +911,9 @@ export function AdminDashboard() {
                                         {users.filter(u => u.role === 'project_manager').map(u => (
                                             <div key={u.uid} className="px-6 py-4 flex justify-between items-center hover:bg-white/[0.02] transition-colors group">
                                                  <div className="flex items-center gap-4">
-                                                      <div className="h-10 w-10 rounded-lg bg-blue-500/10 border border-blue-500/20 shadow-[0_0_15px_rgba(59,130,246,0.1)] flex items-center justify-center text-blue-500 font-bold text-xs uppercase group-hover:scale-110 transition-transform">{u.displayName?.[0]}</div>
+                                                      <div className="h-10 w-10 rounded-lg bg-blue-500/10 border border-blue-500/20 shadow-[0_0_15px_rgba(59,130,246,0.1)] flex items-center justify-center text-blue-500 font-bold text-xs uppercase group-hover:scale-110 transition-transform overflow-hidden">
+                                                          {u.photoURL ? <Image src={u.photoURL} alt={u.displayName || "User"} width={40} height={40} className="w-full h-full object-cover" /> : u.displayName?.[0]}
+                                                      </div>
                                                      <div>
                                                          <div className="text-sm font-bold text-white tracking-tight leading-tight">{u.displayName}</div>
                                                          <div className="text-xs text-zinc-300 font-semibold tracking-tight truncate max-w-[180px]">{u.email}</div>
@@ -855,6 +972,7 @@ export function AdminDashboard() {
 
                                         <div className="flex items-center gap-4">
                                             <Avatar className="h-12 w-12 border border-red-500/20 rounded-xl bg-red-500/5">
+                                                <AvatarImage src={u.photoURL || undefined} className="object-cover" />
                                                 <AvatarFallback className="text-red-500 font-bold text-sm uppercase">{u.displayName?.[0]}</AvatarFallback>
                                             </Avatar>
                                             <div>
@@ -900,12 +1018,22 @@ export function AdminDashboard() {
                         className="p-8"
                     >
                          <div className="flex items-center gap-3 mb-8">
-                            <div className="p-2 rounded-lg bg-primary/10 border border-primary/20">
-                                <UserPlus className="h-5 w-5 text-primary" />
+                            <div className="flex items-center gap-3">
+                                <div className="p-2 rounded-lg bg-primary/10 border border-primary/20">
+                                    <UserPlus className="h-5 w-5 text-primary" />
+                                </div>
+                                <div>
+                                    <h3 className="text-lg font-bold text-foreground">Editor Onboarding</h3>
+                                    <p className="text-xs text-muted-foreground uppercase tracking-widest font-bold">Pending Verification & Creation</p>
+                                </div>
                             </div>
-                            <div>
-                                <h3 className="text-lg font-bold text-foreground">Editor Onboarding</h3>
-                                <p className="text-xs text-muted-foreground uppercase tracking-widest font-bold">Pending Verification</p>
+                            <div className="ml-auto">
+                                <button 
+                                    onClick={() => setIsAddEditorModalOpen(true)}
+                                    className="flex items-center gap-2 h-10 px-4 bg-primary text-black text-[10px] font-bold uppercase tracking-widest rounded-xl hover:bg-primary/90 transition-all shadow-[0_0_20px_rgba(var(--primary),0.2)]"
+                                >
+                                    <Plus className="h-4 w-4" /> Add New Editor
+                                </button>
                             </div>
                         </div>
 
@@ -925,6 +1053,7 @@ export function AdminDashboard() {
                                     >
                                         <div className="flex items-center gap-4">
                                             <Avatar className="h-12 w-12 border border-border rounded-xl bg-muted">
+                                                <AvatarImage src={u.photoURL || undefined} className="object-cover" />
                                                 <AvatarFallback className="text-muted-foreground font-bold text-sm uppercase">{u.displayName?.[0]}</AvatarFallback>
                                             </Avatar>
                                             <div>
@@ -978,6 +1107,73 @@ export function AdminDashboard() {
                         </div>
                     </motion.div>
                 )}
+
+                {activeTab === 'whatsapp' && (
+                    <motion.div
+                        key="whatsapp"
+                        initial={{ opacity: 0, scale: 0.98 }}
+                        animate={{ opacity: 1, scale: 1 }}
+                        exit={{ opacity: 0, scale: 0.98 }}
+                        className="p-8 space-y-6 max-w-4xl"
+                    >
+                        <div className="flex flex-col gap-2">
+                            <h2 className="text-xl font-bold tracking-tight text-white mb-1 flex items-center gap-2">
+                                <Monitor className="h-5 w-5 text-primary" />
+                                Notifications Configuration
+                            </h2>
+                            <p className="text-xs font-medium text-zinc-400 leading-relaxed max-w-2xl">
+                                Manage automated WhatsApp messages sent to users based on triggers. Customize the text here. Dynamic variables like <code className="text-[10px] text-primary bg-primary/10 px-1 py-0.5 rounded font-mono">{`{{reviewLink}}`}</code> will be automatically replaced with the actual link when sending 'First Draft Ready'.
+                            </p>
+                        </div>
+                        
+                        <div className="space-y-4 pt-4">
+                            {[
+                                { key: 'PROJECT_RECEIVED', label: '1. Project Uploaded (To Client)' },
+                                { key: 'EDITOR_ASSIGNED', label: '2. Editor Assigned (To Client)' },
+                                { key: 'EDITOR_ACCEPTED', label: '3. Editor Accepted/Active (To Client)' },
+                                { key: 'PROPOSAL_UPLOADED', label: '4. First Draft Ready (To Client)' },
+                                { key: 'PROJECT_COMPLETED', label: '5. Project Finalized/Completed (To Client)' }
+                            ].map((topic) => (
+                                <div key={topic.key} className="p-5 border border-white/5 bg-white/[0.01] rounded-2xl flex flex-col gap-3">
+                                    <div className="flex justify-between items-center">
+                                        <Label className="text-white text-[10px] font-bold uppercase tracking-widest">{topic.label}</Label>
+                                        <span className="text-[9px] font-mono text-zinc-600 bg-white/5 py-1 px-2 rounded flex items-center gap-2">
+                                            <Terminal className="h-3 w-3" />
+                                            {topic.key}
+                                        </span>
+                                    </div>
+                                    <textarea
+                                      className="w-full bg-black/40 border border-white/10 rounded-xl p-4 text-sm text-zinc-300 font-medium placeholder:text-zinc-600 focus:outline-none focus:border-primary/50 transition-colors resize-none"
+                                      rows={2}
+                                      value={whatsappTemplates[topic.key] || ''}
+                                      onChange={(e) => setWhatsappTemplates({ ...whatsappTemplates, [topic.key]: e.target.value })}
+                                      placeholder="Leave blank to use default template..."
+                                    />
+                                </div>
+                            ))}
+                        </div>
+                        
+                        <button
+                            onClick={handleUpdateWhatsAppTemplates}
+                            disabled={isUpdatingTemplates}
+                            className="mt-6 flex h-14 w-full items-center justify-center rounded-xl bg-primary text-[11px] font-black uppercase tracking-widest text-[#161920] shadow-[0_0_20px_rgba(var(--primary),0.2)] hover:shadow-[0_0_30px_rgba(var(--primary),0.4)] disabled:opacity-50 transition-all gap-2"
+                        >
+                            {isUpdatingTemplates ? (
+                                <>
+                                    <RefreshCw className="h-4 w-4 animate-spin" />
+                                    Synchronizing Nodes...
+                                </>
+                            ) : (
+                                <>
+                                    <Save className="h-4 w-4" />
+                                    Save Configuration
+                                </>
+                            )}
+                        </button>
+                    </motion.div>
+                )}
+
+
                 </AnimatePresence>
             </div>
 
@@ -1023,6 +1219,7 @@ export function AdminDashboard() {
                     >
                          <div className="flex items-center gap-4 text-left">
                              <Avatar className="h-10 w-10 border border-white/10 rounded-lg bg-white/[0.03]">
+                                 <AvatarImage src={ed.photoURL || undefined} className="object-cover" />
                                  <AvatarFallback className="text-primary font-bold text-xs uppercase">{ed.displayName?.[0]}</AvatarFallback>
                              </Avatar>
                              <div>
@@ -1201,46 +1398,87 @@ export function AdminDashboard() {
                                 <h4 className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest flex items-center gap-2 px-1">
                                     <Star className="h-3 w-3 text-primary" /> Performance metrics
                                 </h4>
-                                <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-                                    <div className="enterprise-card p-4 bg-white/[0.01] border-white/5 text-center">
-                                        <div className="text-xl font-black text-white">{projects.filter(p => p.assignedEditorId === selectedUserDetail.uid && p.status === 'completed').length}</div>
-                                        <div className="text-[8px] font-bold text-zinc-600 uppercase tracking-widest mt-1">Completed</div>
-                                    </div>
-                                    <div className="enterprise-card p-4 bg-white/[0.01] border-white/5 text-center">
-                                        <div className="text-xl font-black text-primary">₹{(selectedUserDetail.income || projects.filter(p => p.assignedEditorId === selectedUserDetail.uid).reduce((acc, p) => acc + (p.editorPrice || 0), 0)).toLocaleString()}</div>
-                                        <div className="text-[8px] font-bold text-zinc-600 uppercase tracking-widest mt-1">Earnings</div>
-                                    </div>
-                                    <div className="enterprise-card p-4 bg-white/[0.01] border-white/5 text-center">
-                                        <div className="text-xl font-black text-white">{projects.filter(p => p.assignedEditorId === selectedUserDetail.uid && !['completed', 'approved', 'archived'].includes(p.status)).length}</div>
-                                        <div className="text-[8px] font-bold text-zinc-600 uppercase tracking-widest mt-1">Active</div>
-                                    </div>
-                                    <div className="enterprise-card p-4 bg-white/[0.01] border-white/5 text-center">
-                                        <div className="text-xl font-black text-amber-500">{selectedUserDetail.rating || 'N/A'}</div>
-                                        <div className="text-[8px] font-bold text-zinc-600 uppercase tracking-widest mt-1">Rating</div>
-                                    </div>
-                                </div>
-                                <div className="space-y-4">
-                                    <Label className="text-[9px] font-bold text-zinc-600 uppercase tracking-widest ml-1 flex items-center gap-2">
-                                        <FolderOpen className="h-3 w-3 text-primary" /> Recent Production
-                                    </Label>
-                                    <div className="bg-white/[0.01] border border-white/10 rounded-2xl divide-y divide-white/5 overflow-hidden">
-                                        {projects.filter(p => p.assignedEditorId === selectedUserDetail.uid).length === 0 ? (
-                                            <div className="p-8 text-center text-zinc-600 text-[10px] font-bold uppercase tracking-widest">No projects found</div>
-                                        ) : (
-                                            projects.filter(p => p.assignedEditorId === selectedUserDetail.uid).slice(0, 5).map(p => (
-                                                <div key={p.id} className="p-4 flex items-center justify-between">
-                                                    <div>
-                                                        <div className="text-sm font-bold text-white tracking-tight">{p.name}</div>
-                                                        <div className="text-[10px] text-zinc-500 font-bold uppercase tracking-widest mt-0.5">{p.status.replace('_', ' ')}</div>
-                                                    </div>
-                                                    <div className="text-right">
-                                                        <div className="text-xs font-black text-zinc-300">₹{(p.editorPrice || 0).toLocaleString()}</div>
-                                                    </div>
+                                {(() => {
+                                    const editorProjects = projects.filter(p => p.assignedEditorId === selectedUserDetail.uid);
+                                    const completedEditorProjects = editorProjects.filter(p => p.status === 'completed' || p.status === 'approved');
+                                    const totalEarnings = completedEditorProjects.reduce((acc, p) => acc + (p.editorPrice || 0), 0);
+                                    const totalPaid = completedEditorProjects.filter(p => p.editorPaid).reduce((acc, p) => acc + (p.editorPrice || 0), 0);
+                                    const pendingDues = totalEarnings - totalPaid;
+
+                                    return (
+                                        <>
+                                            <div className="grid grid-cols-2 sm:grid-cols-5 gap-4">
+                                                <div className="enterprise-card p-4 bg-white/[0.01] border-white/5 text-center">
+                                                    <div className="text-xl font-black text-white">{completedEditorProjects.length}</div>
+                                                    <div className="text-[8px] font-bold text-zinc-600 uppercase tracking-widest mt-1">Completed</div>
                                                 </div>
-                                            ))
-                                        )}
-                                    </div>
-                                </div>
+                                                <div className="enterprise-card p-4 bg-white/[0.01] border-white/5 text-center">
+                                                    <div className="text-xl font-black text-white">₹{totalEarnings.toLocaleString()}</div>
+                                                    <div className="text-[8px] font-bold text-zinc-600 uppercase tracking-widest mt-1">Total Earned</div>
+                                                </div>
+                                                <div className="enterprise-card p-4 bg-white/[0.01] border-white/5 text-center">
+                                                    <div className="text-xl font-black text-red-400">₹{pendingDues.toLocaleString()}</div>
+                                                    <div className="text-[8px] font-bold text-red-500/50 uppercase tracking-widest mt-1">Pending Dues</div>
+                                                </div>
+                                                <div className="enterprise-card p-4 bg-white/[0.01] border-white/5 text-center">
+                                                    <div className="text-xl font-black text-white">{editorProjects.filter(p => !['completed', 'approved', 'archived'].includes(p.status)).length}</div>
+                                                    <div className="text-[8px] font-bold text-zinc-600 uppercase tracking-widest mt-1">Active</div>
+                                                </div>
+                                                <div className="enterprise-card p-4 bg-white/[0.01] border-white/5 text-center">
+                                                    <div className="text-xl font-black text-amber-500">{selectedUserDetail.rating || 'N/A'}</div>
+                                                    <div className="text-[8px] font-bold text-zinc-600 uppercase tracking-widest mt-1">Rating</div>
+                                                </div>
+                                            </div>
+                                            <div className="space-y-4 pt-4">
+                                                <Label className="text-[9px] font-bold text-zinc-600 uppercase tracking-widest ml-1 flex items-center gap-2">
+                                                    <FolderOpen className="h-3 w-3 text-primary" /> Associated Projects
+                                                </Label>
+                                                <div className="bg-white/[0.01] border border-white/10 rounded-2xl divide-y divide-white/5 overflow-hidden">
+                                                    {editorProjects.length === 0 ? (
+                                                        <div className="p-8 text-center text-zinc-600 text-[10px] font-bold uppercase tracking-widest">No projects found</div>
+                                                    ) : (
+                                                        editorProjects.map(p => {
+                                                            const pm = users.find(u => u.uid === p.assignedPMId);
+                                                            const isCompleted = p.status === 'completed' || p.status === 'approved';
+                                                            return (
+                                                                <div key={p.id} className="p-4 flex flex-col md:flex-row md:items-center justify-between gap-4">
+                                                                    <div>
+                                                                        <div className="text-sm font-bold text-white tracking-tight flex items-center gap-2">
+                                                                            {p.name}
+                                                                            <span className="text-[9px] bg-white/5 px-2 py-0.5 rounded text-zinc-400 border border-white/5">
+                                                                                PM: {pm ? pm.displayName : 'Unassigned'}
+                                                                            </span>
+                                                                        </div>
+                                                                        <div className="text-[10px] text-zinc-500 font-bold uppercase tracking-widest mt-1">{p.status.replace('_', ' ')}</div>
+                                                                    </div>
+                                                                    <div className="flex items-center gap-4 align-middle">
+                                                                        <div className="text-right flex flex-col items-end">
+                                                                            <div className="text-xs font-black text-white">₹{(p.editorPrice || 0).toLocaleString()}</div>
+                                                                            <div className="text-[8px] font-bold text-zinc-500 uppercase tracking-widest leading-none mt-1">Revenue Assigned</div>
+                                                                        </div>
+                                                                        {isCompleted && !p.editorPaid && (
+                                                                            <button 
+                                                                                onClick={() => handleReimburseEditor(p.id)}
+                                                                                className="h-8 text-[9px] font-bold bg-primary hover:bg-white hover:text-black text-primary-foreground px-4 rounded transition-all uppercase tracking-widest whitespace-nowrap"
+                                                                            >
+                                                                                Reimburse
+                                                                            </button>
+                                                                        )}
+                                                                        {isCompleted && p.editorPaid && (
+                                                                            <span className="h-8 flex items-center text-[9px] font-bold text-emerald-400 border border-emerald-500/20 bg-emerald-500/10 px-4 rounded uppercase tracking-widest whitespace-nowrap">
+                                                                                Reimbursed
+                                                                            </span>
+                                                                        )}
+                                                                    </div>
+                                                                </div>
+                                                            );
+                                                        })
+                                                    )}
+                                                </div>
+                                            </div>
+                                        </>
+                                    );
+                                })()}
                             </div>
                         )}
 
@@ -1257,6 +1495,29 @@ export function AdminDashboard() {
                                     <div className="enterprise-card p-4 bg-white/[0.01] border-white/5 text-center col-span-2">
                                         <div className="text-xl font-black text-emerald-500">₹{projects.filter(p => p.assignedPMId === selectedUserDetail.uid).reduce((acc, p) => acc + (p.totalCost || 0), 0).toLocaleString()}</div>
                                         <div className="text-[8px] font-bold text-zinc-600 uppercase tracking-widest mt-1">Volume Managed</div>
+                                    </div>
+                                </div>
+                                <div className="space-y-3 pt-6 border-t border-white/5">
+                                    <Label className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest ml-1">Auto-Assign Cap (Max Projects)</Label>
+                                    <div className="flex items-center gap-4">
+                                        <input 
+                                            type="number" 
+                                            className="w-32 h-10 px-4 rounded-lg bg-white/[0.02] border border-white/10 text-white focus:border-primary/50 focus:outline-none transition-all font-medium text-sm" 
+                                            value={selectedUserDetail.maxProjectLimit || 10}
+                                            onChange={async (e) => {
+                                                const val = parseInt(e.target.value) || 10;
+                                                setSelectedUserDetail({...selectedUserDetail, maxProjectLimit: val});
+                                                try {
+                                                    await updateDoc(doc(db, "users", selectedUserDetail.uid), {
+                                                        maxProjectLimit: val,
+                                                        updatedAt: Date.now()
+                                                    });
+                                                } catch(err) {
+                                                    console.error(err);
+                                                }
+                                            }}
+                                        />
+                                        <span className="text-[11px] font-medium text-zinc-500">Max active requests handler</span>
                                     </div>
                                 </div>
                             </div>
@@ -1319,13 +1580,18 @@ export function AdminDashboard() {
                 <div className="mt-8 space-y-10 max-h-[75vh] overflow-y-auto pr-4 custom-scrollbar">
                     {/* Header Spec */}
                     <div className="flex flex-col gap-6">
-                        <div className="flex items-center gap-4 border-b border-white/5 pb-6">
-                            <div className="h-12 w-12 rounded-xl bg-primary/10 border border-primary/20 flex items-center justify-center text-primary">
-                                <MonitorPlay className="h-6 w-6" />
+                        <div className="flex flex-col gap-4 border-b border-white/5 pb-6">
+                            <div className="flex items-center gap-4">
+                                <div className="h-12 w-12 rounded-xl bg-primary/10 border border-primary/20 flex items-center justify-center text-primary">
+                                    <MonitorPlay className="h-6 w-6" />
+                                </div>
+                                <div>
+                                    <h4 className="text-xl font-bold text-white tracking-tight">{inspectProject.name}</h4>
+                                    <p className="text-[10px] text-zinc-500 font-bold uppercase tracking-widest mt-1">Management Overview // Ref: {inspectProject.id}</p>
+                                </div>
                             </div>
-                            <div>
-                                <h4 className="text-xl font-bold text-white tracking-tight">{inspectProject.name}</h4>
-                                <p className="text-[10px] text-zinc-500 font-bold uppercase tracking-widest mt-1">Management Overview // Ref: {inspectProject.id}</p>
+                            <div className="mt-2">
+                                <ProjectStatusBadges project={inspectProject} />
                             </div>
                         </div>
 
@@ -1380,9 +1646,17 @@ export function AdminDashboard() {
                                                 <span className="text-[9px] font-bold text-zinc-600 tabular-nums">{new Date(log.timestamp).toLocaleString()}</span>
                                             </div>
                                             <p className="text-xs text-zinc-400 font-medium leading-relaxed">{log.details}</p>
-                                            <div className="flex items-center gap-2 text-[9px] font-bold text-zinc-600 uppercase tracking-widest pt-1">
-                                                <span>Performed By:</span>
-                                                <span className="text-zinc-500">{log.userName}</span>
+                                            <div className="flex flex-col gap-1 text-[9px] font-bold text-zinc-600 uppercase tracking-widest pt-1">
+                                                <div className="flex items-center gap-2">
+                                                    <span>Performed By:</span>
+                                                    <span className="text-zinc-500">{log.userName}</span>
+                                                </div>
+                                                {(log as any).designation && (
+                                                    <div className="flex items-center gap-2">
+                                                        <span>Designation:</span>
+                                                        <span className="text-zinc-500">{(log as any).designation}</span>
+                                                    </div>
+                                                )}
                                             </div>
                                         </div>
                                     </div>
@@ -1397,6 +1671,76 @@ export function AdminDashboard() {
                     </div>
                 </div>
             )}
+        </Modal>
+
+        {/* Add Editor Modal */}
+        <Modal 
+            isOpen={isAddEditorModalOpen} 
+            onClose={() => setIsAddEditorModalOpen(false)} 
+            title="Create Editor Account"
+            maxWidth="max-w-md"
+        >
+            <form onSubmit={handleAddEditor} className="space-y-4 mt-6">
+                 <div className="space-y-1.5">
+                     <label className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest ml-1">Full Name</label>
+                     <input 
+                         required
+                         type="text"
+                         value={newEditor.name}
+                         onChange={(e) => setNewEditor({...newEditor, name: e.target.value})}
+                         className="w-full h-11 bg-black/20 border border-white/10 rounded-lg px-4 text-sm text-white focus:outline-none focus:border-primary/50 transition-colors"
+                     />
+                 </div>
+                 <div className="space-y-1.5">
+                     <label className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest ml-1">Email Address</label>
+                     <input 
+                         required
+                         type="email"
+                         value={newEditor.email}
+                         onChange={(e) => setNewEditor({...newEditor, email: e.target.value})}
+                         className="w-full h-11 bg-black/20 border border-white/10 rounded-lg px-4 text-sm text-white focus:outline-none focus:border-primary/50 transition-colors"
+                     />
+                 </div>
+                 <div className="space-y-1.5">
+                     <label className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest ml-1">Password</label>
+                     <input 
+                         required
+                         type="text"
+                         value={newEditor.password}
+                         onChange={(e) => setNewEditor({...newEditor, password: e.target.value})}
+                         className="w-full h-11 bg-black/20 border border-white/10 rounded-lg px-4 text-sm text-white focus:outline-none focus:border-primary/50 transition-colors"
+                     />
+                 </div>
+                 <div className="space-y-1.5">
+                     <label className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest ml-1">WhatsApp Number (+91...)</label>
+                     <input 
+                         required
+                         type="text"
+                         value={newEditor.whatsapp}
+                         onChange={(e) => setNewEditor({...newEditor, whatsapp: e.target.value})}
+                         className="w-full h-11 bg-black/20 border border-white/10 rounded-lg px-4 text-sm text-white focus:outline-none focus:border-primary/50 transition-colors"
+                     />
+                 </div>
+                 <div className="space-y-1.5">
+                     <label className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest ml-1">Portfolio URL</label>
+                     <input 
+                         required
+                         type="url"
+                         value={newEditor.portfolio}
+                         onChange={(e) => setNewEditor({...newEditor, portfolio: e.target.value})}
+                         className="w-full h-11 bg-black/20 border border-white/10 rounded-lg px-4 text-sm text-white focus:outline-none focus:border-primary/50 transition-colors"
+                     />
+                 </div>
+                 <button 
+                     type="submit"
+                     disabled={isCreatingEditor}
+                     className="w-full h-12 mt-4 bg-primary text-black font-black uppercase text-[10px] tracking-widest rounded-xl hover:bg-primary/90 transition-all flex items-center justify-center gap-2 shadow-[0_0_20px_rgba(var(--primary),0.2)] disabled:opacity-50"
+                 >
+                     {isCreatingEditor ? (
+                         <><RefreshCw className="h-4 w-4 animate-spin" /> Creating Account...</>
+                     ) : "Generate & Authorize"}
+                 </button>
+            </form>
         </Modal>
     </div>
   );
@@ -1461,3 +1805,59 @@ function StatusIndicator({ status }: { status: string }) {
         </span>
     );
 }
+
+function ProjectStatusBadges({ project }: { project: any }) {
+    const badges = [];
+
+    // Overall Status
+    if (project.status === 'completed') {
+        badges.push({ label: "Completed", color: "text-zinc-500", bg: "bg-zinc-500/10", border: "border-zinc-500/20" });
+    } else if (project.status === 'in_review') {
+        badges.push({ label: "In Review", color: "text-purple-400", bg: "bg-purple-400/10", border: "border-purple-400/20" });
+    } else if (project.status === 'active') {
+        badges.push({ label: "Editing", color: "text-blue-400", bg: "bg-blue-400/10", border: "border-blue-400/20", pulse: true });
+    } else if (project.status === 'approved') {
+        badges.push({ label: "Approved", color: "text-emerald-400", bg: "bg-emerald-400/10", border: "border-emerald-400/20" });
+    } else if (project.status === 'pending_assignment') {
+        if (!project.assignedEditorId) {
+            badges.push({ label: "Editor Not Assigned", color: "text-amber-400", bg: "bg-amber-400/10", border: "border-amber-400/20" });
+        } else {
+            badges.push({ label: "Editor Assigned", color: "text-blue-400", bg: "bg-blue-400/10", border: "border-blue-400/20" });
+        }
+    } else {
+        badges.push({ label: project.status, color: "text-zinc-400", bg: "bg-zinc-400/10", border: "border-zinc-400/20" });
+    }
+
+    // Client Payment
+    if (project.paymentStatus === 'full_paid') {
+        badges.push({ label: "Client Payment Done", color: "text-emerald-500", bg: "bg-emerald-500/10", border: "border-emerald-500/20" });
+    } else if (project.paymentOption === 'pay_later' && project.paymentStatus !== 'full_paid') {
+        badges.push({ label: "Client Payment Left", color: "text-red-400", bg: "bg-red-400/10", border: "border-red-400/20" });
+    }
+
+    // Editor Payment
+    if (project.assignedEditorId && (project.editorPrice || 0) > 0) {
+        if (project.editorPaid) {
+            badges.push({ label: "Editor Payment Done", color: "text-emerald-500", bg: "bg-emerald-500/10", border: "border-emerald-500/20" });
+        } else {
+             badges.push({ label: "Editor Payment Left", color: "text-amber-500", bg: "bg-amber-500/10", border: "border-amber-500/20" });
+        }
+    }
+
+    return (
+        <div className="flex flex-wrap items-center gap-1.5">
+            {badges.map((b, i) => (
+                <span key={i} className={cn(
+                    "inline-flex items-center gap-1.5 px-2 py-0.5 rounded text-[9px] font-bold uppercase tracking-widest border transition-all whitespace-nowrap", 
+                    b.bg, b.color, b.border
+                )}>
+                    {b.pulse && <div className="w-1 h-1 rounded-full bg-current animate-pulse shadow-[0_0_5px_currentColor]" />}
+                    {b.label}
+                </span>
+            ))}
+        </div>
+    );
+}
+
+
+

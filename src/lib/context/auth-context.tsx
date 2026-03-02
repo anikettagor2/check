@@ -20,7 +20,7 @@ interface AuthContextType {
   user: User | null;
   firebaseUser: FirebaseUser | null;
   loading: boolean;
-  signInWithGoogle: (role?: UserRole) => Promise<void>;
+  signInWithGoogle: (role?: UserRole, initialPassword?: string, metadata?: any) => Promise<void>;
   loginAsAdmin: () => Promise<void>;
   loginWithEmail: (email: string, password: string) => Promise<void>;
   signupWithEmail: (email: string, password: string, name: string, role: UserRole, metadata?: any) => Promise<void>;
@@ -82,7 +82,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     };
   }, []);
 
-  const signInWithGoogle = async (selectedRole?: UserRole) => {
+  const signInWithGoogle = async (selectedRole?: UserRole, initialPassword?: string, metadata?: any) => {
     try {
       const provider = new GoogleAuthProvider();
       const result = await signInWithPopup(auth, provider);
@@ -91,18 +91,30 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       const userSnap = await getDoc(userRef);
 
       if (!userSnap.exists()) {
-        // CASE: New User
-        if (selectedRole) {
+        if (selectedRole && initialPassword) {
+            // Update the Google user's profile with the new password so they can log in via email too!
+            const { updatePassword, updateProfile } = await import("firebase/auth");
+            try {
+                await updatePassword(result.user, initialPassword);
+                if (metadata?.displayName) {
+                    await updateProfile(result.user, { displayName: metadata.displayName });
+                }
+            } catch (err: any) {
+                console.warn("Could not set initial password or profile on Google account:", err);
+            }
+
             // Signup Flow: Create new user profile with selected role
             const newUser: User = {
                 uid: result.user.uid,
                 email: result.user.email,
-                displayName: result.user.displayName,
+                displayName: metadata?.displayName || result.user.displayName,
                 photoURL: result.user.photoURL,
                 role: selectedRole,
                 createdAt: Date.now(),
                 onboardingStatus: selectedRole === 'editor' ? 'pending' : 'approved',
                 status: selectedRole === 'editor' ? 'inactive' : 'active' as any,
+                ...(initialPassword ? { initialPassword } : {}),
+                ...metadata
             };
             await setDoc(userRef, newUser);
             setUser(newUser);
@@ -110,7 +122,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             // Login Flow: Block new users who haven't selected a role via Signup
             await result.user.delete(); // revert the auth creation
             await signOut(auth);
-            throw new Error("Account not found. Please Sign Up to create an account.");
+            throw new Error("Account not found. Please navigate to the Create Account page to set up a role, username, and password before using Google Sign In.");
         }
       } else {
         // CASE: Existing User

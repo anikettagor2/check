@@ -29,6 +29,8 @@ export interface User {
     whatsappNumber?: string;
     managedByPM?: string; // UID of PM managing this editor (for groups)
     status?: 'active' | 'inactive';
+    availabilityStatus?: 'online' | 'offline' | 'sleep'; // PM availability
+    maxProjectLimit?: number; // Admin defined max active units limit for PM
 }
 
 export type ProjectStatus = 'active' | 'in_review' | 'approved' | 'completed' | 'archived' | 'pending_assignment';
@@ -75,6 +77,9 @@ export interface Project {
     scripts?: { name: string; url: string; size?: number; type?: string; uploadedAt?: number }[];
 
     // Audit Log
+    editorPaid?: boolean;              // Admin marked this editor payment as cleared
+    editorPaidAt?: number;
+
     logs?: {
         event: string;
         user: string;

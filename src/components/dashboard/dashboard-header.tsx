@@ -58,8 +58,12 @@ export function DashboardHeader({ onMenuClick }: DashboardHeaderProps) {
             <div className="h-4 w-px bg-border" />
             
             <div className="flex items-center gap-3">
-               <div className="h-8 w-8 rounded-lg bg-muted/50 border border-border flex items-center justify-center text-muted-foreground transition-all hover:bg-accent hover:text-foreground">
-                  <Terminal className="h-3.5 w-3.5" />
+               <div className="h-8 w-8 rounded-lg bg-muted/50 border border-border flex items-center justify-center text-muted-foreground transition-all hover:bg-accent hover:text-foreground overflow-hidden">
+                  {user?.photoURL ? (
+                      <Image src={user.photoURL} alt="Profile" width={32} height={32} className="w-full h-full object-cover" />
+                  ) : (
+                      <Terminal className="h-3.5 w-3.5" />
+                  )}
                </div>
                <div className="flex flex-col">
                   <span className="text-[9px] font-bold uppercase tracking-widest text-muted-foreground leading-none mb-1">Secure Protocol</span>

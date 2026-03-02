@@ -122,7 +122,6 @@ export async function unlockProjectDownloads(projectId: string, userId: string) 
         }
 
         await adminDb.collection('projects').doc(projectId).update({
-            paymentStatus: 'full_paid',
             status: 'completed',
             downloadsUnlocked: true,
             downloadUnlockRequested: false,

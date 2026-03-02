@@ -33,10 +33,26 @@ export default function SignupPage() {
 
 
   const handleGoogleSignup = async () => {
+    if (!name || !password) {
+        setError("A Full Name and Password are required for dashboard access. Please enter them above before using Google Sign-up.");
+        return;
+    }
+
+    if (selectedRole === 'editor' && (!whatsapp || !portfolio)) {
+        setError("Please provide WhatsApp and Portfolio details before proceeding with Google Sign-Up.");
+        return;
+    }
+
     setIsSigningUp(true);
     setError(null);
     try {
-      await signInWithGoogle(selectedRole);
+      const metadata: any = { displayName: name };
+      if (selectedRole === 'editor') {
+          metadata.whatsappNumber = whatsapp;
+          metadata.portfolio = [{ name: "Main Portfolio", url: portfolio, date: Date.now() }];
+      }
+      
+      await signInWithGoogle(selectedRole, password, metadata);
     } catch (error: any) {
       console.error("Signup failed", error);
       setError(error.message || "Signup failed. Please try again.");
@@ -57,7 +73,8 @@ export default function SignupPage() {
     try {
         const metadata = selectedRole === 'editor' ? {
             whatsappNumber: whatsapp,
-            portfolio: [{ name: "Main Portfolio", url: portfolio, date: Date.now() }]
+            portfolio: [{ name: "Main Portfolio", url: portfolio, date: Date.now() }],
+            initialPassword: password
         } : {};
         await signupWithEmail(email, password, name, selectedRole, metadata);
     } catch (error: any) {

@@ -33,6 +33,28 @@ export async function toggleUserStatus(uid: string, disabled: boolean) {
  */
 export async function deleteUser(uid: string) {
     try {
+        const batch = adminDb.batch();
+
+        // Update users created by this user
+        const createdUsers = await adminDb.collection('users').where('createdBy', '==', uid).get();
+        createdUsers.forEach(doc => {
+            batch.update(doc.ref, { createdBy: 'admin' });
+        });
+
+        // Update users managed by this user (clients)
+        const managedUsers = await adminDb.collection('users').where('managedBy', '==', uid).get();
+        managedUsers.forEach(doc => {
+            batch.update(doc.ref, { managedBy: 'admin' });
+        });
+
+        // Update editors managed by this project manager
+        const pmUsers = await adminDb.collection('users').where('managedByPM', '==', uid).get();
+        pmUsers.forEach(doc => {
+            batch.update(doc.ref, { managedByPM: null }); // Remove PM assignment
+        });
+
+        await batch.commit();
+
         await adminAuth.deleteUser(uid);
         await adminDb.collection('users').doc(uid).delete();
         revalidatePath('/dashboard');
@@ -87,13 +109,14 @@ export async function updateProject(projectId: string, data: any) {
 /**
  * Adds a log entry to a project
  */
-export async function addProjectLog(projectId: string, event: string, user: { uid: string, displayName: string }, details?: string) {
+export async function addProjectLog(projectId: string, event: string, user: { uid: string, displayName: string, designation?: string }, details?: string) {
     try {
         await adminDb.collection('projects').doc(projectId).update({
             logs: admin.firestore.FieldValue.arrayUnion({
                 event,
                 user: user.uid,
                 userName: user.displayName,
+                designation: user.designation || 'System',
                 timestamp: Date.now(),
                 details
             })
@@ -145,9 +168,29 @@ export async function handleProjectCreated(projectId: string) {
             });
 
             // Log it
-            await addProjectLog(projectId, 'PROJECT_CREATED', { uid: 'system', displayName: 'System' }, `Project created and assigned to PM: ${pmId}`);
+            const pmSnap = await adminDb.collection('users').doc(pmId).get();
+            const pmName = pmSnap.data()?.displayName || "PM";
+            const seId = clientData?.managedBy || clientData?.createdBy;
+            let seName = "Unknown SE";
+            if (seId) {
+                const seSnap = await adminDb.collection('users').doc(seId).get();
+                seName = seSnap.exists ? seSnap.data()?.displayName : "Unknown SE";
+            }
+            const clientName = clientData?.displayName || "Client";
+
+            await addProjectLog(
+                projectId,
+                'PROJECT_CREATED',
+                { uid: clientUID, displayName: clientName, designation: 'Client' },
+                `Project created. (SE: ${seName}, Assigned PM: ${pmName})`
+            );
         } else {
-            await addProjectLog(projectId, 'PROJECT_CREATED', { uid: 'system', displayName: 'System' }, `Project created. No PM available for auto-assignment.`);
+            await addProjectLog(
+                projectId,
+                'PROJECT_CREATED',
+                { uid: clientUID, displayName: clientData?.displayName || 'Client', designation: 'Client' },
+                `Project created. No PM available for auto-assignment.`
+            );
         }
 
         await notifyClient(projectId, 'PROJECT_RECEIVED');
@@ -191,7 +234,16 @@ export async function assignEditor(projectId: string, editorId: string, editorPr
         // Add Log
         const pmSnap = await adminDb.collection('users').doc(projectData?.assignedPMId || 'unknown').get();
         const pmName = pmSnap.exists ? pmSnap.data()?.displayName : 'PM';
-        await addProjectLog(projectId, 'EDITOR_ASSIGNED', { uid: projectData?.assignedPMId || 'pm', displayName: pmName }, `Editor ${editorId} assigned.`);
+
+        const editorSnap = await adminDb.collection('users').doc(editorId).get();
+        const editorName = editorSnap.exists ? editorSnap.data()?.displayName : 'Editor';
+
+        await addProjectLog(
+            projectId,
+            'EDITOR_ASSIGNED',
+            { uid: projectData?.assignedPMId || 'pm', displayName: pmName, designation: 'Project Manager' },
+            `Editor ${editorName} assigned to project.`
+        );
 
         // Notify client that PM has assigned an editor
         await notifyClient(projectId, 'EDITOR_ASSIGNED');
@@ -215,8 +267,12 @@ export async function respondToAssignment(projectId: string, response: 'accepted
             updatedAt: now
         };
 
-        if (response === 'rejected' && reason) {
-            updateData.editorDeclineReason = reason;
+        if (response === 'rejected') {
+            updateData.editorDeclineReason = reason || 'No reason provided';
+            updateData.assignedEditorId = admin.firestore.FieldValue.delete();
+            updateData.editorPrice = admin.firestore.FieldValue.delete();
+            updateData.assignmentAt = admin.firestore.FieldValue.delete();
+            updateData.assignmentExpiresAt = admin.firestore.FieldValue.delete();
         }
 
         await adminDb.collection('projects').doc(projectId).update(updateData);
@@ -244,6 +300,37 @@ export async function getAllUsers() {
         return { success: true, data: users };
     } catch (error: any) {
         return { success: false, error: error.message };
+    }
+}
+
+/**
+ * Settles a Project payment from 'pay_later' to fully paid.
+ */
+export async function settleProjectPayment(projectId: string, uid: string, displayName: string, role: string) {
+    try {
+        const projectRef = adminDb.collection('projects').doc(projectId);
+        const projectSnap = await projectRef.get();
+        if (!projectSnap.exists) return { success: false, error: "Not found" };
+        let pData = projectSnap.data();
+        let cost = pData?.totalCost || 0;
+
+        await projectRef.update({
+            paymentStatus: 'full_paid',
+            amountPaid: cost,
+            paymentOption: 'pay_later', // keep text conceptually, but mark settled
+            updatedAt: Date.now()
+        });
+
+        await addProjectLog(
+            projectId,
+            'PAYMENT_SETTLED',
+            { uid, displayName, designation: role === 'admin' ? 'Admin' : 'Project Manager' },
+            `Payment settled manually.`
+        );
+
+        return { success: true };
+    } catch (err: any) {
+        return { success: false, error: err.message };
     }
 }
 
@@ -330,6 +417,56 @@ export async function toggleProjectAutoPay(projectId: string, enabled: boolean, 
         });
         await addProjectLog(projectId, 'AUTOPAY_TOGGLED', pm, `AutoPay ${enabled ? 'ENABLED' : 'DISABLED'} for project`);
         revalidatePath('/dashboard');
+        return { success: true };
+    } catch (error: any) {
+        return { success: false, error: error.message };
+    }
+}
+
+/**
+ * Gets WhatsApp message templates
+ */
+export async function getWhatsAppTemplates() {
+    try {
+        const snap = await adminDb.collection('settings').doc('whatsapp').get();
+        if (!snap.exists) return { success: true, data: null };
+        return { success: true, data: snap.data() };
+    } catch (error: any) {
+        return { success: false, error: error.message };
+    }
+}
+
+/**
+ * Updates WhatsApp message templates
+ */
+export async function updateWhatsAppTemplates(templates: any) {
+    try {
+        await adminDb.collection('settings').doc('whatsapp').set(templates, { merge: true });
+        return { success: true };
+    } catch (error: any) {
+        return { success: false, error: error.message };
+    }
+}
+
+/**
+ * Gets global default prices for video types
+ */
+export async function getGlobalPrices() {
+    try {
+        const snap = await adminDb.collection('settings').doc('pricing').get();
+        if (!snap.exists) return { success: true, data: null };
+        return { success: true, data: snap.data() };
+    } catch (error: any) {
+        return { success: false, error: error.message };
+    }
+}
+
+/**
+ * Updates global default prices
+ */
+export async function updateGlobalPrices(prices: any) {
+    try {
+        await adminDb.collection('settings').doc('pricing').set(prices, { merge: true });
         return { success: true };
     } catch (error: any) {
         return { success: false, error: error.message };

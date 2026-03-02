@@ -44,7 +44,8 @@ import {
     assignEditor, 
     togglePayLater, 
     setEditorPrice, 
-    toggleProjectAutoPay 
+    toggleProjectAutoPay,
+    settleProjectPayment
 } from "@/app/actions/admin-actions";
 import { unlockProjectDownloads } from "@/app/actions/project-actions";
 import { cn } from "@/lib/utils";
@@ -61,7 +62,7 @@ import {
     DropdownMenuLabel 
 } from "@/components/ui/dropdown-menu";
 import { Modal } from "@/components/ui/modal";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Label } from "@/components/ui/label";
 
 export function ProjectManagerDashboard() {
@@ -116,25 +117,63 @@ export function ProjectManagerDashboard() {
             toast.error("Please enter a valid editor revenue amount first.");
             return;
         }
+
+        // Prevent negative revenue margins
+        if (Number(editorPriceInput) > (selectedProject.totalCost || 0)) {
+            toast.error(`Editor revenue cannot exceed project cost (₹${selectedProject.totalCost || 0}). Negative platform margin is not allowed.`);
+            return;
+        }
+
         try {
             await updateDoc(doc(db, "projects", selectedProject.id), {
                  assignedEditorId: editorId,
                  editorPrice: Number(editorPriceInput),
-                 status: 'active', 
+                 assignmentStatus: 'pending',
+                 status: 'pending_assignment', 
                  members: arrayUnion(editorId),
                  updatedAt: Date.now()
             });
-            toast.success(`Editor assigned. Work started.`);
+            toast.success(`Editor assigned. Awaiting their acceptance.`);
             setIsAssignModalOpen(false);
             setSelectedProject(null);
+            setEditorPriceInput("");
         } catch (err) { 
             toast.error("Failed to assign. Please try again."); 
+        }
+    };
+
+    const handleSettlePayment = async (projectId: string) => {
+        try {
+            const result = await settleProjectPayment(projectId, user!.uid, user!.displayName || "Unknown PM", "project_manager");
+            if (result.success) {
+                toast.success("Payment marked as settled");
+            } else {
+                toast.error(result.error || "Failed to settle payment");
+            }
+        } catch (error) {
+            toast.error("An error occurred");
         }
     };
 
     const unassignedCount = projects.filter(p => !p.assignedEditorId).length;
     const activeCount = projects.filter(p => p.status === 'active').length;
     const pendingUnlockCount = projects.filter(p => p.downloadUnlockRequested && p.paymentStatus !== 'full_paid').length;
+
+    const currentUserData = users.find(u => u.uid === user?.uid);
+    const pmStatus = currentUserData?.availabilityStatus || 'offline';
+
+    const handleStatusUpdate = async (newStatus: 'online' | 'offline' | 'sleep') => {
+        if (!user?.uid) return;
+        try {
+            await updateDoc(doc(db, "users", user.uid), {
+                availabilityStatus: newStatus,
+                updatedAt: Date.now()
+            });
+            toast.success(`Availability changed to ${newStatus}`);
+        } catch(err) {
+            toast.error("Failed to update status");
+        }
+    };
 
     return (
         <div className="space-y-10 max-w-[1600px] mx-auto pb-20 pt-4">
@@ -156,9 +195,26 @@ export function ProjectManagerDashboard() {
                             <UserIcon className="h-3.5 w-3.5" />
                             <span className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Manager: {user?.displayName?.split(' ')[0]}</span>
                         </div>
-                        <div className="flex items-center gap-2 text-muted-foreground">
+                        <div className="flex items-center gap-2 text-muted-foreground mr-4">
                             <Activity className="h-3.5 w-3.5" />
-                            <span className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Status: Connected</span>
+                            <span className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Network: Connected</span>
+                        </div>
+                        <div className="relative border-l border-border pl-6 flex items-center">
+                            <div className={cn(
+                                "h-2 w-2 rounded-full mr-2",
+                                pmStatus === 'online' ? "bg-green-500 shadow-[0_0_10px_rgba(34,197,94,0.5)]" :
+                                pmStatus === 'sleep' ? "bg-yellow-500" : "bg-red-500"
+                            )} />
+                            <select 
+                                value={pmStatus}
+                                onChange={(e) => handleStatusUpdate(e.target.value as any)}
+                                className="bg-transparent border-none text-[11px] font-bold uppercase tracking-widest text-primary hover:text-white transition-colors focus:ring-0 cursor-pointer appearance-none pr-6"
+                            >
+                                <option value="online" className="bg-[#161920]">Online</option>
+                                <option value="sleep" className="bg-[#161920]">Sleep</option>
+                                <option value="offline" className="bg-[#161920]">Offline</option>
+                            </select>
+                            <ChevronDown className="absolute right-0 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-primary pointer-events-none" />
                         </div>
                     </div>
                 </motion.div>
@@ -302,6 +358,7 @@ export function ProjectManagerDashboard() {
                                             {assignedEditor ? (
                                                 <div className="flex items-center gap-3 bg-white/[0.03] border border-white/10 p-2 rounded-lg w-fit group-hover:border-primary/30 transition-all">
                                                     <Avatar className="h-7 w-7 border border-white/10 rounded-md">
+                                                        <AvatarImage src={assignedEditor.photoURL || undefined} className="object-cover" />
                                                         <AvatarFallback className="text-[9px] bg-primary/20 text-primary font-bold">{assignedEditor.displayName?.[0]}</AvatarFallback>
                                                     </Avatar>
                                                     <div className="flex flex-col">
@@ -348,6 +405,11 @@ export function ProjectManagerDashboard() {
                                                                 <Briefcase className="mr-2.5 h-3.5 w-3.5 text-muted-foreground" /> Manage Project
                                                             </DropdownMenuItem>
                                                         )}
+                                                        {(project as any).paymentOption === 'pay_later' && project.paymentStatus !== 'full_paid' && (
+                                                            <DropdownMenuItem className="p-2.5 text-xs text-emerald-500 hover:bg-emerald-500/10 transition-colors cursor-pointer rounded-lg px-3 font-bold" onClick={() => handleSettlePayment(project.id)}>
+                                                                <IndianRupee className="mr-2.5 h-3.5 w-3.5" /> Settle Payment
+                                                            </DropdownMenuItem>
+                                                        )}
                                                         <DropdownMenuItem className="p-2.5 text-xs text-popover-foreground hover:bg-muted transition-colors cursor-pointer rounded-lg px-3" onClick={() => { setInspectProject(project); setIsProjectDetailModalOpen(true); }}>
                                                             <Search className="mr-2.5 h-3.5 w-3.5 text-muted-foreground" /> Project Status
                                                         </DropdownMenuItem>
@@ -385,6 +447,7 @@ export function ProjectManagerDashboard() {
                                     >
                                         <div className="flex items-center gap-4">
                                             <Avatar className="h-10 w-10 border border-border rounded bg-muted">
+                                                <AvatarImage src={u.photoURL || undefined} className="object-cover" />
                                                 <AvatarFallback className="text-muted-foreground font-bold text-xs uppercase">{u.displayName?.[0]}</AvatarFallback>
                                             </Avatar>
                                             <div>
@@ -465,6 +528,7 @@ export function ProjectManagerDashboard() {
                                     <div key={editor.uid} className="flex items-center justify-between p-4 bg-white/[0.02] border border-white/5 rounded-xl hover:border-primary/50 transition-all group/editor">
                                         <div className="flex items-center gap-4 cursor-pointer" onClick={() => { setSelectedEditorDetail(editor); setIsEditorModalOpen(true); }}>
                                             <Avatar className="h-10 w-10 border border-white/10">
+                                                <AvatarImage src={editor.photoURL || undefined} className="object-cover" />
                                                 <AvatarFallback className="bg-primary/10 text-primary font-bold">{editor.displayName?.[0]}</AvatarFallback>
                                             </Avatar>
                                             <div>
@@ -565,6 +629,10 @@ export function ProjectManagerDashboard() {
                             <button 
                                 onClick={async () => {
                                     if (!selectedProject || !user) return;
+                                    if (Number(editorPriceInput) > (selectedProject.totalCost || 0)) {
+                                        toast.error(`Editor revenue cannot exceed project cost (₹${selectedProject.totalCost || 0}). Negative platform margin is not allowed.`);
+                                        return;
+                                    }
                                     const res = await setEditorPrice(selectedProject.id, Number(editorPriceInput), { uid: user.uid, displayName: user.displayName || 'PM' });
                                     if (res.success) toast.success("Revenue share established");
                                     else toast.error("Failed to update");
@@ -677,9 +745,17 @@ export function ProjectManagerDashboard() {
                                                     <span className="text-[9px] font-bold text-zinc-600 tabular-nums">{new Date(log.timestamp).toLocaleString()}</span>
                                                 </div>
                                                 <p className="text-xs text-zinc-400 font-medium leading-relaxed">{log.details}</p>
-                                                <div className="flex items-center gap-2 text-[9px] font-bold text-zinc-600 uppercase tracking-widest pt-1">
-                                                    <span>Performed By:</span>
-                                                    <span className="text-zinc-500">{log.userName}</span>
+                                                <div className="flex flex-col gap-1 text-[9px] font-bold text-zinc-600 uppercase tracking-widest pt-1">
+                                                    <div className="flex items-center gap-2">
+                                                        <span>Performed By:</span>
+                                                        <span className="text-zinc-500">{log.userName}</span>
+                                                    </div>
+                                                    {(log as any).designation && (
+                                                        <div className="flex items-center gap-2">
+                                                            <span>Designation:</span>
+                                                            <span className="text-zinc-500">{(log as any).designation}</span>
+                                                        </div>
+                                                    )}
                                                 </div>
                                             </div>
                                         </div>

@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
@@ -17,18 +18,99 @@ import {
   Activity,
   Layers,
   Cpu,
+  Upload,
+  Loader2,
 } from "lucide-react";
 import { useAuth } from "@/lib/context/auth-context";
 import { motion } from "framer-motion";
 
 import Image from "next/image";
 import { useBranding } from "@/lib/context/branding-context";
+import { storage, db } from "@/lib/firebase/config";
+import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
+import { doc, setDoc } from "firebase/firestore";
+import { toast } from "sonner";
 
 export function DashboardSidebar() {
   const pathname = usePathname();
   const { user, logout } = useAuth();
   const { logoUrl } = useBranding();
   const role = user?.role || 'client';
+  
+  const [isAvatarUploading, setIsAvatarUploading] = useState(false);
+
+  const compressImage = (file: File): Promise<Blob> => {
+        return new Promise((resolve, reject) => {
+            const reader = new FileReader();
+            reader.readAsDataURL(file);
+            reader.onload = (event) => {
+                const img = new (window as any).Image();
+                img.src = event.target?.result as string;
+                img.onload = () => {
+                    const canvas = document.createElement('canvas');
+                    const MAX_WIDTH = 400;
+                    const MAX_HEIGHT = 400;
+                    let width = img.width;
+                    let height = img.height;
+
+                    if (width > height) {
+                        if (width > MAX_WIDTH) {
+                            height *= MAX_WIDTH / width;
+                            width = MAX_WIDTH;
+                        }
+                    } else {
+                        if (height > MAX_HEIGHT) {
+                            width *= MAX_HEIGHT / height;
+                            height = MAX_HEIGHT;
+                        }
+                    }
+
+                    canvas.width = width;
+                    canvas.height = height;
+                    const ctx = canvas.getContext('2d');
+                    ctx?.drawImage(img, 0, 0, width, height);
+                    canvas.toBlob((blob) => {
+                        if (blob) resolve(blob);
+                        else reject(new Error('Canvas to Blob failed'));
+                    }, 'image/jpeg', 0.8);
+                };
+            };
+            reader.onerror = (error) => reject(error);
+        });
+  };
+
+  const handleProfilePictureUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+        if (!user) return;
+        const file = e.target.files?.[0];
+        if (!file) return;
+
+        if (!file.type.startsWith('image/')) {
+            toast.error("Please upload an image file.");
+            return;
+        }
+
+        setIsAvatarUploading(true);
+        const toastId = toast.loading("Updating profile picture...");
+
+        try {
+            const compressedBlob = await compressImage(file);
+            const storageRef = ref(storage, `avatars/${user.uid}_${Date.now()}`);
+            await uploadBytes(storageRef, compressedBlob);
+            const downloadURL = await getDownloadURL(storageRef);
+
+            await setDoc(doc(db, "users", user.uid), {
+                photoURL: downloadURL,
+                updatedAt: Date.now()
+            }, { merge: true });
+
+            toast.success("Profile picture updated", { id: toastId });
+        } catch (error) {
+            console.error(error);
+            toast.error("Failed to upload profile picture", { id: toastId });
+        } finally {
+            setIsAvatarUploading(false);
+        }
+  };
 
   const getLinks = () => {
     switch(role) {
@@ -150,8 +232,24 @@ export function DashboardSidebar() {
       <div className="p-4 border-t border-sidebar-border">
          <div className="p-4 rounded-xl bg-sidebar-accent/30 border border-sidebar-border space-y-4">
             <div className="flex items-center gap-3">
-               <div className="h-10 w-10 rounded-xl bg-sidebar-primary/10 border border-sidebar-primary/20 flex items-center justify-center font-bold text-sidebar-primary">
-                  {user?.displayName?.[0] || "U"}
+               <div className="relative group shrink-0">
+                   <div className="h-10 w-10 rounded-xl bg-sidebar-primary/10 border border-sidebar-primary/20 flex items-center justify-center font-bold text-sidebar-primary overflow-hidden">
+                      {user?.photoURL ? (
+                          <Image src={user.photoURL} alt="Profile" width={40} height={40} className="w-full h-full object-cover" />
+                      ) : (
+                          user?.displayName?.[0] || "U"
+                      )}
+                   </div>
+                   <label className="absolute inset-0 flex items-center justify-center bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity rounded-xl cursor-pointer">
+                        {isAvatarUploading ? <Loader2 className="w-4 h-4 animate-spin text-sidebar-primary" /> : <Upload className="w-4 h-4 text-white" />}
+                        <input 
+                            type="file" 
+                            className="hidden" 
+                            accept="image/*" 
+                            onChange={handleProfilePictureUpload}
+                            disabled={isAvatarUploading}
+                        />
+                   </label>
                </div>
                <div className="min-w-0">
                   <p className="truncate text-sm font-bold text-sidebar-foreground tracking-tight">

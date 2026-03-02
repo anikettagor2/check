@@ -106,7 +106,7 @@ export function EditorDashboard() {
   const todoProjects = projects.filter(p => p.status === 'active' || (p.status === 'pending_assignment' && p.assignedEditorId === user?.uid));
   const reviewProjects = projects.filter(p => p.status === 'in_review');
   const completedProjects = projects.filter(p => ['completed', 'approved'].includes(p.status));
-  const totalEarnings = projects.reduce((acc, curr) => acc + (curr.editorPrice || 0), 0);
+  const totalEarnings = completedProjects.reduce((acc, curr) => acc + (curr.editorPrice || 0), 0);
   const ratedProjects = projects.filter(p => p.editorRating);
   const averageRating = ratedProjects.length > 0
     ? ratedProjects.reduce((acc, curr) => acc + (curr.editorRating || 0), 0) / ratedProjects.length
@@ -390,17 +390,21 @@ export function EditorDashboard() {
                                                             <div className="h-8 w-8 rounded-lg bg-white/5 flex items-center justify-center">
                                                                 <FileText className="h-3.5 w-3.5 text-zinc-400" />
                                                             </div>
-                                                            <span className="text-[11px] font-bold text-zinc-300 uppercase tracking-widest">View Work</span>
+                                                            <span className="text-[11px] font-bold text-zinc-300 uppercase tracking-widest">
+                                                                {['completed', 'approved'].includes(project.status) ? "Inspect History" : "View Work"}
+                                                            </span>
                                                         </DropdownMenuItem>
                                                     </Link>
-                                                    <Link href={`/dashboard/projects/${project.id}/upload`}>
-                                                        <DropdownMenuItem className="flex items-center gap-3 px-3 py-2.5 rounded-xl cursor-pointer focus:bg-primary/10 transition-colors">
-                                                            <div className="h-8 w-8 rounded-lg bg-white/5 flex items-center justify-center">
-                                                                <Upload className="h-3.5 w-3.5 text-zinc-400" />
-                                                            </div>
-                                                            <span className="text-[11px] font-bold text-zinc-300 uppercase tracking-widest">Handover Draft</span>
-                                                        </DropdownMenuItem>
-                                                    </Link>
+                                                    {!['completed', 'approved'].includes(project.status) && (
+                                                        <Link href={`/dashboard/projects/${project.id}/upload`}>
+                                                            <DropdownMenuItem className="flex items-center gap-3 px-3 py-2.5 rounded-xl cursor-pointer focus:bg-primary/10 transition-colors">
+                                                                <div className="h-8 w-8 rounded-lg bg-white/5 flex items-center justify-center">
+                                                                    <Upload className="h-3.5 w-3.5 text-zinc-400" />
+                                                                </div>
+                                                                <span className="text-[11px] font-bold text-zinc-300 uppercase tracking-widest">Handover Draft</span>
+                                                            </DropdownMenuItem>
+                                                        </Link>
+                                                    )}
                                                 </DropdownMenuContent>
                                             </DropdownMenu>
                                         </td>

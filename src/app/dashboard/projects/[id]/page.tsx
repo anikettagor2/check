@@ -44,6 +44,7 @@ import { User, ProjectAssignmentStatus } from "@/types/schema";
 import { Modal } from "@/components/ui/modal";
 import { PaymentButton } from "@/components/payment-button";
 import { motion, AnimatePresence } from "framer-motion";
+import Image from "next/image";
 
 interface ExtendedProject extends Project {
     brand?: string;
@@ -673,8 +674,12 @@ export default function ProjectDetailsPage() {
                                 <div className="relative z-10">
                                     {project.assignedEditorId ? (
                                         <div className="flex items-center gap-4 p-4 rounded-xl bg-[#0F1115]/80 border border-white/5 backdrop-blur-sm">
-                                            <div className="h-11 w-11 rounded-lg bg-primary/20 flex items-center justify-center text-primary font-bold border border-primary/30">
-                                                {editors.find(e => e.uid === project.assignedEditorId)?.displayName?.[0].toUpperCase() || "E"}
+                                            <div className="h-11 w-11 rounded-lg bg-primary/20 flex items-center justify-center text-primary font-bold border border-primary/30 overflow-hidden">
+                                                {editors.find(e => e.uid === project.assignedEditorId)?.photoURL ? (
+                                                    <Image src={editors.find(e => e.uid === project.assignedEditorId)?.photoURL!} alt="Editor" width={44} height={44} className="w-full h-full object-cover" />
+                                                ) : (
+                                                    editors.find(e => e.uid === project.assignedEditorId)?.displayName?.[0].toUpperCase() || "E"
+                                                )}
                                             </div>
                                             <div className="flex-1 min-w-0">
                                                 <p className="text-sm font-bold text-white truncate">
@@ -719,10 +724,14 @@ export default function ProjectDetailsPage() {
                                                         )}
                                                     >
                                                         <div className={cn(
-                                                            "h-10 w-10 rounded-lg flex items-center justify-center font-bold text-sm",
-                                                            isSelected ? "bg-primary text-white" : "bg-white/5 text-zinc-500"
+                                                            "h-10 w-10 rounded-lg flex items-center justify-center font-bold text-sm overflow-hidden",
+                                                            isSelected ? "bg-primary text-white border border-primary/30" : "bg-white/5 text-zinc-500 border border-white/5"
                                                         )}>
-                                                            {editor.displayName?.[0].toUpperCase() || "E"}
+                                                            {editor.photoURL ? (
+                                                                <Image src={editor.photoURL} alt={editor.displayName || "Editor"} width={40} height={40} className="w-full h-full object-cover" />
+                                                            ) : (
+                                                                editor.displayName?.[0].toUpperCase() || "E"
+                                                            )}
                                                         </div>
                                                         <div className="flex-1 min-w-0">
                                                             <p className={cn("text-sm font-bold truncate", isSelected ? "text-white" : "text-zinc-400")}>
@@ -753,12 +762,18 @@ export default function ProjectDetailsPage() {
                                                         toast.error("Please select an editor and enter revenue share");
                                                         return;
                                                     }
+                                                    
+                                                    const shareAmount = parseFloat(editorRevenueShare);
+                                                    if (shareAmount > (project.totalCost || 0)) {
+                                                        toast.error(`Editor revenue cannot exceed project cost (₹${project.totalCost || 0}). Negative platform margin is not allowed.`);
+                                                        return;
+                                                    }
+
                                                     setAssigning(true);
                                                     try {
-                                                        const shareAmount = parseFloat(editorRevenueShare);
                                                         await assignEditor(id as string, selectedEditorId, shareAmount);
                                                         setProject(prev => prev ? ({ ...prev, assignedEditorId: selectedEditorId, editorPrice: shareAmount, assignmentStatus: 'pending', status: 'pending_assignment' }) : null);
-                                                        toast.success("Editor assigned.");
+                                                        toast.success("Editor assigned. Pending their acceptance.");
                                                         setIsAssignModalOpen(false);
                                                     } catch (err) {
                                                         toast.error("Process failed.");

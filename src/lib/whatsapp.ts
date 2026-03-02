@@ -87,40 +87,59 @@ export async function notifyClient(projectId: string, trigger: WhatsAppTrigger, 
         let params: string[] = [];
         let campaignName = "editohub";
 
+        // Fetch custom templates if any
+        let customTemplates: any = {};
+        try {
+            const settingsSnap = await adminDb.collection('settings').doc('whatsapp').get();
+            if (settingsSnap.exists) {
+                customTemplates = settingsSnap.data() || {};
+            }
+        } catch (err) {
+            console.error("[WhatsApp] Failed to fetch custom templates, using defaults.");
+        }
+
+        const getMessage = (key: WhatsAppTrigger, defaultMsg: string) => {
+            let msg = customTemplates[key] || defaultMsg;
+            if (key === 'PROPOSAL_UPLOADED') {
+                msg = msg.replace('{{reviewLink}}', extraData?.reviewLink || 'Dashboard');
+            }
+            return msg;
+        };
+
         switch (trigger) {
             case 'PROJECT_RECEIVED':
                 params = [
                     client.displayName || "Client",
                     project.name,
-                    "We have received your request. We're currently finding the best editor for you."
+                    getMessage('PROJECT_RECEIVED', "We have received your request. We're currently finding the best editor for you.")
                 ];
                 break;
             case 'EDITOR_ASSIGNED':
                 params = [
                     client.displayName || "Client",
                     project.name,
-                    "A specialist editor has been assigned and is reviewing your requirements."
+                    getMessage('EDITOR_ASSIGNED', "A specialist editor has been assigned and is reviewing your requirements.")
                 ];
                 break;
             case 'EDITOR_ACCEPTED':
                 params = [
                     client.displayName || "Client",
                     project.name,
-                    "Production has officially started! We'll notify you once the first draft is ready."
+                    getMessage('EDITOR_ACCEPTED', "Production has officially started! We'll notify you once the first draft is ready.")
                 ];
                 break;
             case 'PROPOSAL_UPLOADED':
                 params = [
                     client.displayName || "Client",
                     project.name,
-                    `A new draft is ready for review! View it here: ${extraData?.reviewLink || 'Dashboard'}`
+                    getMessage('PROPOSAL_UPLOADED', `A new draft is ready for review! View it here: ${extraData?.reviewLink || 'Dashboard'}`)
                 ];
                 break;
             case 'PROJECT_COMPLETED':
                 params = [
                     client.displayName || "Client",
                     project.name,
-                    "Congratulations! Your project is now complete and all files are ready for final download. Thank you for choosing EditoHub!"
+                    getMessage('PROJECT_COMPLETED', "Congratulations! Your project is now complete and all files are ready for final download. Thank you for choosing EditoHub!")
                 ];
                 break;
         }

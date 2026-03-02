@@ -39,10 +39,11 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { db } from "@/lib/firebase/config";
-import { collection, query, where, onSnapshot, orderBy, doc, updateDoc } from "firebase/firestore";
+import { collection, query, where, onSnapshot, orderBy, doc, updateDoc, getDocs } from "firebase/firestore";
 import { User } from "@/types/schema";
 import { cn } from "@/lib/utils";
 import { motion, AnimatePresence } from "framer-motion";
+import Image from "next/image";
 import {
     DropdownMenu,
     DropdownMenuContent,
@@ -82,6 +83,7 @@ export function SalesDashboard() {
     const [pendingClients, setPendingClients] = useState<any[]>([]);
     const [searchQuery, setSearchQuery] = useState("");
     const [projectManagers, setProjectManagers] = useState<User[]>([]);
+    const [assignedPM, setAssignedPM] = useState<string>("automatic");
 
     const VIDEO_TYPES_LABELS = [
         "Short Videos", "Long Videos", "Reels", "Graphics Videos", "Ads/UGC Videos"
@@ -146,8 +148,58 @@ export function SalesDashboard() {
 
     const handleCreateClient = async (e: React.FormEvent) => {
         e.preventDefault();
-        const backup = { name, email, password, customRates, allowedFormats, payLaterEligible };
+        const backup = { name, email, password, customRates, allowedFormats, payLaterEligible, assignedPM };
         const tempId = `temp-${Date.now()}`;
+        
+        let finalPMId = backup.assignedPM;
+        
+        setIsLoading(true);
+        
+        if (finalPMId === "automatic") {
+            try {
+                // Find all online PMs
+                const onlinePMs = projectManagers.filter(pm => pm.availabilityStatus === 'online');
+                
+                if (onlinePMs.length > 0) {
+                    // Get all active projects to calculate load
+                    const projectsRef = collection(db, "projects");
+                    const qActive = query(projectsRef, where("status", "not-in", ["completed", "approved"]));
+                    const activeSnaps = await getDocs(qActive);
+                    
+                    const pmLoad: Record<string, number> = {};
+                    onlinePMs.forEach(pm => pmLoad[pm.uid] = 0);
+                    
+                    activeSnaps.docs.forEach(d => {
+                        const proj = d.data();
+                        if (proj.assignedPMId && pmLoad[proj.assignedPMId] !== undefined) {
+                            pmLoad[proj.assignedPMId]++;
+                        }
+                    });
+                    
+                    // Filter PMs who are below their maxProjectLimit (default to 10 if not set)
+                    const availablePMs = onlinePMs.filter(pm => {
+                        const limit = pm.maxProjectLimit || 10; // Default limit
+                        return pmLoad[pm.uid] < limit;
+                    });
+                    
+                    if (availablePMs.length > 0) {
+                        // Pick the one with the lowest load
+                        availablePMs.sort((a, b) => pmLoad[a.uid] - pmLoad[b.uid]);
+                        finalPMId = availablePMs[0].uid;
+                    } else {
+                        toast.error("No online Project Managers have available capacity. Proceeding without PM assignment.");
+                        finalPMId = "";
+                    }
+                } else {
+                    toast.error("No Project Managers are currently online. Proceeding without PM assignment.");
+                    finalPMId = "";
+                }
+            } catch (err) {
+                console.error("Auto PM assignment error:", err);
+                toast.error("Failed to automatically assign PM. Proceeding without PM.");
+                finalPMId = "";
+            }
+        }
 
         const tempClient = {
             id: tempId,
@@ -160,10 +212,10 @@ export function SalesDashboard() {
             customRates,
             allowedFormats,
             payLaterEligible,
+            managedByPM: finalPMId !== "automatic" ? finalPMId : undefined,
             isPending: true
         };
         setPendingClients(prev => [tempClient, ...prev]);
-        setIsLoading(true);
 
         setName("");
         setEmail("");
@@ -189,6 +241,14 @@ export function SalesDashboard() {
 
             const data = await res.json();
             if (!res.ok) throw new Error(data.error || "Creation failed");
+            
+            // Assign PM explicitly after creation
+            if (finalPMId && finalPMId !== "automatic") {
+                await updateDoc(doc(db, "users", data.user.uid), {
+                    managedByPM: finalPMId,
+                    updatedAt: Date.now()
+                });
+            }
 
             toast.success(`Client initialized: ${backup.name}`);
             setIsCreateOpen(false);
@@ -433,6 +493,27 @@ export function SalesDashboard() {
                                 />
                             </div>
 
+                            <div className="pt-6 border-t border-white/5">
+                                <Label className="text-[10px] font-bold uppercase tracking-widest text-zinc-500 ml-1">Project Manager Assignment</Label>
+                                <p className="text-[10px] text-zinc-600 font-medium ml-1 mb-3">Assign a Project Manager to automatically handle projects from this client.</p>
+                                <div className="relative">
+                                    <select
+                                        value={assignedPM}
+                                        onChange={(e) => setAssignedPM(e.target.value)}
+                                        className="w-full h-11 px-4 rounded-lg border border-white/10 bg-white/[0.02] text-sm text-white focus:border-primary/50 focus:outline-none transition-all font-medium appearance-none"
+                                    >
+                                        <option value="automatic" className="bg-[#161920]">Auto-Assign (Based on availability & load)</option>
+                                        {projectManagers.map(pm => (
+                                            <option key={pm.uid} value={pm.uid} className="bg-[#161920]">
+                                                {pm.displayName} 
+                                                {pm.availabilityStatus === 'online' ? ' (Online)' : pm.availabilityStatus === 'sleep' ? ' (Away)' : ' (Offline)'}
+                                            </option>
+                                        ))}
+                                    </select>
+                                    <ChevronDown className="absolute right-4 top-1/2 -translate-y-1/2 h-4 w-4 text-zinc-500 pointer-events-none" />
+                                </div>
+                            </div>
+
                             <button 
                                 type="submit" 
                                 className="w-full h-12 bg-white text-black text-[11px] font-bold uppercase tracking-widest rounded-lg shadow-xl hover:bg-zinc-200 transition-all active:scale-[0.98] disabled:opacity-20 flex items-center justify-center gap-2" 
@@ -450,7 +531,7 @@ export function SalesDashboard() {
                     layout
                     className={cn(
                         "enterprise-card bg-[#161920]/40 backdrop-blur-sm overflow-hidden", 
-                        isCreateOpen ? "lg:col-span-12" : "lg:col-span-12"
+                        isCreateOpen ? "lg:col-span-7" : "lg:col-span-12"
                     )}
                  >
                       {/* Search & Tool Layer */}
@@ -511,8 +592,8 @@ export function SalesDashboard() {
                                              >
                                                  <td className="px-6 py-6 transition-all duration-300 group-hover:pl-8">
                                                      <div className="flex items-center gap-4">
-                                                         <div className="w-10 h-10 rounded bg-muted border border-border text-primary flex items-center justify-center font-bold text-xs uppercase shadow-2xl group-hover:scale-105 transition-transform">
-                                                             {client.displayName?.[0]}
+                                                         <div className="w-10 h-10 rounded bg-muted border border-border text-primary flex items-center justify-center font-bold text-xs uppercase shadow-2xl group-hover:scale-105 transition-transform overflow-hidden">
+                                                             {client.photoURL ? <Image src={client.photoURL} alt={client.displayName || "User"} width={40} height={40} className="w-full h-full object-cover" /> : client.displayName?.[0]}
                                                          </div>
                                                          <div>
                                                              <div className="text-base font-bold text-foreground tracking-tight leading-tight">{client.displayName}</div>
@@ -550,8 +631,7 @@ export function SalesDashboard() {
                                                          <DropdownMenuContent align="end" className="w-56 bg-popover border-border p-1.5 rounded-xl shadow-2xl">
                                                              <DropdownMenuLabel className="text-[10px] text-muted-foreground font-bold uppercase tracking-widest px-3 py-2">Operational Actions</DropdownMenuLabel>
                                                              <DropdownMenuSeparator className="my-1 bg-border" />
-                                                             <DropdownMenuItem className="p-2.5 text-xs text-popover-foreground hover:bg-muted transition-colors cursor-pointer rounded-lg"><Mail className="mr-2.5 h-3.5 w-3.5 text-muted-foreground" /> Transmit Credentials</DropdownMenuItem>
-                                                             <DropdownMenuItem className="p-2.5 text-xs text-popover-foreground hover:bg-muted transition-colors cursor-pointer rounded-lg"><Briefcase className="mr-2.5 h-3.5 w-3.5 text-muted-foreground" /> Inspect Active Units</DropdownMenuItem>
+                                                             <DropdownMenuItem className="p-2.5 text-xs text-popover-foreground hover:bg-muted transition-colors cursor-pointer rounded-lg"><Briefcase className="mr-2.5 h-3.5 w-3.5 text-muted-foreground" /> Inspect History</DropdownMenuItem>
                                                              <DropdownMenuSeparator className="my-1 bg-border" />
                                                              <DropdownMenuItem onClick={() => handleRequestDeletion(client.id)} className="p-2.5 text-xs text-red-400 hover:bg-red-500/10 transition-colors cursor-pointer rounded-lg"><LogOut className="mr-2.5 h-3.5 w-3.5" /> Request Delete Authorization</DropdownMenuItem>
                                                          </DropdownMenuContent>
