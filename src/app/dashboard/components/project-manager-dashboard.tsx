@@ -35,7 +35,8 @@ import {
     Star,
     ExternalLink,
     MonitorPlay,
-    IndianRupee
+    IndianRupee,
+    FileText
 } from "lucide-react";
 import { db } from "@/lib/firebase/config";
 import { collection, query, orderBy, onSnapshot, updateDoc, doc, arrayUnion, where } from "firebase/firestore";
@@ -67,7 +68,7 @@ import { Label } from "@/components/ui/label";
 
 export function ProjectManagerDashboard() {
     const { user } = useAuth();
-    const [activeTab, setActiveTab] = useState<'projects' | 'clients'>('projects');
+    const [activeTab, setActiveTab] = useState<'projects' | 'clients' | 'finance'>('projects');
     const [projects, setProjects] = useState<Project[]>([]);
     const [users, setUsers] = useState<User[]>([]);
     const [editors, setEditors] = useState<User[]>([]);
@@ -225,7 +226,7 @@ export function ProjectManagerDashboard() {
                    className="flex items-center gap-3"
                 >
                     <div className="flex bg-muted border border-border rounded-lg p-1">
-                        {['projects', 'clients'].map(tab => (
+                        {['projects', 'clients', 'finance'].map(tab => (
                             <button
                                 key={tab}
                                 onClick={() => setActiveTab(tab as any)}
@@ -479,6 +480,106 @@ export function ProjectManagerDashboard() {
                              {users.filter(u => u.role === 'client').length === 0 && (
                                  <div className="px-6 py-24 text-center text-zinc-700 text-[10px] font-bold uppercase tracking-widest">NUL_INDEX: No Clients Located</div>
                              )}
+                        </motion.div>
+                    )}
+                    
+                    {activeTab === 'finance' && (
+                        <motion.div
+                            key="finance"
+                            initial={{ opacity: 0, scale: 0.98 }}
+                            animate={{ opacity: 1, scale: 1 }}
+                            exit={{ opacity: 0, scale: 0.98 }}
+                            className="p-8 space-y-6"
+                        >
+                            <div className="flex flex-col gap-2 mb-6">
+                                <h2 className="text-xl font-bold tracking-tight text-white mb-1 flex items-center gap-2">
+                                    <IndianRupee className="h-5 w-5 text-primary" />
+                                    Pay Later Finance Hub
+                                </h2>
+                                <p className="text-xs font-medium text-zinc-400 leading-relaxed max-w-2xl">
+                                    Manage outstanding dues for your projects. Track payments for clients utilizing the Pay Later feature.
+                                </p>
+                            </div>
+                            
+                            <div className="grid gap-6">
+                                {users.filter(u => u.role === 'client' && (u.payLater || projects.some(p => p.clientId === u.uid && (p as any).isPayLaterRequest))).map(client => {
+                                    const clientProjects = projects.filter(p => p.clientId === client.uid && p.paymentStatus !== 'full_paid' && ((p as any).isPayLaterRequest || client.payLater));
+                                    const totalDues = clientProjects.reduce((sum, p) => sum + (p.totalCost || 0), 0);
+                                    
+                                    if (totalDues === 0) return null;
+
+                                    return (
+                                        <motion.div 
+                                            key={client.uid}
+                                            initial={{ opacity: 0, y: 10 }}
+                                            animate={{ opacity: 1, y: 0 }}
+                                            className="enterprise-card bg-white/[0.02] border border-white/5 rounded-xl overflow-hidden"
+                                        >
+                                            <div className="p-6 border-b border-white/5 bg-white/[0.01] flex flex-col md:flex-row md:items-center justify-between gap-4">
+                                                <div className="flex items-center gap-4">
+                                                    <div className="h-12 w-12 rounded-xl bg-orange-500/10 border border-orange-500/20 flex items-center justify-center text-orange-500">
+                                                        <IndianRupee className="h-6 w-6" />
+                                                    </div>
+                                                    <div>
+                                                        <h3 className="text-lg font-bold text-white tracking-tight">{client.displayName || 'Unknown Client'}</h3>
+                                                        <p className="text-xs text-zinc-500 font-bold uppercase tracking-widest mt-1">{client.companyName || client.email}</p>
+                                                    </div>
+                                                </div>
+                                                <div className="flex flex-col md:items-end gap-1 border border-orange-500/20 bg-orange-500/5 px-6 py-3 rounded-xl">
+                                                    <span className="text-[10px] text-zinc-500 uppercase font-bold tracking-widest">Total Pending Dues</span>
+                                                    <span className="text-2xl font-black text-orange-400 tabular-nums">₹{totalDues.toLocaleString()}</span>
+                                                </div>
+                                            </div>
+                                            
+                                            <div className="divide-y divide-white/5 bg-[#161920]/40">
+                                                {clientProjects.map(project => (
+                                                    <div key={project.id} className="p-4 px-6 flex flex-col sm:flex-row sm:items-center justify-between gap-4 hover:bg-white/[0.02] transition-colors">
+                                                        <div className="flex items-center gap-4 min-w-0">
+                                                            <div className="h-8 w-8 rounded bg-white/[0.03] border border-white/5 flex items-center justify-center shrink-0">
+                                                                <FileText className="h-3.5 w-3.5 text-zinc-400" />
+                                                            </div>
+                                                            <div className="min-w-0">
+                                                                <Link href={`/dashboard/projects/${project.id}`} className="text-sm font-bold text-white tracking-tight truncate hover:text-primary transition-colors block">
+                                                                    {project.name}
+                                                                </Link>
+                                                                <div className="flex items-center gap-2 mt-1">
+                                                                    <span className="text-[9px] text-zinc-600 font-bold uppercase tracking-widest">ID: {project.id.slice(0,8)}</span>
+                                                                    <div className="h-1 w-1 rounded-full bg-zinc-700" />
+                                                                    <span className={cn("text-[9px] font-bold uppercase tracking-widest", project.clientHasDownloaded ? "text-emerald-500" : "text-amber-500")}>
+                                                                        {project.clientHasDownloaded ? "File Downloaded" : "File Not Downloaded"}
+                                                                    </span>
+                                                                </div>
+                                                            </div>
+                                                        </div>
+                                                        <div className="flex items-center justify-between sm:justify-end gap-6 w-full sm:w-auto shrink-0">
+                                                            <span className="text-sm font-black text-white tabular-nums">₹{project.totalCost?.toLocaleString() || 0}</span>
+                                                            <button 
+                                                                onClick={(e) => { e.preventDefault(); handleSettlePayment(project.id); }}
+                                                                className="h-9 px-4 rounded-lg bg-emerald-500/10 border border-emerald-500/20 text-emerald-500 hover:bg-emerald-500 text-[10px] hover:text-white font-bold uppercase tracking-widest transition-all shadow-[0_0_15px_rgba(16,185,129,0.1)] hover:shadow-[0_0_20px_rgba(16,185,129,0.4)] active:scale-95 flex items-center gap-2"
+                                                            >
+                                                                <CheckCircle2 className="h-3.5 w-3.5" />
+                                                                Mark Received
+                                                            </button>
+                                                        </div>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        </motion.div>
+                                    );
+                                })}
+                                
+                                {users.filter(u => u.role === 'client' && (u.payLater || projects.some(p => p.clientId === u.uid && (p as any).isPayLaterRequest))).every(client => {
+                                    return projects.filter(p => p.clientId === client.uid && p.paymentStatus !== 'full_paid' && ((p as any).isPayLaterRequest || client.payLater)).reduce((sum, p) => sum + (p.totalCost || 0), 0) === 0;
+                                }) && (
+                                    <div className="enterprise-card p-12 text-center flex flex-col items-center justify-center border-dashed border-2 border-white/5 opacity-60">
+                                        <div className="h-16 w-16 bg-white/[0.03] rounded-2xl flex items-center justify-center border border-white/5 mb-4 shadow-[0_0_30px_rgba(255,255,255,0.02)]">
+                                            <CheckCircle2 className="h-8 w-8 text-emerald-500/50" />
+                                        </div>
+                                        <h3 className="text-xl font-bold text-white tracking-tight">No Pending Dues</h3>
+                                        <p className="text-zinc-500 text-sm font-medium mt-2 max-w-sm">There are no outstanding pay later payments for the projects you are currently managing.</p>
+                                    </div>
+                                )}
+                            </div>
                         </motion.div>
                     )}
                     </AnimatePresence>

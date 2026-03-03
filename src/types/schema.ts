@@ -11,6 +11,7 @@ export interface User {
     role: UserRole;
     createdAt: number; // Timestamp
     phoneNumber?: string; // For guests
+    companyName?: string; // Optional company name for clients
     customRates?: Record<string, number>; // Custom video rates for this specific client
     allowedFormats?: Record<string, boolean>; // Which video formats are visible
     initialPassword?: string; // Temp password for new users
@@ -62,6 +63,8 @@ export interface Project {
     assignmentStatus?: ProjectAssignmentStatus;
     downloadUnlockRequested?: boolean; // true when a payLater client requests download unlock from PM
     downloadsUnlocked?: boolean;       // true when PM has explicitly approved downloads for this project
+    clientHasDownloaded?: boolean;     // true when a client downloads a file successfully
+    downloadUnlockedAt?: number;       // timestamp of when the file was downloaded
     isPayLaterRequest?: boolean;       // true for projects submitted via the Pay Later workflow
     assignmentAt?: number;             // When the editor was assigned
     assignmentExpiresAt?: number;      // When the assignment expires (10 min timer)
