@@ -488,7 +488,7 @@ function StatusIndicator({ status }: { status: string }) {
         in_review: { label: "QA Cycle", color: "text-purple-400", bg: "bg-purple-400/10", border: "border-purple-400/20", glow: "shadow-[0_0_15px_rgba(192,132,252,0.3)]" },
         pending_assignment: { label: "Invitation", color: "text-amber-400", bg: "bg-amber-400/10", border: "border-amber-400/20", glow: "shadow-[0_0_15px_rgba(251,191,36,0.3)]" },
         approved: { label: "Authorized", color: "text-emerald-400", bg: "bg-emerald-400/10", border: "border-emerald-400/20", glow: "shadow-[0_0_15px_rgba(52,211,153,0.3)]" },
-        completed: { label: "Fulfilled", color: "text-zinc-500", bg: "bg-zinc-800", border: "border-white/5", glow: "" },
+        completed: { label: "Completed", color: "text-zinc-500", bg: "bg-zinc-800", border: "border-white/5", glow: "" },
     };
     const s = config[status] || config.completed;
     return (

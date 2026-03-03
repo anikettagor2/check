@@ -156,6 +156,19 @@ export function ProjectManagerDashboard() {
         }
     };
 
+    const handleReimburseEditor = async (projectId: string) => {
+        try {
+            await updateDoc(doc(db, "projects", projectId), {
+                editorPaid: true,
+                editorPaidAt: Date.now()
+            });
+            toast.success("Editor payout marked as settled.");
+        } catch (error) {
+            toast.error("Failed to settle payout.");
+            console.error(error);
+        }
+    };
+
     const unassignedCount = projects.filter(p => !p.assignedEditorId).length;
     const activeCount = projects.filter(p => p.status === 'active').length;
     const pendingUnlockCount = projects.filter(p => p.downloadUnlockRequested && p.paymentStatus !== 'full_paid').length;
@@ -494,91 +507,179 @@ export function ProjectManagerDashboard() {
                             <div className="flex flex-col gap-2 mb-6">
                                 <h2 className="text-xl font-bold tracking-tight text-white mb-1 flex items-center gap-2">
                                     <IndianRupee className="h-5 w-5 text-primary" />
-                                    Pay Later Finance Hub
+                                    Financial Settlement Hub
                                 </h2>
                                 <p className="text-xs font-medium text-zinc-400 leading-relaxed max-w-2xl">
-                                    Manage outstanding dues for your projects. Track payments for clients utilizing the Pay Later feature.
+                                    Centralized treasury for managing outstanding liabilities. Track and settle dues for both clients (receivables) and editors (payables).
                                 </p>
                             </div>
                             
-                            <div className="grid gap-6">
-                                {users.filter(u => u.role === 'client' && (u.payLater || projects.some(p => p.clientId === u.uid && (p as any).isPayLaterRequest))).map(client => {
-                                    const clientProjects = projects.filter(p => p.clientId === client.uid && p.paymentStatus !== 'full_paid' && ((p as any).isPayLaterRequest || client.payLater));
-                                    const totalDues = clientProjects.reduce((sum, p) => sum + (p.totalCost || 0), 0);
-                                    
-                                    if (totalDues === 0) return null;
-
-                                    return (
-                                        <motion.div 
-                                            key={client.uid}
-                                            initial={{ opacity: 0, y: 10 }}
-                                            animate={{ opacity: 1, y: 0 }}
-                                            className="enterprise-card bg-white/[0.02] border border-white/5 rounded-xl overflow-hidden"
-                                        >
-                                            <div className="p-6 border-b border-white/5 bg-white/[0.01] flex flex-col md:flex-row md:items-center justify-between gap-4">
-                                                <div className="flex items-center gap-4">
-                                                    <div className="h-12 w-12 rounded-xl bg-orange-500/10 border border-orange-500/20 flex items-center justify-center text-orange-500">
-                                                        <IndianRupee className="h-6 w-6" />
-                                                    </div>
-                                                    <div>
-                                                        <h3 className="text-lg font-bold text-white tracking-tight">{client.displayName || 'Unknown Client'}</h3>
-                                                        <p className="text-xs text-zinc-500 font-bold uppercase tracking-widest mt-1">{client.companyName || client.email}</p>
-                                                    </div>
-                                                </div>
-                                                <div className="flex flex-col md:items-end gap-1 border border-orange-500/20 bg-orange-500/5 px-6 py-3 rounded-xl">
-                                                    <span className="text-[10px] text-zinc-500 uppercase font-bold tracking-widest">Total Pending Dues</span>
-                                                    <span className="text-2xl font-black text-orange-400 tabular-nums">₹{totalDues.toLocaleString()}</span>
-                                                </div>
-                                            </div>
+                            <div className="grid gap-8">
+                                {/* Client Dues Section */}
+                                <div className="space-y-4">
+                                    <div className="flex items-center gap-2 px-1">
+                                        <div className="h-2 w-2 rounded-full bg-orange-500 shadow-[0_0_8px_rgba(249,115,22,0.5)]" />
+                                        <h3 className="text-[10px] font-black uppercase tracking-[0.2em] text-zinc-400">Client Receivables (Pay Later)</h3>
+                                    </div>
+                                    <div className="grid gap-6">
+                                        {users.filter(u => u.role === 'client' && (u.payLater || projects.some(p => p.clientId === u.uid && (p as any).isPayLaterRequest))).map(client => {
+                                            const clientProjects = projects.filter(p => p.clientId === client.uid && p.paymentStatus !== 'full_paid' && ((p as any).isPayLaterRequest || client.payLater));
+                                            const totalDues = clientProjects.reduce((sum, p) => sum + (p.totalCost || 0), 0);
                                             
-                                            <div className="divide-y divide-white/5 bg-[#161920]/40">
-                                                {clientProjects.map(project => (
-                                                    <div key={project.id} className="p-4 px-6 flex flex-col sm:flex-row sm:items-center justify-between gap-4 hover:bg-white/[0.02] transition-colors">
-                                                        <div className="flex items-center gap-4 min-w-0">
-                                                            <div className="h-8 w-8 rounded bg-white/[0.03] border border-white/5 flex items-center justify-center shrink-0">
-                                                                <FileText className="h-3.5 w-3.5 text-zinc-400" />
+                                            if (totalDues === 0) return null;
+
+                                            return (
+                                                <motion.div 
+                                                    key={client.uid}
+                                                    initial={{ opacity: 0, y: 10 }}
+                                                    animate={{ opacity: 1, y: 0 }}
+                                                    className="enterprise-card bg-white/[0.02] border border-white/5 rounded-xl overflow-hidden"
+                                                >
+                                                    <div className="p-6 border-b border-white/5 bg-white/[0.01] flex flex-col md:flex-row md:items-center justify-between gap-4">
+                                                        <div className="flex items-center gap-4">
+                                                            <div className="h-12 w-12 rounded-xl bg-orange-500/10 border border-orange-500/20 flex items-center justify-center text-orange-500">
+                                                                <IndianRupee className="h-6 w-6" />
                                                             </div>
-                                                            <div className="min-w-0">
-                                                                <Link href={`/dashboard/projects/${project.id}`} className="text-sm font-bold text-white tracking-tight truncate hover:text-primary transition-colors block">
-                                                                    {project.name}
-                                                                </Link>
-                                                                <div className="flex items-center gap-2 mt-1">
-                                                                    <span className="text-[9px] text-zinc-600 font-bold uppercase tracking-widest">ID: {project.id.slice(0,8)}</span>
-                                                                    <div className="h-1 w-1 rounded-full bg-zinc-700" />
-                                                                    <span className={cn("text-[9px] font-bold uppercase tracking-widest", project.clientHasDownloaded ? "text-emerald-500" : "text-amber-500")}>
-                                                                        {project.clientHasDownloaded ? "File Downloaded" : "File Not Downloaded"}
-                                                                    </span>
+                                                            <div>
+                                                                <h3 className="text-lg font-bold text-white tracking-tight">{client.displayName || 'Unknown Client'}</h3>
+                                                                <p className="text-xs text-zinc-500 font-bold uppercase tracking-widest mt-1">{client.companyName || client.email}</p>
+                                                            </div>
+                                                        </div>
+                                                        <div className="flex flex-col md:items-end gap-1 border border-orange-500/20 bg-orange-500/5 px-6 py-3 rounded-xl">
+                                                            <span className="text-[10px] text-zinc-500 uppercase font-bold tracking-widest">Total Pending Dues</span>
+                                                            <span className="text-2xl font-black text-orange-400 tabular-nums">₹{totalDues.toLocaleString()}</span>
+                                                        </div>
+                                                    </div>
+                                                    
+                                                    <div className="divide-y divide-white/5 bg-[#161920]/40">
+                                                        {clientProjects.map(project => (
+                                                            <div key={project.id} className="p-4 px-6 flex flex-col sm:flex-row sm:items-center justify-between gap-4 hover:bg-white/[0.02] transition-colors">
+                                                                <div className="flex items-center gap-4 min-w-0">
+                                                                    <div className="h-8 w-8 rounded bg-white/[0.03] border border-white/5 flex items-center justify-center shrink-0">
+                                                                        <FileText className="h-3.5 w-3.5 text-zinc-400" />
+                                                                    </div>
+                                                                    <div className="min-w-0">
+                                                                        <Link href={`/dashboard/projects/${project.id}`} className="text-sm font-bold text-white tracking-tight truncate hover:text-primary transition-colors block">
+                                                                            {project.name}
+                                                                        </Link>
+                                                                        <div className="flex items-center gap-2 mt-1">
+                                                                            <span className="text-[9px] text-zinc-600 font-bold uppercase tracking-widest">ID: {project.id.slice(0,8)}</span>
+                                                                            <div className="h-1 w-1 rounded-full bg-zinc-700" />
+                                                                            <span className={cn("text-[9px] font-bold uppercase tracking-widest", project.clientHasDownloaded ? "text-emerald-500" : "text-amber-500")}>
+                                                                                {project.clientHasDownloaded ? "File Downloaded" : "File Not Downloaded"}
+                                                                            </span>
+                                                                        </div>
+                                                                    </div>
+                                                                </div>
+                                                                <div className="flex items-center justify-between sm:justify-end gap-6 w-full sm:w-auto shrink-0">
+                                                                    <span className="text-sm font-black text-white tabular-nums">₹{project.totalCost?.toLocaleString() || 0}</span>
+                                                                    <button 
+                                                                        onClick={(e) => { e.preventDefault(); handleSettlePayment(project.id); }}
+                                                                        className="h-9 px-4 rounded-lg bg-emerald-500/10 border border-emerald-500/20 text-emerald-500 hover:bg-emerald-500 text-[10px] hover:text-white font-bold uppercase tracking-widest transition-all shadow-[0_0_15px_rgba(16,185,129,0.1)] hover:shadow-[0_0_20px_rgba(16,185,129,0.4)] active:scale-95 flex items-center gap-2"
+                                                                    >
+                                                                        <CheckCircle2 className="h-3.5 w-3.5" />
+                                                                        Mark Received
+                                                                    </button>
                                                                 </div>
                                                             </div>
+                                                        ))}
+                                                    </div>
+                                                </motion.div>
+                                            );
+                                        })}
+                                        
+                                        {users.filter(u => u.role === 'client' && (u.payLater || projects.some(p => p.clientId === u.uid && (p as any).isPayLaterRequest))).every(client => {
+                                            return projects.filter(p => p.clientId === client.uid && p.paymentStatus !== 'full_paid' && ((p as any).isPayLaterRequest || client.payLater)).reduce((sum, p) => sum + (p.totalCost || 0), 0) === 0;
+                                        }) && (
+                                            <div className="enterprise-card p-8 text-center flex flex-col items-center justify-center border-dashed border-2 border-white/5 opacity-60">
+                                                <h3 className="text-sm font-bold text-zinc-500 uppercase tracking-widest">All client balances cleared</h3>
+                                            </div>
+                                        )}
+                                    </div>
+                                </div>
+
+                                {/* Editor Dues Section */}
+                                <div className="space-y-4">
+                                    <div className="flex items-center gap-2 px-1">
+                                        <div className="h-2 w-2 rounded-full bg-blue-500 shadow-[0_0_8px_rgba(59,130,246,0.5)]" />
+                                        <h3 className="text-[10px] font-black uppercase tracking-[0.2em] text-zinc-400">Editor Payables (Pending Payouts)</h3>
+                                    </div>
+                                    <div className="grid gap-6">
+                                        {users.filter(u => u.role === 'editor' && projects.some(p => p.assignedEditorId === u.uid && p.status === 'completed' && !p.editorPaid)).map(editor => {
+                                            const editorProjects = projects.filter(p => p.assignedEditorId === editor.uid && p.status === 'completed' && !p.editorPaid);
+                                            const totalEditorDues = editorProjects.reduce((sum, p) => sum + (p.editorPrice || 0), 0);
+
+                                            if (totalEditorDues === 0) return null;
+
+                                            return (
+                                                <motion.div 
+                                                    key={editor.uid}
+                                                    initial={{ opacity: 0, y: 10 }}
+                                                    animate={{ opacity: 1, y: 0 }}
+                                                    className="enterprise-card bg-white/[0.02] border border-white/5 rounded-xl overflow-hidden"
+                                                >
+                                                    <div className="p-6 border-b border-white/5 bg-white/[0.01] flex flex-col md:flex-row md:items-center justify-between gap-4">
+                                                        <div className="flex items-center gap-4">
+                                                            <Avatar className="h-12 w-12 border border-white/10 rounded-xl bg-white/[0.03]">
+                                                                <AvatarImage src={editor.photoURL || undefined} className="object-cover" />
+                                                                <AvatarFallback className="text-primary font-bold text-sm uppercase">{editor.displayName?.[0]}</AvatarFallback>
+                                                            </Avatar>
+                                                            <div>
+                                                                <h3 className="text-lg font-bold text-white tracking-tight">{editor.displayName || 'Unknown Editor'}</h3>
+                                                                <p className="text-xs text-zinc-500 font-bold uppercase tracking-widest mt-1 text-blue-400/80">{editor.email}</p>
+                                                            </div>
                                                         </div>
-                                                        <div className="flex items-center justify-between sm:justify-end gap-6 w-full sm:w-auto shrink-0">
-                                                            <span className="text-sm font-black text-white tabular-nums">₹{project.totalCost?.toLocaleString() || 0}</span>
-                                                            <button 
-                                                                onClick={(e) => { e.preventDefault(); handleSettlePayment(project.id); }}
-                                                                className="h-9 px-4 rounded-lg bg-emerald-500/10 border border-emerald-500/20 text-emerald-500 hover:bg-emerald-500 text-[10px] hover:text-white font-bold uppercase tracking-widest transition-all shadow-[0_0_15px_rgba(16,185,129,0.1)] hover:shadow-[0_0_20px_rgba(16,185,129,0.4)] active:scale-95 flex items-center gap-2"
-                                                            >
-                                                                <CheckCircle2 className="h-3.5 w-3.5" />
-                                                                Mark Received
-                                                            </button>
+                                                        <div className="flex flex-col md:items-end gap-1 border border-blue-500/20 bg-blue-500/5 px-6 py-3 rounded-xl">
+                                                            <span className="text-[10px] text-zinc-500 uppercase font-bold tracking-widest">Total Payout Pending</span>
+                                                            <span className="text-2xl font-black text-blue-400 tabular-nums">₹{totalEditorDues.toLocaleString()}</span>
                                                         </div>
                                                     </div>
-                                                ))}
+                                                    
+                                                    <div className="divide-y divide-white/5 bg-[#161920]/40">
+                                                        {editorProjects.map(project => (
+                                                            <div key={project.id} className="p-4 px-6 flex flex-col sm:flex-row sm:items-center justify-between gap-4 hover:bg-white/[0.02] transition-colors">
+                                                                <div className="flex items-center gap-4 min-w-0">
+                                                                    <div className="h-8 w-8 rounded bg-white/[0.03] border border-white/5 flex items-center justify-center shrink-0">
+                                                                        <FileText className="h-3.5 w-3.5 text-zinc-400" />
+                                                                    </div>
+                                                                    <div className="min-w-0">
+                                                                        <Link href={`/dashboard/projects/${project.id}`} className="text-sm font-bold text-white tracking-tight truncate hover:text-primary transition-colors block">
+                                                                            {project.name}
+                                                                        </Link>
+                                                                        <div className="flex items-center gap-2 mt-1">
+                                                                            <span className="text-[9px] text-zinc-600 font-bold uppercase tracking-widest">ID: {project.id.slice(0,8)}</span>
+                                                                            <div className="h-1 w-1 rounded-full bg-zinc-700" />
+                                                                            <span className="text-[9px] font-bold uppercase tracking-widest text-emerald-500">Project Completed</span>
+                                                                        </div>
+                                                                    </div>
+                                                                </div>
+                                                                <div className="flex items-center justify-between sm:justify-end gap-6 w-full sm:w-auto shrink-0">
+                                                                    <div className="flex flex-col items-end mr-4">
+                                                                        <span className="text-[9px] text-zinc-500 font-bold uppercase tracking-tighter">Editor Share</span>
+                                                                        <span className="text-sm font-black text-white tabular-nums">₹{project.editorPrice?.toLocaleString() || 0}</span>
+                                                                    </div>
+                                                                    <button 
+                                                                        onClick={(e) => { e.preventDefault(); handleReimburseEditor(project.id); }}
+                                                                        className="h-9 px-4 rounded-lg bg-blue-500/10 border border-blue-500/20 text-blue-400 hover:bg-blue-500 hover:text-white text-[10px] font-bold uppercase tracking-widest transition-all active:scale-95 flex items-center gap-2 shadow-[0_0_15px_rgba(59,130,246,0.1)] hover:shadow-[0_0_20px_rgba(59,130,246,0.4)]"
+                                                                    >
+                                                                        <RefreshCw className="h-3.5 w-3.5" />
+                                                                        Settle Payout
+                                                                    </button>
+                                                                </div>
+                                                            </div>
+                                                        ))}
+                                                    </div>
+                                                </motion.div>
+                                            );
+                                        })}
+
+                                        {users.filter(u => u.role === 'editor' && projects.some(p => p.assignedEditorId === u.uid && p.status === 'completed' && !p.editorPaid)).length === 0 && (
+                                            <div className="enterprise-card p-8 text-center flex flex-col items-center justify-center border-dashed border-2 border-white/5 opacity-60">
+                                                <h3 className="text-sm font-bold text-zinc-500 uppercase tracking-widest">All editor payouts settled</h3>
                                             </div>
-                                        </motion.div>
-                                    );
-                                })}
-                                
-                                {users.filter(u => u.role === 'client' && (u.payLater || projects.some(p => p.clientId === u.uid && (p as any).isPayLaterRequest))).every(client => {
-                                    return projects.filter(p => p.clientId === client.uid && p.paymentStatus !== 'full_paid' && ((p as any).isPayLaterRequest || client.payLater)).reduce((sum, p) => sum + (p.totalCost || 0), 0) === 0;
-                                }) && (
-                                    <div className="enterprise-card p-12 text-center flex flex-col items-center justify-center border-dashed border-2 border-white/5 opacity-60">
-                                        <div className="h-16 w-16 bg-white/[0.03] rounded-2xl flex items-center justify-center border border-white/5 mb-4 shadow-[0_0_30px_rgba(255,255,255,0.02)]">
-                                            <CheckCircle2 className="h-8 w-8 text-emerald-500/50" />
-                                        </div>
-                                        <h3 className="text-xl font-bold text-white tracking-tight">No Pending Dues</h3>
-                                        <p className="text-zinc-500 text-sm font-medium mt-2 max-w-sm">There are no outstanding pay later payments for the projects you are currently managing.</p>
+                                        )}
                                     </div>
-                                )}
+                                </div>
                             </div>
                         </motion.div>
                     )}
@@ -922,7 +1023,7 @@ function StatusIndicator({ status }: { status: string }) {
         in_review: { label: "QA REVIEW", color: "text-purple-400", bg: "bg-purple-400/5", border: "border-purple-400/20" },
         pending_assignment: { label: "IDLE QUEUE", color: "text-amber-400", bg: "bg-amber-400/5", border: "border-amber-400/20" },
         approved: { label: "AUTHORIZED", color: "text-emerald-400", bg: "bg-emerald-400/5", border: "border-emerald-400/20" },
-        completed: { label: "ARCHIVED", color: "text-zinc-500", bg: "bg-zinc-500/5", border: "border-zinc-500/20" },
+        completed: { label: "COMPLETED", color: "text-zinc-500", bg: "bg-zinc-500/5", border: "border-zinc-500/20" },
     };
     const s = config[status] || config.completed;
     return (

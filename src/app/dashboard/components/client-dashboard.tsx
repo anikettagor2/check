@@ -344,7 +344,7 @@ function StatusIndicator({ status }: { status: string }) {
         in_review: { label: "Ready for Review", color: "text-purple-400", bg: "bg-purple-400/5", border: "border-purple-400/20" },
         pending_assignment: { label: "Finding an Editor", color: "text-amber-400", bg: "bg-amber-400/5", border: "border-amber-400/20" },
         approved: { label: "Approved", color: "text-emerald-400", bg: "bg-emerald-400/5", border: "border-emerald-400/20" },
-        completed: { label: "Archived", color: "text-zinc-500", bg: "bg-zinc-500/5", border: "border-zinc-500/20" },
+        completed: { label: "Completed", color: "text-zinc-500", bg: "bg-zinc-500/5", border: "border-zinc-500/20" },
     };
     const s = config[status] || config.completed;
     return (

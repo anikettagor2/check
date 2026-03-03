@@ -95,12 +95,12 @@ export default function WorkHistoryPage() {
                                     </td>
                                     <td className="px-6 py-4 text-right">
                                         <Badge variant="secondary" className={
-                                            project.status === 'completed' 
+                                            (project.status === 'completed' || project.status === 'archived')
                                                 ? "bg-emerald-500/10 text-emerald-500 border-emerald-500/20" 
                                                 : "bg-zinc-700 text-zinc-300 border-zinc-600"
                                         }>
-                                            {project.status === 'completed' ? <CheckCircle2 className="h-3 w-3 mr-1" /> : <Clock className="h-3 w-3 mr-1" />}
-                                            {project.status}
+                                            {(project.status === 'completed' || project.status === 'archived') ? <CheckCircle2 className="h-3 w-3 mr-1" /> : <Clock className="h-3 w-3 mr-1" />}
+                                            {(project.status === 'completed' || project.status === 'archived') ? "Completed" : project.status}
                                         </Badge>
                                     </td>
                                 </tr>

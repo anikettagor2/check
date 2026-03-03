@@ -56,6 +56,7 @@ export function AdminOverviewGraphs({ projects, users }: AdminOverviewGraphsProp
                 timestamp: getStartOfPeriod(date).getTime(),
                 display: format(date, getFormatString),
                 revenue: 0,
+                profit: 0,
                 completedProjects: 0,
                 newClients: 0,
                 newTeam: 0,
@@ -75,6 +76,9 @@ export function AdminOverviewGraphs({ projects, users }: AdminOverviewGraphsProp
 
             if (bucket) {
                 bucket.revenue += (project.amountPaid || 0);
+                if (project.totalCost && project.assignedEditorId) {
+                    bucket.profit += (project.totalCost - (project.editorPrice || 0));
+                }
                 if (project.status === 'completed') {
                     bucket.completedProjects += 1;
                 }
@@ -111,21 +115,26 @@ export function AdminOverviewGraphs({ projects, users }: AdminOverviewGraphsProp
     const CustomTooltip = ({ active, payload, label }: any) => {
         if (active && payload && payload.length) {
             return (
-                <div className="bg-[#1a1d24]/90 backdrop-blur-md border border-white/10 p-4 rounded-xl shadow-2xl space-y-3">
-                    <p className="text-[11px] font-bold text-zinc-400 uppercase tracking-widest border-b border-white/10 pb-2">{label}</p>
-                    {payload.map((entry: any, index: number) => (
-                        <div key={index} className="flex items-center justify-between gap-6">
-                            <div className="flex items-center gap-2">
-                                <div className="w-2 h-2 rounded-full" style={{ backgroundColor: entry.color }} />
-                                <span className="text-[10px] uppercase font-bold text-zinc-300 tracking-wider flex items-center gap-2">
-                                    {entry.name}
+                <div className="bg-[#0f1115]/95 backdrop-blur-xl border border-white/10 p-5 rounded-2xl shadow-[0_20px_50px_rgba(0,0,0,0.5)] space-y-4 min-w-[200px]">
+                    <div className="flex items-center justify-between border-b border-white/10 pb-3">
+                        <p className="text-[12px] font-black text-white uppercase tracking-widest">{label}</p>
+                        <div className="h-1.5 w-1.5 rounded-full bg-primary animate-pulse" />
+                    </div>
+                    <div className="space-y-2.5">
+                        {payload.map((entry: any, index: number) => (
+                            <div key={index} className="flex items-center justify-between group">
+                                <div className="flex items-center gap-2.5">
+                                    <div className="w-1.5 h-1.5 rounded-full shadow-[0_0_8px_currentColor]" style={{ backgroundColor: entry.color, color: entry.color }} />
+                                    <span className="text-[10px] uppercase font-bold text-zinc-400 tracking-wider group-hover:text-zinc-200 transition-colors">
+                                        {entry.name}
+                                    </span>
+                                </div>
+                                <span className="text-[13px] font-black tabular-nums text-white">
+                                    {(entry.name === 'Revenue' || entry.name === 'Net Profit') ? `₹${entry.value.toLocaleString()}` : entry.value}
                                 </span>
                             </div>
-                            <span className="text-[12px] font-bold tabular-nums text-white">
-                                {entry.name === 'Revenue' ? `₹${entry.value.toLocaleString()}` : entry.value}
-                            </span>
-                        </div>
-                    ))}
+                        ))}
+                    </div>
                 </div>
             );
         }
@@ -189,35 +198,52 @@ export function AdminOverviewGraphs({ projects, users }: AdminOverviewGraphsProp
                             <AreaChart data={chartData} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
                                 <defs>
                                     <linearGradient id="colorRevenue" x1="0" y1="0" x2="0" y2="1">
-                                        <stop offset="5%" stopColor="#fff" stopOpacity={0.15}/>
+                                        <stop offset="5%" stopColor="#fff" stopOpacity={0.1}/>
                                         <stop offset="95%" stopColor="#fff" stopOpacity={0}/>
                                     </linearGradient>
+                                    <linearGradient id="colorProfit" x1="0" y1="0" x2="0" y2="1">
+                                        <stop offset="5%" stopColor="#10b981" stopOpacity={0.1}/>
+                                        <stop offset="95%" stopColor="#10b981" stopOpacity={0}/>
+                                    </linearGradient>
                                 </defs>
-                                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="rgba(255,255,255,0.05)" />
+                                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="rgba(255,255,255,0.02)" />
                                 <XAxis 
                                     dataKey="display" 
                                     axisLine={false} 
                                     tickLine={false} 
-                                    tick={{ fill: '#71717a', fontSize: 10, fontWeight: 700 }}
+                                    tick={{ fill: '#52525b', fontSize: 10, fontWeight: 800 }}
                                     dy={10}
                                 />
                                 <YAxis 
                                     axisLine={false} 
                                     tickLine={false} 
-                                    tick={{ fill: '#71717a', fontSize: 10, fontWeight: 700 }}
-                                    tickFormatter={(val) => `₹${val}`}
+                                    tick={{ fill: '#52525b', fontSize: 10, fontWeight: 800 }}
+                                    tickFormatter={(val) => `₹${val >= 1000 ? (val/1000).toFixed(1) + 'k' : val}`}
                                     dx={-10}
                                 />
-                                <Tooltip content={<CustomTooltip />} cursor={{ stroke: 'rgba(255,255,255,0.1)', strokeWidth: 1, strokeDasharray: '4 4' }} />
+                                <Tooltip content={<CustomTooltip />} cursor={{ stroke: 'rgba(255,255,255,0.1)', strokeWidth: 1 }} />
                                 <Area 
                                     type="monotone" 
                                     dataKey="revenue" 
                                     name="Revenue"
                                     stroke="#ffffff" 
-                                    strokeWidth={2}
+                                    strokeWidth={3}
                                     fillOpacity={1} 
                                     fill="url(#colorRevenue)" 
-                                    activeDot={{ r: 6, fill: '#fff', stroke: '#000', strokeWidth: 2 }}
+                                    activeDot={{ r: 4, fill: '#fff', strokeWidth: 0 }}
+                                    animationDuration={1500}
+                                />
+                                <Area 
+                                    type="monotone" 
+                                    dataKey="profit" 
+                                    name="Net Profit"
+                                    stroke="#10b981" 
+                                    strokeWidth={2}
+                                    strokeDasharray="5 5"
+                                    fillOpacity={1} 
+                                    fill="url(#colorProfit)" 
+                                    activeDot={{ r: 4, fill: '#10b981', strokeWidth: 0 }}
+                                    animationDuration={2000}
                                 />
                             </AreaChart>
                         </ResponsiveContainer>
@@ -248,14 +274,21 @@ export function AdminOverviewGraphs({ projects, users }: AdminOverviewGraphsProp
                                 <BarChart data={chartData} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
                                     <defs>
                                         <linearGradient id="colorProjects" x1="0" y1="0" x2="0" y2="1">
-                                            <stop offset="0%" stopColor="#10b981" stopOpacity={0.8}/>
-                                            <stop offset="100%" stopColor="#10b981" stopOpacity={0.2}/>
+                                            <stop offset="0%" stopColor="#10b981" stopOpacity={0.4}/>
+                                            <stop offset="100%" stopColor="#10b981" stopOpacity={0.05}/>
                                         </linearGradient>
                                     </defs>
-                                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="rgba(255,255,255,0.05)" />
+                                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="rgba(255,255,255,0.02)" />
                                     <XAxis dataKey="display" hide />
-                                    <Tooltip content={<CustomTooltip />} cursor={{ fill: 'rgba(255,255,255,0.02)' }} />
-                                    <Bar dataKey="completedProjects" name="Completed" fill="url(#colorProjects)" radius={[4, 4, 0, 0]} maxBarSize={40} />
+                                    <Tooltip content={<CustomTooltip />} cursor={{ fill: 'rgba(16, 185, 129, 0.05)' }} />
+                                    <Bar 
+                                        dataKey="completedProjects" 
+                                        name="Completed" 
+                                        fill="url(#colorProjects)" 
+                                        radius={[4, 4, 0, 0]} 
+                                        maxBarSize={30}
+                                        animationDuration={2000}
+                                    />
                                 </BarChart>
                             </ResponsiveContainer>
                         </div>
@@ -284,14 +317,23 @@ export function AdminOverviewGraphs({ projects, users }: AdminOverviewGraphsProp
                                 <AreaChart data={chartData} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
                                     <defs>
                                         <linearGradient id="colorClients" x1="0" y1="0" x2="0" y2="1">
-                                            <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.3}/>
+                                            <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.2}/>
                                             <stop offset="95%" stopColor="#3b82f6" stopOpacity={0}/>
                                         </linearGradient>
                                     </defs>
-                                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="rgba(255,255,255,0.05)" />
+                                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="rgba(255,255,255,0.02)" />
                                     <XAxis dataKey="display" hide />
-                                    <Tooltip content={<CustomTooltip />} cursor={{ stroke: 'rgba(255,255,255,0.1)', strokeWidth: 1, strokeDasharray: '4 4' }} />
-                                    <Area type="monotone" dataKey="newClients" name="Clients" stroke="#3b82f6" strokeWidth={2} fillOpacity={1} fill="url(#colorClients)" />
+                                    <Tooltip content={<CustomTooltip />} cursor={{ stroke: 'rgba(59, 130, 246, 0.2)', strokeWidth: 1 }} />
+                                    <Area 
+                                        type="monotone" 
+                                        dataKey="newClients" 
+                                        name="Clients" 
+                                        stroke="#3b82f6" 
+                                        strokeWidth={2} 
+                                        fillOpacity={1} 
+                                        fill="url(#colorClients)"
+                                        animationDuration={2500}
+                                    />
                                 </AreaChart>
                             </ResponsiveContainer>
                         </div>
@@ -320,14 +362,23 @@ export function AdminOverviewGraphs({ projects, users }: AdminOverviewGraphsProp
                                 <AreaChart data={chartData} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
                                     <defs>
                                         <linearGradient id="colorTeam" x1="0" y1="0" x2="0" y2="1">
-                                            <stop offset="5%" stopColor="#a855f7" stopOpacity={0.3}/>
+                                            <stop offset="5%" stopColor="#a855f7" stopOpacity={0.2}/>
                                             <stop offset="95%" stopColor="#a855f7" stopOpacity={0}/>
                                         </linearGradient>
                                     </defs>
-                                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="rgba(255,255,255,0.05)" />
+                                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="rgba(255,255,255,0.02)" />
                                     <XAxis dataKey="display" hide />
-                                    <Tooltip content={<CustomTooltip />} cursor={{ stroke: 'rgba(255,255,255,0.1)', strokeWidth: 1, strokeDasharray: '4 4' }} />
-                                    <Area type="monotone" dataKey="newTeam" name="Team Members" stroke="#a855f7" strokeWidth={2} fillOpacity={1} fill="url(#colorTeam)" />
+                                    <Tooltip content={<CustomTooltip />} cursor={{ stroke: 'rgba(168, 85, 247, 0.2)', strokeWidth: 1 }} />
+                                    <Area 
+                                        type="monotone" 
+                                        dataKey="newTeam" 
+                                        name="Team Members" 
+                                        stroke="#a855f7" 
+                                        strokeWidth={2} 
+                                        fillOpacity={1} 
+                                        fill="url(#colorTeam)"
+                                        animationDuration={3000}
+                                    />
                                 </AreaChart>
                             </ResponsiveContainer>
                         </div>
