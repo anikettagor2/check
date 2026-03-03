@@ -49,7 +49,8 @@ import {
     LayoutGrid,
     TrendingUp,
     FolderOpen,
-    Save
+    Save,
+    MessageSquare
 } from "lucide-react";
 
 import { cn } from "@/lib/utils";
@@ -1370,6 +1371,38 @@ export function AdminDashboard() {
                                         </div>
                                     </div>
                                 )}
+                                {selectedUserDetail.whatsappNumber && (
+                                    <div className="space-y-1.5 pt-2 border-t border-white/5">
+                                        <Label className="text-[9px] font-bold text-zinc-600 uppercase tracking-widest ml-1 flex items-center gap-1.5"><MessageSquare className="h-3 w-3 text-emerald-500" /> WhatsApp</Label>
+                                        <div className="p-3 bg-white/[0.03] border border-white/10 rounded-lg text-sm font-medium text-white flex items-center justify-between group/wa">
+                                            <span className="truncate">{selectedUserDetail.whatsappNumber}</span>
+                                            <a href={`https://wa.me/${selectedUserDetail.whatsappNumber.replace(/[^0-9]/g, '')}`} target="_blank" rel="noopener noreferrer" className="opacity-0 group-hover/wa:opacity-100 transition-opacity">
+                                                <ExternalLink className="h-4 w-4 text-emerald-400 hover:text-emerald-300" />
+                                            </a>
+                                        </div>
+                                    </div>
+                                )}
+                                {selectedUserDetail.portfolio && Array.isArray(selectedUserDetail.portfolio) && selectedUserDetail.portfolio.length > 0 ? (
+                                    <div className="space-y-2 pt-2 border-t border-white/5">
+                                        <Label className="text-[9px] font-bold text-zinc-600 uppercase tracking-widest ml-1">Portfolio Links</Label>
+                                        <div className="space-y-2">
+                                            {selectedUserDetail.portfolio.map((port: any, idx: number) => (
+                                                <a key={idx} href={port.url || port} target="_blank" rel="noopener noreferrer" className="flex items-center gap-3 p-3 bg-white/[0.03] border border-white/10 rounded-lg text-sm text-blue-400 hover:text-blue-300 hover:bg-white/[0.05] transition-all truncate">
+                                                    <Globe className="h-3.5 w-3.5 flex-shrink-0 text-blue-500/70" />
+                                                    <span className="truncate">{port.name || port.url || port}</span>
+                                                </a>
+                                            ))}
+                                        </div>
+                                    </div>
+                                ) : selectedUserDetail.portfolio && typeof selectedUserDetail.portfolio === 'string' ? (
+                                    <div className="space-y-1.5 pt-2 border-t border-white/5">
+                                        <Label className="text-[9px] font-bold text-zinc-600 uppercase tracking-widest ml-1">Portfolio Link</Label>
+                                        <a href={selectedUserDetail.portfolio as string} target="_blank" rel="noopener noreferrer" className="flex items-center gap-3 p-3 bg-white/[0.03] border border-white/10 rounded-lg text-sm text-blue-400 hover:text-blue-300 hover:bg-white/[0.05] transition-all truncate">
+                                            <Globe className="h-3.5 w-3.5 flex-shrink-0 text-blue-500/70" />
+                                            <span className="truncate">{selectedUserDetail.portfolio}</span>
+                                        </a>
+                                    </div>
+                                ) : null}
                             </div>
                         </div>
 
@@ -1429,51 +1462,94 @@ export function AdminDashboard() {
                                                     <div className="text-[8px] font-bold text-zinc-600 uppercase tracking-widest mt-1">Rating</div>
                                                 </div>
                                             </div>
-                                            <div className="space-y-4 pt-4">
-                                                <Label className="text-[9px] font-bold text-zinc-600 uppercase tracking-widest ml-1 flex items-center gap-2">
-                                                    <FolderOpen className="h-3 w-3 text-primary" /> Associated Projects
-                                                </Label>
-                                                <div className="bg-white/[0.01] border border-white/10 rounded-2xl divide-y divide-white/5 overflow-hidden">
-                                                    {editorProjects.length === 0 ? (
-                                                        <div className="p-8 text-center text-zinc-600 text-[10px] font-bold uppercase tracking-widest">No projects found</div>
-                                                    ) : (
-                                                        editorProjects.map(p => {
-                                                            const pm = users.find(u => u.uid === p.assignedPMId);
-                                                            const isCompleted = p.status === 'completed' || p.status === 'approved';
-                                                            return (
-                                                                <div key={p.id} className="p-4 flex flex-col md:flex-row md:items-center justify-between gap-4">
-                                                                    <div>
-                                                                        <div className="text-sm font-bold text-white tracking-tight flex items-center gap-2">
-                                                                            {p.name}
-                                                                            <span className="text-[9px] bg-white/5 px-2 py-0.5 rounded text-zinc-400 border border-white/5">
-                                                                                PM: {pm ? pm.displayName : 'Unassigned'}
-                                                                            </span>
+                                            <div className="space-y-6 pt-4">
+                                                {/* Pending Dues Section */}
+                                                <div className="space-y-4">
+                                                    <Label className="text-[9px] font-bold text-red-500/80 uppercase tracking-widest ml-1 flex items-center gap-2">
+                                                        <AlertCircle className="h-3 w-3 text-red-500" /> Pending Dues History
+                                                    </Label>
+                                                    <div className="bg-red-500/[0.02] border border-red-500/10 rounded-2xl divide-y divide-red-500/10 overflow-hidden">
+                                                        {completedEditorProjects.filter(p => !p.editorPaid && (p.editorPrice || 0) > 0).length === 0 ? (
+                                                            <div className="p-8 text-center text-zinc-600 text-[10px] font-bold uppercase tracking-widest">No pending dues</div>
+                                                        ) : (
+                                                            completedEditorProjects.filter(p => !p.editorPaid && (p.editorPrice || 0) > 0).map(p => {
+                                                                const pm = users.find(u => u.uid === p.assignedPMId);
+                                                                const isCompleted = p.status === 'completed' || p.status === 'approved';
+                                                                return (
+                                                                    <div key={p.id} className="p-4 flex flex-col md:flex-row md:items-center justify-between gap-4 group hover:bg-red-500/[0.02] transition-colors">
+                                                                        <div>
+                                                                            <div className="text-sm font-bold text-white tracking-tight flex items-center gap-2">
+                                                                                {p.name}
+                                                                                <span className="text-[9px] bg-white/5 px-2 py-0.5 rounded text-zinc-400 border border-white/5">
+                                                                                    PM: {pm ? pm.displayName : 'Unassigned'}
+                                                                                </span>
+                                                                            </div>
+                                                                            <div className="text-[10px] text-zinc-500 font-bold uppercase tracking-widest mt-1 flex items-center gap-2">
+                                                                                <span>{p.status.replace('_', ' ')}</span>
+                                                                                <span>&bull;</span>
+                                                                                <span>Due: ₹{(p.editorPrice || 0).toLocaleString()}</span>
+                                                                            </div>
                                                                         </div>
-                                                                        <div className="text-[10px] text-zinc-500 font-bold uppercase tracking-widest mt-1">{p.status.replace('_', ' ')}</div>
-                                                                    </div>
-                                                                    <div className="flex items-center gap-4 align-middle">
-                                                                        <div className="text-right flex flex-col items-end">
-                                                                            <div className="text-xs font-black text-white">₹{(p.editorPrice || 0).toLocaleString()}</div>
-                                                                            <div className="text-[8px] font-bold text-zinc-500 uppercase tracking-widest leading-none mt-1">Revenue Assigned</div>
+                                                                        <div className="flex items-center gap-4 align-middle">
+                                                                            <div className="text-right flex flex-col items-end">
+                                                                                <div className="text-xs font-black text-red-400">₹{(p.editorPrice || 0).toLocaleString()}</div>
+                                                                                <div className="text-[8px] font-bold text-red-500/50 uppercase tracking-widest leading-none mt-1">Unpaid Balance</div>
+                                                                            </div>
+                                                                            {isCompleted && (
+                                                                                <button 
+                                                                                    onClick={() => handleReimburseEditor(p.id)}
+                                                                                    className="h-8 text-[9px] font-bold bg-primary hover:bg-white hover:text-black text-primary-foreground px-4 rounded transition-all uppercase tracking-widest whitespace-nowrap"
+                                                                                >
+                                                                                    Reimburse
+                                                                                </button>
+                                                                            )}
                                                                         </div>
-                                                                        {isCompleted && !p.editorPaid && (
-                                                                            <button 
-                                                                                onClick={() => handleReimburseEditor(p.id)}
-                                                                                className="h-8 text-[9px] font-bold bg-primary hover:bg-white hover:text-black text-primary-foreground px-4 rounded transition-all uppercase tracking-widest whitespace-nowrap"
-                                                                            >
-                                                                                Reimburse
-                                                                            </button>
-                                                                        )}
-                                                                        {isCompleted && p.editorPaid && (
-                                                                            <span className="h-8 flex items-center text-[9px] font-bold text-emerald-400 border border-emerald-500/20 bg-emerald-500/10 px-4 rounded uppercase tracking-widest whitespace-nowrap">
-                                                                                Reimbursed
-                                                                            </span>
-                                                                        )}
                                                                     </div>
-                                                                </div>
-                                                            );
-                                                        })
-                                                    )}
+                                                                );
+                                                            })
+                                                        )}
+                                                    </div>
+                                                </div>
+
+                                                {/* Associated Projects Section */}
+                                                <div className="space-y-4 pt-4 border-t border-white/5">
+                                                    <Label className="text-[9px] font-bold text-zinc-600 uppercase tracking-widest ml-1 flex items-center gap-2">
+                                                        <FolderOpen className="h-3 w-3 text-primary" /> Associated Projects
+                                                    </Label>
+                                                    <div className="bg-white/[0.01] border border-white/10 rounded-2xl divide-y divide-white/5 overflow-hidden">
+                                                        {editorProjects.length === 0 ? (
+                                                            <div className="p-8 text-center text-zinc-600 text-[10px] font-bold uppercase tracking-widest">No projects found</div>
+                                                        ) : (
+                                                            editorProjects.map(p => {
+                                                                const pm = users.find(u => u.uid === p.assignedPMId);
+                                                                const isCompleted = p.status === 'completed' || p.status === 'approved';
+                                                                return (
+                                                                    <div key={p.id} className="p-4 flex flex-col md:flex-row md:items-center justify-between gap-4">
+                                                                        <div>
+                                                                            <div className="text-sm font-bold text-white tracking-tight flex items-center gap-2">
+                                                                                {p.name}
+                                                                                <span className="text-[9px] bg-white/5 px-2 py-0.5 rounded text-zinc-400 border border-white/5">
+                                                                                    PM: {pm ? pm.displayName : 'Unassigned'}
+                                                                                </span>
+                                                                            </div>
+                                                                            <div className="text-[10px] text-zinc-500 font-bold uppercase tracking-widest mt-1">{p.status.replace('_', ' ')}</div>
+                                                                        </div>
+                                                                        <div className="flex items-center gap-4 align-middle">
+                                                                            <div className="text-right flex flex-col items-end">
+                                                                                <div className="text-xs font-black text-white">₹{(p.editorPrice || 0).toLocaleString()}</div>
+                                                                                <div className="text-[8px] font-bold text-zinc-500 uppercase tracking-widest leading-none mt-1">Revenue Assigned</div>
+                                                                            </div>
+                                                                            {isCompleted && p.editorPaid && (
+                                                                                <span className="h-8 flex items-center text-[9px] font-bold text-emerald-400 border border-emerald-500/20 bg-emerald-500/10 px-4 rounded uppercase tracking-widest whitespace-nowrap">
+                                                                                    Reimbursed
+                                                                                </span>
+                                                                            )}
+                                                                        </div>
+                                                                    </div>
+                                                                );
+                                                            })
+                                                        )}
+                                                    </div>
                                                 </div>
                                             </div>
                                         </>
