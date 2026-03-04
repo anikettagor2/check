@@ -59,14 +59,14 @@ export default function LoginPage() {
 
   if (loading) {
     return (
-      <div className="flex h-screen w-full items-center justify-center bg-black text-white">
+      <div className="flex h-screen w-full items-center justify-center bg-background text-foreground">
         <Loader2 className="h-8 w-8 animate-spin text-primary" />
       </div>
     );
   }
 
   return (
-    <main className="relative flex min-h-screen flex-col items-center justify-center overflow-hidden bg-black text-white selection:bg-primary/30">
+    <main className="relative flex min-h-screen flex-col items-center justify-center overflow-hidden bg-background text-foreground selection:bg-primary/30">
         <div className="absolute inset-0 z-0 opacity-40">
             <SnowBackground />
         </div>
@@ -94,14 +94,14 @@ export default function LoginPage() {
                 />
               ) : (
                 <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-xl bg-primary flex items-center justify-center font-bold text-black italic text-xl shadow-[0_0_20px_rgba(var(--primary),0.3)]">E</div>
+                    <div className="w-10 h-10 rounded-xl bg-primary flex items-center justify-center font-bold text-primary-foreground italic text-xl shadow-[0_0_20px_rgba(var(--primary),0.3)]">E</div>
                     <span className="text-3xl font-heading font-black tracking-tighter">EDITO_HUB</span>
                 </div>
               )}
             </div>
           </Link>
           
-          <h1 className="text-3xl font-bold tracking-tight text-white md:text-4xl">
+          <h1 className="text-3xl font-bold tracking-tight text-foreground md:text-4xl">
             Welcome Back
           </h1>
           <p className="mt-2 text-muted-foreground">
@@ -113,29 +113,29 @@ export default function LoginPage() {
             initial={{ opacity: 0, scale: 0.95 }}
             animate={{ opacity: 1, scale: 1 }}
             transition={{ delay: 0.1, duration: 0.5 }}
-            className="rounded-2xl border border-white/10 bg-zinc-900/50 p-6 backdrop-blur-xl shadow-2xl space-y-6"
+            className="rounded-2xl border border-border bg-zinc-900/50 p-6 backdrop-blur-xl shadow-2xl space-y-6"
         >
           {/* Email Login Form */}
           <form onSubmit={handleEmailLogin} className="space-y-4">
               <div className="space-y-2">
-                  <Label className="text-zinc-300">Phone Number or Email</Label>
+                  <Label className="text-foreground/80">Phone Number or Email</Label>
                   <Input 
                       type="text" 
                       placeholder="Phone or you@example.com"
-                      className="bg-black/40 border-white/10 text-white"
+                      className="bg-black/5 dark:bg-black/40 border-border text-foreground"
                       value={identifier}
                       onChange={(e) => setIdentifier(e.target.value)}
                   />
               </div>
               <div className="space-y-2">
                   <div className="flex justify-between items-center">
-                      <Label className="text-zinc-300">Password</Label>
+                      <Label className="text-foreground/80">Password</Label>
                       <Link href="#" className="text-xs text-primary hover:text-primary/80">Forgot Password?</Link>
                   </div>
                   <Input 
                       type="password" 
                       placeholder="••••••••"
-                      className="bg-black/40 border-white/10 text-white"
+                      className="bg-black/5 dark:bg-black/40 border-border text-foreground"
                       value={password}
                       onChange={(e) => setPassword(e.target.value)}
                   />
@@ -152,7 +152,7 @@ export default function LoginPage() {
 
           <div className="relative">
               <div className="absolute inset-0 flex items-center">
-                  <span className="w-full border-t border-white/10" />
+                  <span className="w-full border-t border-border" />
               </div>
               <div className="relative flex justify-center text-xs uppercase">
                   <span className="bg-zinc-900 px-2 text-muted-foreground">Or continue with Google</span>
@@ -164,7 +164,7 @@ export default function LoginPage() {
                 onClick={handleGoogleLogin}
                 variant="outline"
                 disabled={isLoggingIn}
-                className="group relative flex w-full items-center justify-center gap-3 overflow-hidden rounded-xl border-white/10 bg-white/5 px-4 py-6 text-white transition-all hover:bg-white/10"
+                className="group relative flex w-full items-center justify-center gap-3 overflow-hidden rounded-xl border-border bg-card px-4 py-6 text-foreground transition-all hover:bg-card"
             >
                 {isLoggingIn ? (
                     <Loader2 className="mr-2 h-5 w-5 animate-spin" />
@@ -202,14 +202,14 @@ export default function LoginPage() {
         
         <p className="px-8 text-center text-sm text-muted-foreground">
             Don&apos;t have an account?{" "}
-            <Link href="/signup" className="underline underline-offset-4 hover:text-primary font-medium text-white">
+            <Link href="/signup" className="underline underline-offset-4 hover:text-primary font-medium text-foreground">
               Create Account
             </Link>
         </p>
       </div>
       
       <div className="pb-8 text-center">
-          <p className="text-xs text-zinc-500">
+          <p className="text-xs text-muted-foreground">
              &copy; {new Date().getFullYear()} EditoHub. All rights reserved.
           </p>
       </div>

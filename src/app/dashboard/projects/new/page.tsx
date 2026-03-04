@@ -207,7 +207,7 @@ export default function NewProjectPage() {
         <div className="max-w-4xl mx-auto min-h-[calc(100vh-8rem)] flex flex-col gap-8 pb-10">
             {/* Header / Stepper Layer */}
             <div className="flex flex-col items-center justify-center pt-8 pb-4">
-                 <h1 className="text-4xl font-heading font-black tracking-tight text-white mb-8">
+                 <h1 className="text-4xl font-heading font-black tracking-tight text-foreground mb-8">
                      Create New <span className="text-primary">Project</span>
                  </h1>
 
@@ -225,13 +225,13 @@ export default function NewProjectPage() {
                                          ? "bg-primary/20 border-primary text-primary shadow-[0_0_15px_rgba(var(--primary),0.3)]" 
                                          : currentStep > step
                                             ? "bg-emerald-500/20 border-emerald-500 text-emerald-500"
-                                            : "bg-white/5 border-white/10 text-white/50"
+                                            : "bg-muted border-border text-foreground/50"
                                  )}>
                                      {currentStep > step ? <CheckCircle2 className="h-5 w-5" /> : step}
                                  </div>
                                  <span className={cn(
                                      "text-[10px] font-bold uppercase tracking-widest text-center leading-none",
-                                     currentStep >= step ? "text-primary" : "text-zinc-500"
+                                     currentStep >= step ? "text-primary" : "text-muted-foreground"
                                  )}>
                                      {step === 1 ? 'Info' : step === 2 ? 'Format' : step === 3 ? 'Upload' : 'Payment'}
                                  </span>
@@ -239,7 +239,7 @@ export default function NewProjectPage() {
                              {step < 4 && (
                                  <div className={cn(
                                      "flex-1 h-0.5 mx-2 md:mx-4 rounded-full transition-all",
-                                     currentStep > step ? "bg-emerald-500" : "bg-white/10"
+                                     currentStep > step ? "bg-emerald-500" : "bg-muted"
                                  )} />
                              )}
                          </div>
@@ -248,7 +248,7 @@ export default function NewProjectPage() {
             </div>
 
             {/* Main Content Area */}
-            <div className="flex-1 w-full bg-[#161920]/60 backdrop-blur-xl border border-white/10 rounded-3xl p-6 md:p-10 shadow-2xl relative overflow-hidden">
+            <div className="flex-1 w-full bg-card/60 backdrop-blur-xl border border-border rounded-3xl p-6 md:p-10 shadow-2xl relative overflow-hidden">
                 {/* Step 1 */}
                 {currentStep === 1 && (
                     <motion.div
@@ -258,25 +258,25 @@ export default function NewProjectPage() {
                         className="space-y-8"
                     >
                         <div className="space-y-1">
-                            <h2 className="text-2xl font-bold text-white">Project Information</h2>
-                            <p className="text-sm text-zinc-400">Provide the basic details for your new project.</p>
+                            <h2 className="text-2xl font-bold text-foreground">Project Information</h2>
+                            <p className="text-sm text-muted-foreground">Provide the basic details for your new project.</p>
                         </div>
                         
                         <div className="space-y-6">
                             <div className="space-y-2">
-                                <Label className="text-xs font-bold uppercase tracking-widest text-zinc-400 ml-1">Project Name *</Label>
+                                <Label className="text-xs font-bold uppercase tracking-widest text-muted-foreground ml-1">Project Name *</Label>
                                 <Input 
                                     placeholder="e.g. Summer Campaign Video" 
                                     value={name}
                                     onChange={e => setName(e.target.value)}
-                                    className="h-12 bg-white/[0.03] border-white/10 focus:border-primary/50 rounded-xl font-medium text-white placeholder:text-zinc-700"
+                                    className="h-12 bg-muted/50 border-border focus:border-primary/50 rounded-xl font-medium text-foreground placeholder:text-muted-foreground"
                                 />
                             </div>
 
 
 
                             <div className="space-y-3">
-                                <Label className="text-xs font-bold uppercase tracking-widest text-zinc-400 ml-1">Delivery Time (Select One)</Label>
+                                <Label className="text-xs font-bold uppercase tracking-widest text-muted-foreground ml-1">Delivery Time (Select One)</Label>
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                     <button 
                                         type="button"
@@ -285,15 +285,15 @@ export default function NewProjectPage() {
                                             "flex items-center gap-4 p-4 rounded-xl border transition-all text-left",
                                             urgency === '24hrs' 
                                                 ? "bg-primary/10 border-primary shadow-[0_0_15px_rgba(var(--primary),0.1)]" 
-                                                : "bg-white/[0.02] border-white/10 hover:border-white/20"
+                                                : "bg-muted/50 border-border hover:border-border"
                                         )}
                                     >
-                                        <div className={cn("p-2 rounded-lg", urgency === '24hrs' ? "bg-primary/20 text-primary" : "bg-white/5 text-zinc-400")}>
+                                        <div className={cn("p-2 rounded-lg", urgency === '24hrs' ? "bg-primary/20 text-primary" : "bg-muted text-muted-foreground")}>
                                             <Clock className="w-5 h-5" />
                                         </div>
                                         <div>
-                                            <p className={cn("font-bold", urgency === '24hrs' ? "text-primary" : "text-white")}>Standard Delivery</p>
-                                            <p className="text-xs text-zinc-500 font-medium">Get video in 24hrs</p>
+                                            <p className={cn("font-bold", urgency === '24hrs' ? "text-primary" : "text-foreground")}>Standard Delivery</p>
+                                            <p className="text-xs text-muted-foreground font-medium">Get video in 24hrs</p>
                                         </div>
                                     </button>
 
@@ -304,18 +304,18 @@ export default function NewProjectPage() {
                                             "flex items-center gap-4 p-4 rounded-xl border transition-all text-left",
                                             urgency === 'urgent' 
                                                 ? "bg-amber-500/10 border-amber-500 shadow-[0_0_15px_rgba(245,158,11,0.1)]" 
-                                                : "bg-white/[0.02] border-white/10 hover:border-white/20"
+                                                : "bg-muted/50 border-border hover:border-border"
                                         )}
                                     >
-                                        <div className={cn("p-2 rounded-lg", urgency === 'urgent' ? "bg-amber-500/20 text-amber-500" : "bg-white/5 text-zinc-400")}>
+                                        <div className={cn("p-2 rounded-lg", urgency === 'urgent' ? "bg-amber-500/20 text-amber-500" : "bg-muted text-muted-foreground")}>
                                             <Zap className="w-5 h-5" />
                                         </div>
                                         <div className="flex-1">
                                             <div className="flex items-center gap-2">
-                                                <p className={cn("font-bold", urgency === 'urgent' ? "text-amber-500" : "text-white")}>Urgent Delivery</p>
+                                                <p className={cn("font-bold", urgency === 'urgent' ? "text-amber-500" : "text-foreground")}>Urgent Delivery</p>
                                                 <span className="text-[9px] font-black bg-amber-500/20 text-amber-500 px-1.5 py-0.5 rounded uppercase">+Extra</span>
                                             </div>
-                                            <p className="text-xs text-zinc-500 font-medium">Prioritized queue delivery</p>
+                                            <p className="text-xs text-muted-foreground font-medium">Prioritized queue delivery</p>
                                         </div>
                                     </button>
                                 </div>
@@ -323,15 +323,15 @@ export default function NewProjectPage() {
 
                             <div className="space-y-2">
                                 <div className="flex justify-between items-end">
-                                    <Label className="text-xs font-bold uppercase tracking-widest text-zinc-400 ml-1">Project Description *</Label>
-                                    <span className={cn("text-xs font-bold", wordCount > 100 ? "text-red-500" : "text-zinc-500")}>{wordCount} / 100 words</span>
+                                    <Label className="text-xs font-bold uppercase tracking-widest text-muted-foreground ml-1">Project Description *</Label>
+                                    <span className={cn("text-xs font-bold", wordCount > 100 ? "text-red-500" : "text-muted-foreground")}>{wordCount} / 100 words</span>
                                 </div>
                                 <Textarea 
                                     placeholder="Provide detailed instructions for the editor..."
                                     value={description}
                                     onChange={e => setDescription(e.target.value)}
                                     className={cn(
-                                        "min-h-[120px] resize-none bg-white/[0.03] border-white/10 rounded-xl font-medium text-white placeholder:text-zinc-700",
+                                        "min-h-[120px] resize-none bg-muted/50 border-border rounded-xl font-medium text-foreground placeholder:text-muted-foreground",
                                         wordCount > 100 ? "border-red-500 focus:border-red-500" : "focus:border-primary/50"
                                     )}
                                 />
@@ -356,13 +356,13 @@ export default function NewProjectPage() {
                         className="space-y-8"
                     >
                          <div className="space-y-1">
-                            <h2 className="text-2xl font-bold text-white">Video Format</h2>
-                            <p className="text-sm text-zinc-400">Select the aspect ratio and format for your video.</p>
+                            <h2 className="text-2xl font-bold text-foreground">Video Format</h2>
+                            <p className="text-sm text-muted-foreground">Select the aspect ratio and format for your video.</p>
                         </div>
 
                         <div className="space-y-8">
                             <div className="space-y-3">
-                                <Label className="text-xs font-bold uppercase tracking-widest text-zinc-400 ml-1">Video Type Format</Label>
+                                <Label className="text-xs font-bold uppercase tracking-widest text-muted-foreground ml-1">Video Type Format</Label>
                                 <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3">
                                     {VIDEO_TYPES.map(vt => {
                                         const price = user?.customRates?.[vt.key] || BASE_PROJECT_PRICE;
@@ -382,14 +382,14 @@ export default function NewProjectPage() {
                                                     "flex flex-col relative items-center justify-start p-4 rounded-xl border transition-all text-left overflow-hidden h-full group",
                                                     isSelected
                                                         ? "bg-primary/10 border-primary shadow-[0_0_15px_rgba(var(--primary),0.1)]" 
-                                                        : "bg-white/[0.02] border-white/10 hover:border-white/20 hover:bg-white/[0.04]"
+                                                        : "bg-muted/50 border-border hover:border-border hover:bg-muted/50"
                                                 )}
                                             >
-                                                <div className="w-full h-24 mb-4 flex items-center justify-center bg-black/20 rounded-lg border border-white/5 transition-colors">
+                                                <div className="w-full h-24 mb-4 flex items-center justify-center bg-black/5 dark:bg-black/40 dark:bg-black/5 dark:bg-black/40 rounded-lg border border-border transition-colors">
                                                     <div 
                                                         className={cn(
                                                             "border-2 transition-all duration-300 rounded-sm flex items-center justify-center shadow-lg",
-                                                            isSelected ? "border-primary bg-primary/20 text-primary scale-110" : "border-zinc-600 bg-zinc-800 text-zinc-400 group-hover:border-zinc-400 group-hover:scale-105"
+                                                            isSelected ? "border-primary bg-primary/20 text-primary scale-110" : "border-zinc-600 bg-muted-foreground text-muted-foreground group-hover:border-zinc-400 group-hover:scale-105"
                                                         )}
                                                         style={{
                                                             width: is9x16 ? '36px' : is16x9 ? '72px' : '48px',
@@ -402,10 +402,10 @@ export default function NewProjectPage() {
                                                 
                                                 <div className="flex flex-col w-full h-full">
                                                     <div className="flex items-start justify-between mb-1 gap-1 w-full flex-wrap xl:flex-nowrap">
-                                                        <span className={cn("text-xs font-bold leading-tight", isSelected ? "text-primary" : "text-white")}>{vt.label}</span>
+                                                        <span className={cn("text-xs font-bold leading-tight", isSelected ? "text-primary" : "text-foreground")}>{vt.label}</span>
                                                         <span className={cn("text-[11px] font-mono font-bold whitespace-nowrap", hasCustomRate ? "text-amber-500" : "text-emerald-500")}>₹{price}</span>
                                                     </div>
-                                                    <span className="text-[9px] text-zinc-500 leading-tight line-clamp-3 mb-2">{vt.desc}</span>
+                                                    <span className="text-[9px] text-muted-foreground leading-tight line-clamp-3 mb-2">{vt.desc}</span>
                                                     
                                                     <div className="mt-auto">
                                                         {hasCustomRate && (
@@ -421,7 +421,7 @@ export default function NewProjectPage() {
                         </div>
 
                         <div className="flex items-center justify-between pt-4">
-                            <Button type="button" onClick={handlePrevStep} variant="ghost" size="lg" className="rounded-xl text-zinc-400 hover:text-white">
+                            <Button type="button" onClick={handlePrevStep} variant="ghost" size="lg" className="rounded-xl text-muted-foreground hover:text-foreground">
                                 <ChevronLeft className="mr-2 w-4 h-4" /> Go Back
                             </Button>
                             <Button onClick={handleNextStep} size="lg" className="rounded-xl px-10 shadow-xl font-bold tracking-wide">
@@ -440,18 +440,18 @@ export default function NewProjectPage() {
                         className="space-y-8"
                     >
                          <div className="space-y-1">
-                            <h2 className="text-2xl font-bold text-white">Upload Assets & Scripts</h2>
-                            <p className="text-sm text-zinc-400">Provide all necessary files for the editor to begin working.</p>
+                            <h2 className="text-2xl font-bold text-foreground">Upload Assets & Scripts</h2>
+                            <p className="text-sm text-muted-foreground">Provide all necessary files for the editor to begin working.</p>
                         </div>
 
                         <div className="space-y-8">
                             {/* Raw Video/Images */}
                             <div className="space-y-3">
-                                <Label className="text-xs font-bold uppercase tracking-widest text-zinc-400 ml-1 flex items-center gap-2">
+                                <Label className="text-xs font-bold uppercase tracking-widest text-muted-foreground ml-1 flex items-center gap-2">
                                     <FileVideo className="w-4 h-4 text-primary" /> 
                                     Upload Raw Video / Images
                                 </Label>
-                                <div className="border-2 border-dashed border-white/10 rounded-2xl p-8 hover:bg-white/[0.02] hover:border-primary/50 transition-all text-center relative overflow-hidden group">
+                                <div className="border-2 border-dashed border-border rounded-2xl p-8 hover:bg-muted/50 hover:border-primary/50 transition-all text-center relative overflow-hidden group">
                                     <input 
                                         type="file" 
                                         multiple
@@ -464,8 +464,8 @@ export default function NewProjectPage() {
                                             <UploadCloud className="w-6 h-6" />
                                         </div>
                                         <div className="space-y-1">
-                                            <p className="text-sm font-bold text-white">Click or drag files to upload</p>
-                                            <p className="text-xs text-zinc-500 font-medium tracking-tight">Support for mp4, mov, jpg, png</p>
+                                            <p className="text-sm font-bold text-foreground">Click or drag files to upload</p>
+                                            <p className="text-xs text-muted-foreground font-medium tracking-tight">Support for mp4, mov, jpg, png</p>
                                         </div>
                                     </div>
                                 </div>
@@ -473,10 +473,10 @@ export default function NewProjectPage() {
                                 {rawFiles.length > 0 && (
                                     <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mt-4">
                                         {rawFiles.map((file, i) => (
-                                            <div key={i} className="flex items-center justify-between bg-white/[0.03] border border-white/5 rounded-lg p-2 group pr-1">
+                                            <div key={i} className="flex items-center justify-between bg-muted/50 border border-border rounded-lg p-2 group pr-1">
                                                 <div className="flex items-center gap-2 min-w-0 pr-2">
                                                     {file.type.includes('image') ? <ImageIcon className="w-4 h-4 text-amber-500 shrink-0" /> : <FileVideo className="w-4 h-4 text-blue-500 shrink-0" />}
-                                                    <span className="text-[10px] text-zinc-300 truncate font-semibold">{file.name}</span>
+                                                    <span className="text-[10px] text-muted-foreground truncate font-semibold">{file.name}</span>
                                                 </div>
                                                 <button type="button" onClick={() => removeFile(i, 'raw')} className="opacity-0 group-hover:opacity-100 p-1 hover:bg-red-500/20 text-red-500 rounded transition-all shrink-0">
                                                     <X className="w-3.5 h-3.5" />
@@ -488,14 +488,14 @@ export default function NewProjectPage() {
                             </div>
 
                             {/* Scripts */}
-                            <div className="space-y-3 pt-4 border-t border-white/5">
-                                <Label className="text-xs font-bold uppercase tracking-widest text-zinc-400 ml-1 flex items-center gap-2">
+                            <div className="space-y-3 pt-4 border-t border-border">
+                                <Label className="text-xs font-bold uppercase tracking-widest text-muted-foreground ml-1 flex items-center gap-2">
                                     <FileText className="w-4 h-4 text-primary" /> 
                                     Script / Direction
                                 </Label>
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                                     <div className="space-y-4">
-                                        <div className="border border-dashed border-white/20 rounded-xl p-6 hover:bg-white/[0.02] hover:border-primary/50 transition-all text-center relative overflow-hidden group h-full flex flex-col items-center justify-center">
+                                        <div className="border border-dashed border-border rounded-xl p-6 hover:bg-muted/50 hover:border-primary/50 transition-all text-center relative overflow-hidden group h-full flex flex-col items-center justify-center">
                                             <input 
                                                 type="file" 
                                                 multiple
@@ -503,9 +503,9 @@ export default function NewProjectPage() {
                                                 onChange={(e) => handleFileUpload(e, 'script')}
                                                 className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
                                             />
-                                            <FileText className="w-8 h-8 text-zinc-600 group-hover:text-primary transition-colors mb-2" />
-                                            <p className="text-xs font-bold text-white">Upload Script File</p>
-                                            <p className="text-[10px] text-zinc-500">PDF, DOC, TXT</p>
+                                            <FileText className="w-8 h-8 text-muted-foreground group-hover:text-primary transition-colors mb-2" />
+                                            <p className="text-xs font-bold text-foreground">Upload Script File</p>
+                                            <p className="text-[10px] text-muted-foreground">PDF, DOC, TXT</p>
                                         </div>
                                     </div>
                                     <div className="space-y-2">
@@ -513,7 +513,7 @@ export default function NewProjectPage() {
                                             placeholder="Or directly paste your script here..."
                                             value={scriptText}
                                             onChange={e => setScriptText(e.target.value)}
-                                            className="h-full min-h-[140px] resize-none bg-white/[0.03] border-white/10 rounded-xl font-medium text-white placeholder:text-zinc-700 text-xs leading-relaxed"
+                                            className="h-full min-h-[140px] resize-none bg-muted/50 border-border rounded-xl font-medium text-foreground placeholder:text-muted-foreground text-xs leading-relaxed"
                                         />
                                     </div>
                                 </div>
@@ -521,9 +521,9 @@ export default function NewProjectPage() {
                                 {scriptFiles.length > 0 && (
                                     <div className="flex flex-wrap gap-2 mt-4">
                                         {scriptFiles.map((file, i) => (
-                                            <div key={i} className="flex items-center gap-2 bg-white/[0.03] border border-white/5 rounded-md px-2 py-1.5 group">
+                                            <div key={i} className="flex items-center gap-2 bg-muted/50 border border-border rounded-md px-2 py-1.5 group">
                                                 <FileText className="w-3.5 h-3.5 text-pink-500 shrink-0" />
-                                                <span className="text-[10px] text-zinc-300 truncate max-w-[150px] font-semibold">{file.name}</span>
+                                                <span className="text-[10px] text-muted-foreground truncate max-w-[150px] font-semibold">{file.name}</span>
                                                 <button type="button" onClick={() => removeFile(i, 'script')} className="ml-1 opacity-0 group-hover:opacity-100 hover:text-red-500 transition-all">
                                                     <X className="w-3 h-3" />
                                                 </button>
@@ -534,8 +534,8 @@ export default function NewProjectPage() {
                             </div>
 
                             {/* Google Drive Link */}
-                            <div className="space-y-2 pt-4 border-t border-white/5">
-                                <Label className="text-xs font-bold uppercase tracking-widest text-zinc-400 ml-1 flex items-center gap-2">
+                            <div className="space-y-2 pt-4 border-t border-border">
+                                <Label className="text-xs font-bold uppercase tracking-widest text-muted-foreground ml-1 flex items-center gap-2">
                                     <LinkIcon className="w-4 h-4 text-emerald-500" /> 
                                     Google Drive Link (Optional)
                                 </Label>
@@ -543,13 +543,13 @@ export default function NewProjectPage() {
                                     placeholder="Paste URL here..." 
                                     value={footageLink}
                                     onChange={e => setFootageLink(e.target.value)}
-                                    className="h-12 bg-white/[0.03] border-white/10 focus:border-emerald-500/50 rounded-xl font-medium text-white placeholder:text-zinc-700"
+                                    className="h-12 bg-muted/50 border-border focus:border-emerald-500/50 rounded-xl font-medium text-foreground placeholder:text-muted-foreground"
                                 />
                             </div>
                         </div>
 
                         <div className="flex items-center justify-between pt-4">
-                            <Button type="button" onClick={handlePrevStep} variant="ghost" size="lg" className="rounded-xl text-zinc-400 hover:text-white">
+                            <Button type="button" onClick={handlePrevStep} variant="ghost" size="lg" className="rounded-xl text-muted-foreground hover:text-foreground">
                                 <ChevronLeft className="mr-2 w-4 h-4" /> Go Back
                             </Button>
                             <Button onClick={handleNextStep} size="lg" className="rounded-xl px-10 shadow-xl font-bold tracking-wide">
@@ -568,21 +568,21 @@ export default function NewProjectPage() {
                         className="space-y-8"
                     >
                          <div className="space-y-1">
-                            <h2 className="text-2xl font-bold text-white">Review & Payment</h2>
-                            <p className="text-sm text-zinc-400">Review your final cost and select a payment method.</p>
+                            <h2 className="text-2xl font-bold text-foreground">Review & Payment</h2>
+                            <p className="text-sm text-muted-foreground">Review your final cost and select a payment method.</p>
                         </div>
 
-                        <div className="bg-[#0b0c0f] border border-white/5 rounded-2xl p-6 md:p-8 space-y-6">
+                        <div className="bg-[#0b0c0f] border border-border rounded-2xl p-6 md:p-8 space-y-6">
                             <div className="space-y-4">
-                                <div className="flex justify-between items-center pb-4 border-b border-white/5">
-                                    <span className="text-sm text-zinc-400 font-bold uppercase tracking-widest">Base Project Cost</span>
-                                    <div className="flex items-center font-bold text-white">
-                                        <IndianRupee className="w-4 h-4 mr-1 text-zinc-500" />
+                                <div className="flex justify-between items-center pb-4 border-b border-border">
+                                    <span className="text-sm text-muted-foreground font-bold uppercase tracking-widest">Base Project Cost</span>
+                                    <div className="flex items-center font-bold text-foreground">
+                                        <IndianRupee className="w-4 h-4 mr-1 text-muted-foreground" />
                                         {basePrice.toLocaleString()}
                                     </div>
                                 </div>
                                 {urgency === 'urgent' && (
-                                    <div className="flex justify-between items-center pb-4 border-b border-white/5">
+                                    <div className="flex justify-between items-center pb-4 border-b border-border">
                                         <span className="text-sm text-amber-500 font-bold uppercase tracking-widest flex items-center gap-2">
                                             <Zap className="w-4 h-4" /> Urgent Delivery
                                         </span>
@@ -593,7 +593,7 @@ export default function NewProjectPage() {
                                     </div>
                                 )}
                                 <div className="flex justify-between items-center pt-2">
-                                    <span className="text-lg text-white font-black">Total Cost</span>
+                                    <span className="text-lg text-foreground font-black">Total Cost</span>
                                     <div className="flex items-center text-3xl font-black text-primary">
                                         <IndianRupee className="w-6 h-6 mr-1" />
                                         {finalCost.toLocaleString()}
@@ -604,15 +604,15 @@ export default function NewProjectPage() {
 
                         {/* Progress display if submitting */}
                         {isSubmitting && Object.keys(uploadProgress).length > 0 && (
-                            <div className="space-y-3 bg-white/[0.02] border border-white/10 rounded-xl p-4">
-                                <p className="text-xs font-bold text-zinc-400 uppercase tracking-widest">Uploading Assets...</p>
+                            <div className="space-y-3 bg-muted/50 border border-border rounded-xl p-4">
+                                <p className="text-xs font-bold text-muted-foreground uppercase tracking-widest">Uploading Assets...</p>
                                 {Object.entries(uploadProgress).map(([fileName, progress]) => (
                                     <div key={fileName} className="space-y-1.5">
                                         <div className="flex justify-between text-[10px] font-bold">
-                                            <span className="text-white truncate max-w-[200px]">{fileName}</span>
+                                            <span className="text-foreground truncate max-w-[200px]">{fileName}</span>
                                             <span className="text-primary">{Math.round(progress)}%</span>
                                         </div>
-                                        <div className="h-1 w-full bg-white/5 rounded-full overflow-hidden">
+                                        <div className="h-1 w-full bg-muted rounded-full overflow-hidden">
                                             <div className="h-full bg-primary transition-all duration-300" style={{ width: `${progress}%` }} />
                                         </div>
                                     </div>
@@ -643,7 +643,7 @@ export default function NewProjectPage() {
                                     Pay Later
                                 </Button>
                             ) : (
-                                <div className="h-14 rounded-xl border border-dashed border-white/10 flex items-center justify-center text-xs font-bold text-zinc-500 uppercase tracking-widest w-full">
+                                <div className="h-14 rounded-xl border border-dashed border-border flex items-center justify-center text-xs font-bold text-muted-foreground uppercase tracking-widest w-full">
                                     Pay Later Disabled
                                 </div>
                             )}
@@ -651,7 +651,7 @@ export default function NewProjectPage() {
 
                         {!isSubmitting && (
                             <div className="flex justify-start pt-2">
-                                <Button type="button" onClick={handlePrevStep} variant="ghost" size="sm" className="text-zinc-500 hover:text-white">
+                                <Button type="button" onClick={handlePrevStep} variant="ghost" size="sm" className="text-muted-foreground hover:text-foreground">
                                     <ChevronLeft className="mr-1 w-3 h-3" /> Back to Uploads
                                 </Button>
                             </div>

@@ -29,6 +29,9 @@ export interface User {
     totalRevenueGenerated?: number; // For SE/PM
     whatsappNumber?: string;
     managedByPM?: string; // UID of PM managing this editor (for groups)
+    location?: string;
+    skills?: string[]; // Specialization/Skills for editors
+    skillPrices?: Record<string, string>; // Price range per skill
     status?: 'active' | 'inactive';
     availabilityStatus?: 'online' | 'offline' | 'sleep'; // PM availability
     maxProjectLimit?: number; // Admin defined max active units limit for PM

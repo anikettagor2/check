@@ -30,14 +30,14 @@ export default function ProfilePage() {
 
     return (
         <div className="max-w-xl mx-auto py-12 px-6">
-            <h1 className="text-3xl font-bold text-white mb-2">Account Settings</h1>
+            <h1 className="text-3xl font-bold text-foreground mb-2">Account Settings</h1>
             <p className="text-muted-foreground mb-8">Manage your profile and preferences</p>
 
-            <div className="bg-zinc-900/50 border border-white/10 rounded-2xl p-8 space-y-8">
+            <div className="bg-zinc-900/50 border border-border rounded-2xl p-8 space-y-8">
                 
                 {/* Profile Header */}
                 <div className="flex items-center gap-6">
-                    <Avatar className="w-20 h-20 border-2 border-white/10">
+                    <Avatar className="w-20 h-20 border-2 border-border">
                         <AvatarImage src={user.photoURL || undefined} />
                         <AvatarFallback className="text-2xl bg-primary/20 text-primary">
                             {user.displayName?.[0] || 'U'}
@@ -45,9 +45,9 @@ export default function ProfilePage() {
                     </Avatar>
                     
                     <div>
-                        <h2 className="text-xl font-bold text-white">{user.displayName || "User"}</h2>
+                        <h2 className="text-xl font-bold text-foreground">{user.displayName || "User"}</h2>
                         <div className="flex items-center gap-2 mt-1">
-                            <p className="text-zinc-400 text-sm">Member since {new Date(user.createdAt).toLocaleDateString()}</p>
+                            <p className="text-muted-foreground text-sm">Member since {new Date(user.createdAt).toLocaleDateString()}</p>
                             {user.deletionRequested && (
                                 <span className="text-[10px] font-bold text-amber-500 uppercase tracking-widest bg-amber-500/10 px-2 py-0.5 rounded border border-amber-500/20 animate-pulse">
                                     Deletion Pending Approval
@@ -57,49 +57,49 @@ export default function ProfilePage() {
                     </div>
                 </div>
 
-                <div className="h-px bg-white/10" />
+                <div className="h-px bg-card" />
 
                 {/* Info Grid */}
                 <div className="space-y-4">
                     <div className="flex items-center gap-4 text-sm">
-                        <div className="w-8 h-8 rounded-lg bg-white/5 flex items-center justify-center flex-shrink-0">
-                            <Mail className="w-4 h-4 text-zinc-400" />
+                        <div className="w-8 h-8 rounded-lg bg-card flex items-center justify-center flex-shrink-0">
+                            <Mail className="w-4 h-4 text-muted-foreground" />
                         </div>
                         <div>
-                            <p className="text-zinc-500 text-xs uppercase tracking-wider font-bold mb-0.5">Email</p>
-                            <p className="text-zinc-200">{user.email}</p>
+                            <p className="text-muted-foreground text-xs uppercase tracking-wider font-bold mb-0.5">Email</p>
+                            <p className="text-foreground/90">{user.email}</p>
                         </div>
                     </div>
 
                     <div className="flex items-center gap-4 text-sm">
-                        <div className="w-8 h-8 rounded-lg bg-white/5 flex items-center justify-center flex-shrink-0">
-                            <Shield className="w-4 h-4 text-zinc-400" />
+                        <div className="w-8 h-8 rounded-lg bg-card flex items-center justify-center flex-shrink-0">
+                            <Shield className="w-4 h-4 text-muted-foreground" />
                         </div>
                         <div>
-                            <p className="text-zinc-500 text-xs uppercase tracking-wider font-bold mb-0.5">Role</p>
-                            <p className="text-zinc-200 capitalize">{user.role}</p>
+                            <p className="text-muted-foreground text-xs uppercase tracking-wider font-bold mb-0.5">Role</p>
+                            <p className="text-foreground/90 capitalize">{user.role}</p>
                         </div>
                     </div>
 
                     <div className="flex items-center gap-4 text-sm">
-                        <div className="w-8 h-8 rounded-lg bg-white/5 flex items-center justify-center flex-shrink-0">
-                            <User className="w-4 h-4 text-zinc-400" />
+                        <div className="w-8 h-8 rounded-lg bg-card flex items-center justify-center flex-shrink-0">
+                            <User className="w-4 h-4 text-muted-foreground" />
                         </div>
                         <div>
-                            <p className="text-zinc-500 text-xs uppercase tracking-wider font-bold mb-0.5">User ID</p>
-                            <p className="text-zinc-500 font-mono text-xs">{user.uid}</p>
+                            <p className="text-muted-foreground text-xs uppercase tracking-wider font-bold mb-0.5">User ID</p>
+                            <p className="text-muted-foreground font-mono text-xs">{user.uid}</p>
                         </div>
                     </div>
                 </div>
 
                 {user.role !== 'admin' && (
                     <>
-                        <div className="h-px bg-white/10" />
+                        <div className="h-px bg-card" />
 
                         {/* Danger Zone */}
                         <div className="space-y-4 pt-2">
                             <h3 className="text-red-400 text-sm font-semibold uppercase tracking-wider">Danger Zone</h3>
-                            <p className="text-xs text-zinc-500 leading-relaxed">
+                            <p className="text-xs text-muted-foreground leading-relaxed">
                                 {user.deletionRequested 
                                     ? "Your account deletion request is currently under review by the administration. You will be notified once the protocol is finalized."
                                     : "Deleting your account will remove your personal data and revoke access to all projects. This request requires administrative authorization."

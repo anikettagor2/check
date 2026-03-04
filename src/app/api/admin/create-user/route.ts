@@ -17,12 +17,22 @@ export async function POST(request: Request) {
             return NextResponse.json({ error: 'Invalid role' }, { status: 400 });
         }
 
+        let formattedPhone: string | undefined = undefined;
+        if (phoneNumber && phoneNumber.trim().length >= 10) {
+            // Strip any non-numeric characters for simple length check
+            const cleaned = phoneNumber.replace(/\D/g, '');
+            if (cleaned.length >= 10) {
+                // Ensure it starts with +91 if not specified
+                formattedPhone = phoneNumber.startsWith('+') ? phoneNumber : `+91${cleaned.slice(-10)}`;
+            }
+        }
+
         // 1. Create User in Firebase Auth
         const userRecord = await adminAuth.createUser({
             email,
             password,
             displayName,
-            phoneNumber: phoneNumber ? `+91${phoneNumber}` : undefined // Assuming Indian numbers as per request context
+            phoneNumber: formattedPhone
         });
 
         // 2. Create User Profile in Firestore

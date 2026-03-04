@@ -91,7 +91,7 @@ export default function SignupPage() {
 
   if (loading) {
     return (
-      <div className="flex h-screen w-full items-center justify-center bg-black text-white">
+      <div className="flex h-screen w-full items-center justify-center bg-background text-foreground">
         <Loader2 className="h-8 w-8 animate-spin text-primary" />
       </div>
     );
@@ -113,7 +113,7 @@ export default function SignupPage() {
   ];
 
   return (
-    <main className="relative flex min-h-screen flex-col items-center justify-center overflow-hidden bg-black text-white selection:bg-primary/30">
+    <main className="relative flex min-h-screen flex-col items-center justify-center overflow-hidden bg-background text-foreground selection:bg-primary/30">
         <div className="absolute inset-0 z-0 opacity-40">
             <SnowBackground />
         </div>
@@ -140,14 +140,14 @@ export default function SignupPage() {
                 />
               ) : (
                 <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-xl bg-primary flex items-center justify-center font-bold text-black italic text-xl shadow-[0_0_20px_rgba(var(--primary),0.3)]">E</div>
+                    <div className="w-10 h-10 rounded-xl bg-primary flex items-center justify-center font-bold text-primary-foreground italic text-xl shadow-[0_0_20px_rgba(var(--primary),0.3)]">E</div>
                     <span className="text-3xl font-heading font-black tracking-tighter">EDITO_HUB</span>
                 </div>
               )}
             </div>
           </Link>
           
-          <h1 className="text-3xl font-bold tracking-tight text-white md:text-4xl">
+          <h1 className="text-3xl font-bold tracking-tight text-foreground md:text-4xl">
             Create Account
           </h1>
           <p className="mt-2 text-muted-foreground">
@@ -159,11 +159,11 @@ export default function SignupPage() {
             initial={{ opacity: 0, scale: 0.95 }}
             animate={{ opacity: 1, scale: 1 }}
             transition={{ delay: 0.1, duration: 0.5 }}
-            className="rounded-2xl border border-white/10 bg-zinc-900/50 p-6 backdrop-blur-xl shadow-2xl space-y-6"
+            className="rounded-2xl border border-border bg-zinc-900/50 p-6 backdrop-blur-xl shadow-2xl space-y-6"
         >
           {/* Role Selection */}
           <div className="space-y-3">
-              <Label className="text-zinc-300">I am a...</Label>
+              <Label className="text-foreground/80">I am a...</Label>
               <div className="grid grid-cols-2 gap-3">
                 {roles.map((role) => (
                   <button
@@ -173,7 +173,7 @@ export default function SignupPage() {
                       "flex flex-col items-center gap-3 rounded-xl border p-4 transition-all text-center relative overflow-hidden group",
                       selectedRole === role.id 
                         ? "bg-primary/10 border-primary text-primary shadow-[0_0_20px_rgba(99,102,241,0.15)]" 
-                        : "bg-black/40 border-white/5 hover:bg-white/5 text-zinc-400 hover:border-white/10"
+                        : "bg-black/5 dark:bg-black/40 border-border hover:bg-card text-muted-foreground hover:border-border"
                     )}
                   >
                     {selectedRole === role.id && (
@@ -181,7 +181,7 @@ export default function SignupPage() {
                             <Check className="h-4 w-4" />
                         </div>
                     )}
-                    <div className={cn("p-3 rounded-full transition-colors", selectedRole === role.id ? "bg-primary/20 text-primary" : "bg-white/5 text-zinc-500 group-hover:text-zinc-300")}>
+                    <div className={cn("p-3 rounded-full transition-colors", selectedRole === role.id ? "bg-primary/20 text-primary" : "bg-card text-muted-foreground group-hover:text-foreground/80")}>
                         <role.icon className="h-6 w-6" />
                     </div>
                     <div>
@@ -193,18 +193,18 @@ export default function SignupPage() {
             </div>
           </div>
 
-          <form onSubmit={handleEmailSignup} className="space-y-3 pt-2 border-t border-white/10">
+          <form onSubmit={handleEmailSignup} className="space-y-3 pt-2 border-t border-border">
               <div className="space-y-1">
-                  <Label className="text-zinc-300 text-xs uppercase tracking-wide">User Details</Label>
+                  <Label className="text-foreground/80 text-xs uppercase tracking-wide">User Details</Label>
                   <Input 
                       placeholder="Full Name" 
-                      className="bg-black/40 border-white/10 text-white h-10"
+                      className="bg-black/5 dark:bg-black/40 border-border text-foreground h-10"
                       value={name}
                       onChange={e => setName(e.target.value)}
                   />
                   <Input 
                       placeholder="Phone Number (mandatory for login)" 
-                      className="bg-black/40 border-white/10 text-white h-10 mt-2"
+                      className="bg-black/5 dark:bg-black/40 border-border text-foreground h-10 mt-2"
                       value={phone}
                       onChange={e => setPhone(e.target.value)}
                   />
@@ -215,20 +215,20 @@ export default function SignupPage() {
                   <motion.div 
                     initial={{ opacity: 0, height: 0 }}
                     animate={{ opacity: 1, height: 'auto' }}
-                    className="space-y-3 pt-2 border-t border-white/5"
+                    className="space-y-3 pt-2 border-t border-border"
                   >
                       <div className="space-y-1.5">
-                          <Label className="text-zinc-400 text-[10px] uppercase tracking-wider font-bold">Professional Details</Label>
+                          <Label className="text-muted-foreground text-[10px] uppercase tracking-wider font-bold">Professional Details</Label>
                           <Input 
                               placeholder="WhatsApp Number (+91...)" 
-                              className="bg-black/40 border-white/10 text-white h-10"
+                              className="bg-black/5 dark:bg-black/40 border-border text-foreground h-10"
                               value={whatsapp}
                               onChange={e => setWhatsapp(e.target.value)}
                           />
                       </div>
                       <Input 
                           placeholder="Portfolio Link (Google Drive/YouTube/behance)" 
-                          className="bg-black/40 border-white/10 text-white h-10"
+                          className="bg-black/5 dark:bg-black/40 border-border text-foreground h-10"
                           value={portfolio}
                           onChange={e => setPortfolio(e.target.value)}
                       />
@@ -239,14 +239,14 @@ export default function SignupPage() {
                   <Input 
                       type="email"
                       placeholder="Email Address" 
-                      className="bg-black/40 border-white/10 text-white h-10"
+                      className="bg-black/5 dark:bg-black/40 border-border text-foreground h-10"
                       value={email}
                       onChange={e => setEmail(e.target.value)}
                   />
                   <Input 
                       type="password"
                       placeholder="Create Password" 
-                      className="bg-black/40 border-white/10 text-white h-10"
+                      className="bg-black/5 dark:bg-black/40 border-border text-foreground h-10"
                       value={password}
                       onChange={e => setPassword(e.target.value)}
                   />
@@ -258,7 +258,7 @@ export default function SignupPage() {
 
           <div className="relative">
               <div className="absolute inset-0 flex items-center">
-                  <span className="w-full border-t border-white/10" />
+                  <span className="w-full border-t border-border" />
               </div>
               <div className="relative flex justify-center text-xs uppercase">
                   <span className="bg-zinc-900 px-2 text-muted-foreground">Or continue with Google</span>
@@ -270,7 +270,7 @@ export default function SignupPage() {
                 onClick={handleGoogleSignup}
                 variant="outline"
                 disabled={isSigningUp}
-                className="group relative flex w-full items-center justify-center gap-3 overflow-hidden rounded-xl border-white/10 bg-white/5 px-4 py-4 text-white transition-all hover:bg-white/10"
+                className="group relative flex w-full items-center justify-center gap-3 overflow-hidden rounded-xl border-border bg-card px-4 py-4 text-foreground transition-all hover:bg-card"
             >
                 {isSigningUp ? (
                     <Loader2 className="mr-2 h-5 w-5 animate-spin" />
@@ -308,13 +308,13 @@ export default function SignupPage() {
         
         <p className="px-8 text-center text-sm text-muted-foreground">
             Already have an account?{" "}
-            <Link href="/login" className="underline underline-offset-4 hover:text-primary font-medium text-white">
+            <Link href="/login" className="underline underline-offset-4 hover:text-primary font-medium text-foreground">
               Sign In
             </Link>
         </p>
 
         <div className="pb-8 text-center bg-transparent mt-4">
-            <p className="text-xs text-zinc-500">
+            <p className="text-xs text-muted-foreground">
                &copy; {new Date().getFullYear()} EditoHub. All rights reserved.
             </p>
         </div>

@@ -115,7 +115,7 @@ export function ClientDashboard() {
                className="flex flex-wrap items-center gap-3"
             >
                 <Link href="/dashboard/projects/new">
-                    <button className="h-10 px-6 rounded-lg bg-white text-black text-[11px] font-bold uppercase tracking-widest hover:bg-zinc-200 transition-all active:scale-95 shadow-[0_0_20px_rgba(255,255,255,0.1)] flex items-center gap-2.5">
+                    <button className="h-10 px-6 rounded-lg bg-primary  text-primary-foreground text-[11px] font-bold uppercase tracking-widest hover:bg-zinc-200 transition-all active:scale-95 shadow-md shadow-primary/10 flex items-center gap-2.5">
                         <Plus className="h-4 w-4" />
                         New Project
                     </button>
@@ -204,14 +204,14 @@ export function ClientDashboard() {
                             <th className="px-6 py-4 border-b border-border w-[80px]"></th>
                         </tr>
                     </thead>
-                    <tbody className="divide-y divide-white/5">
+                    <tbody className="divide-y divide-border">
                          <AnimatePresence mode="wait">
                          {loading ? (
                             <tr key="loading">
                                 <td colSpan={5} className="px-6 py-24 text-center">
                                     <div className="flex flex-col items-center gap-4">
                                         <RefreshCw className="h-6 w-6 text-primary animate-spin" />
-                                        <p className="text-xs font-medium text-zinc-500 animate-pulse">Updating your projects...</p>
+                                        <p className="text-xs font-medium text-muted-foreground animate-pulse">Updating your projects...</p>
                                     </div>
                                 </td>
                             </tr>
@@ -344,7 +344,7 @@ function StatusIndicator({ status }: { status: string }) {
         in_review: { label: "Ready for Review", color: "text-purple-400", bg: "bg-purple-400/5", border: "border-purple-400/20" },
         pending_assignment: { label: "Finding an Editor", color: "text-amber-400", bg: "bg-amber-400/5", border: "border-amber-400/20" },
         approved: { label: "Approved", color: "text-emerald-400", bg: "bg-emerald-400/5", border: "border-emerald-400/20" },
-        completed: { label: "Completed", color: "text-zinc-500", bg: "bg-zinc-500/5", border: "border-zinc-500/20" },
+        completed: { label: "Completed", color: "text-muted-foreground", bg: "bg-zinc-500/5", border: "border-zinc-500/20" },
     };
     const s = config[status] || config.completed;
     return (

@@ -37,11 +37,11 @@ export default function DashboardPage() {
                       <Loader2 className="h-8 w-8 text-amber-500 animate-spin" />
                   </div>
                   <div className="space-y-2">
-                       <h2 className="text-2xl font-bold text-white tracking-tight">Application Under Review</h2>
-                       <p className="text-zinc-400 text-sm">Your application has been sent! Once approved, you will get access to your dashboard. Until the admin approves your account, you will not have access to any platform features or projects.</p>
+                       <h2 className="text-2xl font-bold text-foreground tracking-tight">Application Under Review</h2>
+                       <p className="text-muted-foreground text-sm">Your application has been sent! Once approved, you will get access to your dashboard. Until the admin approves your account, you will not have access to any platform features or projects.</p>
                   </div>
-                  <div className="pt-6 border-t border-white/5 mt-6">
-                      <div className="text-[10px] font-bold text-zinc-600 uppercase tracking-widest">Manual verification is in progress</div>
+                  <div className="pt-6 border-t border-border mt-6">
+                      <div className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Manual verification is in progress</div>
                   </div>
               </div>
           </div>
@@ -56,8 +56,8 @@ export default function DashboardPage() {
                       <div className="h-8 w-8 text-red-500 font-black italic text-2xl flex items-center justify-center">!</div>
                   </div>
                   <div className="space-y-2">
-                       <h2 className="text-2xl font-bold text-white tracking-tight">Access Suspended</h2>
-                       <p className="text-zinc-400 text-sm">Your account protocol has been locked by administration. If you believe this is a desynchronization error, please contact system support.</p>
+                       <h2 className="text-2xl font-bold text-foreground tracking-tight">Access Suspended</h2>
+                       <p className="text-muted-foreground text-sm">Your account protocol has been locked by administration. If you believe this is a desynchronization error, please contact system support.</p>
                   </div>
               </div>
           </div>

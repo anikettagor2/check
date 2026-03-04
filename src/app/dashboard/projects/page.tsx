@@ -18,7 +18,7 @@ export default function ProjectsPage() {
                     <div className="absolute inset-0 rounded-full border-2 border-primary/20" />
                     <div className="absolute inset-0 rounded-full border-t-2 border-primary animate-spin" />
                 </div>
-                <span className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest animate-pulse">Syncing Node...</span>
+                <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest animate-pulse">Syncing Node...</span>
             </div>
         </div>
      );

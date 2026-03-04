@@ -45,23 +45,23 @@ export default function PaymentsPage() {
     return (
         <div className="space-y-8 max-w-6xl mx-auto">
             <header>
-                <h1 className="text-3xl font-bold text-white font-heading">Payments & Invoices</h1>
-                <p className="text-zinc-500 mt-1">Track your project investments and billing history.</p>
+                <h1 className="text-3xl font-bold text-foreground font-heading">Payments & Invoices</h1>
+                <p className="text-muted-foreground mt-1">Track your project investments and billing history.</p>
             </header>
 
             {/* Stats */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                 <div className="p-6 rounded-3xl bg-[#09090b] border border-zinc-800 shadow-xl">
-                    <p className="text-xs font-bold text-zinc-500 uppercase tracking-widest mb-4">Total Invested</p>
+                    <p className="text-xs font-bold text-muted-foreground uppercase tracking-widest mb-4">Total Invested</p>
                     <div className="flex items-end gap-2">
-                        <span className="text-4xl font-bold text-white tracking-tighter">₹{totalSpent.toLocaleString()}</span>
+                        <span className="text-4xl font-bold text-foreground tracking-tighter">₹{totalSpent.toLocaleString()}</span>
                         <span className="text-emerald-500 text-xs font-bold mb-1 flex items-center gap-0.5"><CheckCircle2 className="h-3 w-3"/> Verified</span>
                     </div>
                 </div>
                 <div className="p-6 rounded-3xl bg-[#09090b] border border-zinc-800 shadow-xl">
-                    <p className="text-xs font-bold text-zinc-500 uppercase tracking-widest mb-4">Outstanding</p>
+                    <p className="text-xs font-bold text-muted-foreground uppercase tracking-widest mb-4">Outstanding</p>
                     <div className="flex items-end gap-2">
-                        <span className="text-4xl font-bold text-white tracking-tighter">₹{pendingTotal.toLocaleString()}</span>
+                        <span className="text-4xl font-bold text-foreground tracking-tighter">₹{pendingTotal.toLocaleString()}</span>
                         <span className="text-amber-500 text-xs font-bold mb-1 flex items-center gap-0.5"><Clock className="h-3 w-3"/> Pending</span>
                     </div>
                 </div>
@@ -69,7 +69,7 @@ export default function PaymentsPage() {
                      <p className="text-xs font-bold text-primary uppercase tracking-widest mb-4">Active Method</p>
                      <div className="flex items-center gap-3">
                          <div className="p-2 bg-primary/20 rounded-lg"><CreditCard className="h-5 w-5 text-primary" /></div>
-                         <span className="text-sm font-semibold text-white">Razorpay Checkout</span>
+                         <span className="text-sm font-semibold text-foreground">Razorpay Checkout</span>
                      </div>
                 </div>
             </div>
@@ -82,7 +82,7 @@ export default function PaymentsPage() {
                 
                 <div className="overflow-x-auto">
                     <table className="w-full text-left">
-                        <thead className="bg-zinc-900/50 text-[10px] text-zinc-500 uppercase tracking-widest font-bold">
+                        <thead className="bg-zinc-900/50 text-[10px] text-muted-foreground uppercase tracking-widest font-bold">
                             <tr>
                                 <th className="p-6">Project</th>
                                 <th className="p-6">Date</th>
@@ -94,15 +94,15 @@ export default function PaymentsPage() {
                         <tbody className="divide-y divide-zinc-900">
                             {payments.length === 0 ? (
                                 <tr>
-                                    <td colSpan={5} className="p-12 text-center text-zinc-600 italic">No transactions found</td>
+                                    <td colSpan={5} className="p-12 text-center text-muted-foreground italic">No transactions found</td>
                                 </tr>
                             ) : payments.map((p) => (
                                 <tr key={p.id} className="hover:bg-zinc-900/30 transition-colors">
                                     <td className="p-6">
-                                        <div className="font-semibold text-white">{p.name}</div>
-                                        <div className="text-[10px] text-zinc-600 font-mono">{p.id}</div>
+                                        <div className="font-semibold text-foreground">{p.name}</div>
+                                        <div className="text-[10px] text-muted-foreground font-mono">{p.id}</div>
                                     </td>
-                                    <td className="p-6 text-sm text-zinc-400">
+                                    <td className="p-6 text-sm text-muted-foreground">
                                         {new Date(p.updatedAt).toLocaleDateString()}
                                     </td>
                                     <td className="p-6">
@@ -113,9 +113,9 @@ export default function PaymentsPage() {
                                             {p.amountPaid === p.totalCost ? "Paid" : "Partial"}
                                         </span>
                                     </td>
-                                    <td className="p-6 font-mono text-white">₹{p.amountPaid?.toLocaleString() || 0}</td>
+                                    <td className="p-6 font-mono text-foreground">₹{p.amountPaid?.toLocaleString() || 0}</td>
                                     <td className="p-6">
-                                        <button className="p-2 hover:bg-white/5 rounded-lg text-zinc-500 hover:text-white transition-all">
+                                        <button className="p-2 hover:bg-card rounded-lg text-muted-foreground hover:text-foreground transition-all">
                                             <Download className="h-4 w-4" />
                                         </button>
                                     </td>

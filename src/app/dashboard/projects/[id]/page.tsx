@@ -272,7 +272,7 @@ export default function ProjectDetailsPage() {
 
     if (loading || authLoading) {
         return (
-            <div className="flex h-screen items-center justify-center bg-[#0F1115]">
+            <div className="flex h-screen items-center justify-center bg-background">
                 <div className="relative">
                     <Loader2 className="h-10 w-10 animate-spin text-primary" />
                     <div className="absolute inset-0 blur-xl bg-primary/20 animate-pulse" />
@@ -297,11 +297,11 @@ export default function ProjectDetailsPage() {
     // EDITOR OFFER VIEW
     if (isAssignedEditor && project.assignmentStatus === 'pending') {
         return (
-            <div className="min-h-screen bg-[#0F1115] text-white flex items-center justify-center p-6 mesh-grid">
+            <div className="min-h-screen bg-background text-foreground flex items-center justify-center p-6 mesh-grid">
                 <motion.div 
                     initial={{ opacity: 0, scale: 0.98 }}
                     animate={{ opacity: 1, scale: 1 }}
-                    className="max-w-xl w-full enterprise-card bg-[#161920] p-10 space-y-8 shadow-2xl relative overflow-hidden"
+                    className="max-w-xl w-full enterprise-card bg-card p-10 space-y-8 shadow-2xl relative overflow-hidden"
                 >
                      <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-primary via-indigo-400 to-primary/40" />
                      
@@ -309,25 +309,25 @@ export default function ProjectDetailsPage() {
                         <div className="mx-auto h-20 w-20 bg-primary/10 rounded-2xl flex items-center justify-center mb-6 border border-primary/20 shadow-[0_0_20px_rgba(99,102,241,0.2)]">
                             <Briefcase className="h-9 w-9 text-primary" />
                         </div>
-                        <h1 className="text-3xl font-heading font-bold text-white tracking-tight">New Project <span className="text-zinc-500">Invitation</span></h1>
+                        <h1 className="text-3xl font-heading font-bold text-foreground tracking-tight">New Project <span className="text-muted-foreground">Invitation</span></h1>
                         <div className="space-y-1">
-                            <p className="text-zinc-400 font-medium">You have a new project request ready for review.</p>
-                            <p className="text-white font-bold text-lg">{project.name}</p>
+                            <p className="text-muted-foreground font-medium">You have a new project request ready for review.</p>
+                            <p className="text-foreground font-bold text-lg">{project.name}</p>
                         </div>
                      </div>
 
-                     <div className="bg-white/[0.02] rounded-xl p-6 border border-white/5 space-y-4">
+                     <div className="bg-muted/50 rounded-xl p-6 border border-border space-y-4">
                         <DetailRow label="Client Name" value={project.brand || project.clientName || 'N/A'} />
                         <DetailRow label="Due Date" value={project.deadline ? project.deadline : "TBD"} />
                         <DetailRow label="Revenue Share" value={`₹${project.editorPrice?.toLocaleString() || '0'}`} />
-                        <div className="pt-4 border-t border-white/5">
-                             <p className="text-[10px] text-zinc-500 uppercase font-black tracking-widest mb-2">Instructions</p>
-                             <p className="text-zinc-400 leading-relaxed italic text-sm">"{project.description || "No specific instructions provided."}"</p>
+                        <div className="pt-4 border-t border-border">
+                             <p className="text-[10px] text-muted-foreground uppercase font-black tracking-widest mb-2">Instructions</p>
+                             <p className="text-muted-foreground leading-relaxed italic text-sm">"{project.description || "No specific instructions provided."}"</p>
                         </div>
 
                         {(project.footageLink || (project.rawFiles && project.rawFiles.length > 0)) && (
-                            <div className="pt-4 border-t border-white/5 space-y-3">
-                                <p className="text-[10px] text-zinc-500 uppercase font-black tracking-widest">Project Assets (Preview Only)</p>
+                            <div className="pt-4 border-t border-border space-y-3">
+                                <p className="text-[10px] text-muted-foreground uppercase font-black tracking-widest">Project Assets (Preview Only)</p>
                                 {project.footageLink && (
                                     <a href={project.footageLink.startsWith('http') ? project.footageLink : `https://${project.footageLink}`} target="_blank" className="inline-flex items-center gap-2 text-xs font-bold text-primary hover:text-primary/80 transition-colors uppercase tracking-widest">
                                         <ExternalLink className="h-3 w-3" /> Drive Link
@@ -336,22 +336,22 @@ export default function ProjectDetailsPage() {
                                 {project.rawFiles && project.rawFiles.length > 0 && (
                                     <div className="grid gap-2 mt-2">
                                         {project.rawFiles.map((file: any, idx: number) => (
-                                            <div key={idx} className="flex items-center justify-between p-2.5 bg-black/40 rounded-lg border border-white/5 group">
+                                            <div key={idx} className="flex items-center justify-between p-2.5 bg-black/5 dark:bg-black/40 dark:bg-black/5 dark:bg-black/40 dark:bg-black/5 dark:bg-black/40 dark:bg-black/5 dark:bg-black/40 rounded-lg border border-border group">
                                                 <div className="flex items-center gap-3 min-w-0">
-                                                    <FileVideo className="h-4 w-4 text-zinc-600 group-hover:text-primary transition-colors" />
+                                                    <FileVideo className="h-4 w-4 text-muted-foreground group-hover:text-primary transition-colors" />
                                                     <div className="flex flex-col min-w-0">
-                                                        <span className="text-xs font-bold text-zinc-300 truncate">{file.name}</span>
-                                                        <span className="text-[9px] font-black text-zinc-600 uppercase tracking-widest">{(file.size ? (file.size / (1024*1024)).toFixed(2) : '?')} MB</span>
+                                                        <span className="text-xs font-bold text-muted-foreground truncate">{file.name}</span>
+                                                        <span className="text-[9px] font-black text-muted-foreground uppercase tracking-widest">{(file.size ? (file.size / (1024*1024)).toFixed(2) : '?')} MB</span>
                                                     </div>
                                                 </div>
-                                                <button onClick={() => setPreviewFileUrl(file.url)} className="h-8 px-3 rounded bg-white/5 hover:bg-primary/20 hover:text-primary text-zinc-400 text-[9px] font-bold uppercase tracking-widest transition-all">Preview</button>
+                                                <button onClick={() => setPreviewFileUrl(file.url)} className="h-8 px-3 rounded bg-muted hover:bg-primary/20 hover:text-primary text-muted-foreground text-[9px] font-bold uppercase tracking-widest transition-all">Preview</button>
                                             </div>
                                         ))}
                                     </div>
                                 )}
                                 {previewFileUrl && (
-                                    <div className="mt-4 rounded-xl overflow-hidden bg-black border border-white/10 relative">
-                                        <button onClick={() => setPreviewFileUrl(null)} className="absolute top-2 right-2 h-8 w-8 bg-black/50 text-white rounded-lg flex items-center justify-center z-10 hover:bg-red-500/50 transition-colors"><X className="h-4 w-4" /></button>
+                                    <div className="mt-4 rounded-xl overflow-hidden bg-background border border-border relative">
+                                        <button onClick={() => setPreviewFileUrl(null)} className="absolute top-2 right-2 h-8 w-8 bg-black/5 dark:bg-black/40 dark:bg-black/5 dark:bg-black/40 dark:bg-black/5 dark:bg-black/40 dark:bg-black/5 dark:bg-black/40 text-foreground rounded-lg flex items-center justify-center z-10 hover:bg-red-500/50 transition-colors"><X className="h-4 w-4" /></button>
                                         <video src={previewFileUrl} controls controlsList="nodownload" className="w-full max-h-[400px]" autoPlay />
                                     </div>
                                 )}
@@ -362,13 +362,13 @@ export default function ProjectDetailsPage() {
                      <div className="flex gap-4 pt-2">
                         <button 
                             onClick={() => handleAssignmentResponse('rejected')} 
-                            className="flex-1 h-12 rounded-lg border border-white/10 bg-white/[0.02] hover:bg-red-500/10 hover:border-red-500/20 text-zinc-400 hover:text-red-400 text-[11px] font-bold uppercase tracking-widest transition-all active:scale-[0.98]"
+                            className="flex-1 h-12 rounded-lg border border-border bg-muted/50 hover:bg-red-500/10 hover:border-red-500/20 text-muted-foreground hover:text-red-400 text-[11px] font-bold uppercase tracking-widest transition-all active:scale-[0.98]"
                         >
                             Decline
                         </button>
                         <button 
                             onClick={() => handleAssignmentResponse('accepted')} 
-                            className="flex-1 h-12 rounded-lg bg-white text-black text-[11px] font-bold uppercase tracking-widest hover:bg-zinc-200 shadow-[0_0_20px_rgba(255,255,255,0.1)] transition-all active:scale-[0.98]"
+                            className="flex-1 h-12 rounded-lg bg-primary  text-primary-foreground text-[11px] font-bold uppercase tracking-widest hover:bg-zinc-200 shadow-md shadow-primary/10 transition-all active:scale-[0.98]"
                         >
                             Accept
                         </button>
@@ -382,30 +382,30 @@ export default function ProjectDetailsPage() {
         <div className="max-w-[1600px] mx-auto pb-20 space-y-10">
             
             {/* Header Section */}
-            <div className="flex flex-col gap-6 md:flex-row md:items-center md:justify-between pb-8 border-b border-white/10">
+            <div className="flex flex-col gap-6 md:flex-row md:items-center md:justify-between pb-8 border-b border-border">
                 <div className="space-y-4">
-                    <Link href="/dashboard" className="inline-flex items-center gap-2.5 px-3 py-1.5 rounded-lg bg-white/[0.03] border border-white/10 text-zinc-400 hover:text-white text-[10px] font-bold uppercase tracking-widest transition-all hover:bg-white/[0.05]">
+                    <Link href="/dashboard" className="inline-flex items-center gap-2.5 px-3 py-1.5 rounded-lg bg-muted/50 border border-border text-muted-foreground hover:text-foreground text-[10px] font-bold uppercase tracking-widest transition-all hover:bg-muted/50">
                          <ArrowLeft className="h-3.5 w-3.5" />
                          Go Back
                     </Link>
                     <div className="flex flex-wrap items-center gap-4">
-                        <h1 className="text-4xl md:text-5xl font-heading font-bold tracking-tight text-white leading-tight">{project.name}</h1>
+                        <h1 className="text-4xl md:text-5xl font-heading font-bold tracking-tight text-foreground leading-tight">{project.name}</h1>
                         <StatusIndicator status={project.status || 'active'} />
                     </div>
-                    <div className="flex items-center gap-4 text-zinc-500">
-                        <span className="text-[11px] font-bold uppercase tracking-widest">ID: <span className="text-zinc-400">{id?.toString().slice(0,12)}</span></span>
-                        <div className="h-1 w-1 rounded-full bg-zinc-800" />
-                        <span className="text-[11px] font-bold uppercase tracking-widest">Type: <span className="text-zinc-400">Custom Edit</span></span>
+                    <div className="flex items-center gap-4 text-muted-foreground">
+                        <span className="text-[11px] font-bold uppercase tracking-widest">ID: <span className="text-muted-foreground">{id?.toString().slice(0,12)}</span></span>
+                        <div className="h-1 w-1 rounded-full bg-muted-foreground" />
+                        <span className="text-[11px] font-bold uppercase tracking-widest">Type: <span className="text-muted-foreground">Custom Edit</span></span>
                     </div>
                 </div>
 
                 <div className="flex items-center gap-3">
-                     <button className="h-11 w-11 rounded-lg bg-white/[0.03] border border-white/10 flex items-center justify-center text-zinc-400 hover:text-white transition-all active:scale-[0.98] hover:bg-white/[0.05]">
+                     <button className="h-11 w-11 rounded-lg bg-muted/50 border border-border flex items-center justify-center text-muted-foreground hover:text-foreground transition-all active:scale-[0.98] hover:bg-muted/50">
                         <Share2 className="h-4 w-4" />
                      </button>
                      {(isAdmin || (isAssignedEditor && (project.assignmentStatus === 'accepted' || project.status === 'active'))) && (
                         <Link href={`/dashboard/projects/${id}/upload`}>
-                            <button className="h-11 px-6 rounded-lg bg-white text-black text-[11px] font-bold uppercase tracking-widest hover:bg-zinc-200 transition-all shadow-[0_0_20px_rgba(255,255,255,0.1)] active:scale-[0.98] flex items-center gap-2.5">
+                            <button className="h-11 px-6 rounded-lg bg-primary  text-primary-foreground text-[11px] font-bold uppercase tracking-widest hover:bg-zinc-200 transition-all shadow-md shadow-primary/10 active:scale-[0.98] flex items-center gap-2.5">
                                 <Upload className="h-4 w-4" />
                                 Upload New Version
                             </button>
@@ -418,19 +418,19 @@ export default function ProjectDetailsPage() {
             {project.status === 'completed' && !isEditor ? (
                 <div className="space-y-8 animate-in fade-in duration-500">
                     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-                        <div className="enterprise-card p-6 bg-white/[0.02]">
-                            <span className="text-[10px] text-zinc-500 font-bold uppercase tracking-widest">Project Name</span>
-                            <div className="text-xl font-bold text-white mt-1 truncate">{project.name}</div>
+                        <div className="enterprise-card p-6 bg-muted/50">
+                            <span className="text-[10px] text-muted-foreground font-bold uppercase tracking-widest">Project Name</span>
+                            <div className="text-xl font-bold text-foreground mt-1 truncate">{project.name}</div>
                         </div>
-                        <div className="enterprise-card p-6 bg-white/[0.02]">
-                            <span className="text-[10px] text-zinc-500 font-bold uppercase tracking-widest">Client Name</span>
-                            <div className="text-xl font-bold text-white mt-1 truncate">{project.brand || project.clientName || 'N/A'}</div>
+                        <div className="enterprise-card p-6 bg-muted/50">
+                            <span className="text-[10px] text-muted-foreground font-bold uppercase tracking-widest">Client Name</span>
+                            <div className="text-xl font-bold text-foreground mt-1 truncate">{project.brand || project.clientName || 'N/A'}</div>
                         </div>
-                        <div className="enterprise-card p-6 bg-white/[0.02]">
-                            <span className="text-[10px] text-zinc-500 font-bold uppercase tracking-widest">Status</span>
+                        <div className="enterprise-card p-6 bg-muted/50">
+                            <span className="text-[10px] text-muted-foreground font-bold uppercase tracking-widest">Status</span>
                             <div className="flex items-center gap-2 mt-1">
                                 <div className="h-2 w-2 rounded-full bg-emerald-500" />
-                                <div className="text-xl font-bold text-white">Completed</div>
+                                <div className="text-xl font-bold text-foreground">Completed</div>
                             </div>
                         </div>
                         <div className="enterprise-card p-6 bg-emerald-500/[0.05] border-emerald-500/20">
@@ -444,8 +444,8 @@ export default function ProjectDetailsPage() {
                                 <FileVideo className="h-8 w-8" />
                             </div>
                             <div className="space-y-2">
-                                <h3 className="text-2xl font-bold font-heading text-white">Final Video Delivery</h3>
-                                <p className="text-zinc-400 text-sm max-w-md mx-auto">Your final high-quality video is ready. Thank you for your business!</p>
+                                <h3 className="text-2xl font-bold font-heading text-foreground">Final Video Delivery</h3>
+                                <p className="text-muted-foreground text-sm max-w-md mx-auto">Your final high-quality video is ready. Thank you for your business!</p>
                             </div>
                             <button
                                 disabled={isDownloading}
@@ -457,7 +457,7 @@ export default function ProjectDetailsPage() {
                                         await initiateDownload(latestRevision.id);
                                     }
                                 }}
-                                className="h-12 px-8 rounded-xl bg-white text-black text-[11px] font-bold uppercase tracking-widest hover:bg-zinc-200 transition-all active:scale-[0.98] flex items-center gap-2.5 shadow-[0_0_20px_rgba(255,255,255,0.1)]"
+                                className="h-12 px-8 rounded-xl bg-primary  text-primary-foreground text-[11px] font-bold uppercase tracking-widest hover:bg-zinc-200 transition-all active:scale-[0.98] flex items-center gap-2.5 shadow-md shadow-primary/10"
                             >
                                 {isDownloading ? <><Loader2 className="h-4 w-4 animate-spin" /> Fetching...</> : <><Download className="h-4 w-4" /> Download Final Video</>}
                             </button>
@@ -478,26 +478,26 @@ export default function ProjectDetailsPage() {
                             <motion.div 
                                 initial={{ opacity: 0, scale: 0.98 }}
                                 animate={{ opacity: 1, scale: 1 }}
-                                className="group relative aspect-video enterprise-card rounded-2xl overflow-hidden border-white/10"
+                                className="group relative aspect-video enterprise-card rounded-2xl overflow-hidden border-border"
                             >
                                 <div className="absolute inset-0 bg-gradient-to-tr from-primary/5 to-transparent pointer-events-none" />
                                 <div className="absolute inset-0 flex items-center justify-center opacity-10">
-                                    <FileVideo className="h-24 w-24 text-white" />
+                                    <FileVideo className="h-24 w-24 text-foreground" />
                                 </div>
                                 
-                                <div className="absolute inset-0 flex items-center justify-center bg-black/40 opacity-0 group-hover:opacity-100 transition-all duration-500 backdrop-blur-sm">
+                                <div className="absolute inset-0 flex items-center justify-center bg-black/5 dark:bg-black/40 dark:bg-black/5 dark:bg-black/40 dark:bg-black/5 dark:bg-black/40 dark:bg-black/5 dark:bg-black/40 opacity-0 group-hover:opacity-100 transition-all duration-500 backdrop-blur-sm">
                                     {showFeedbackTool ? (
                                         <Link href={`/dashboard/projects/${id}/review/${latestRevision.id}`}>
-                                            <button className="h-20 w-20 bg-white rounded-full flex items-center justify-center hover:scale-110 transition-transform shadow-2xl active:scale-95">
-                                                <Play className="h-8 w-8 text-black fill-black ml-1" />
+                                            <button className="h-20 w-20 bg-primary  rounded-full flex items-center justify-center hover:scale-110 transition-transform shadow-2xl active:scale-95">
+                                                <Play className="h-8 w-8 text-primary-foreground fill-primary ml-1" />
                                             </button>
                                         </Link>
                                     ) : (
                                         <div className="flex flex-col items-center gap-4">
-                                            <div className="h-16 w-16 bg-white/5 rounded-full flex items-center justify-center border border-white/10 opacity-50">
-                                                <Lock className="h-6 w-6 text-zinc-500" />
+                                            <div className="h-16 w-16 bg-muted rounded-full flex items-center justify-center border border-border opacity-50">
+                                                <Lock className="h-6 w-6 text-muted-foreground" />
                                             </div>
-                                            <span className="text-[10px] font-bold uppercase tracking-widest text-zinc-400 px-4 py-2 bg-black/60 border border-white/10 rounded-lg">
+                                            <span className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground px-4 py-2 bg-black/5 dark:bg-black/40 dark:bg-black/5 dark:bg-black/40 dark:bg-black/5 dark:bg-black/40 dark:bg-black/5 dark:bg-black/40 border border-border rounded-lg">
                                                 Awaiting Next Steps
                                             </span>
                                         </div>
@@ -506,25 +506,25 @@ export default function ProjectDetailsPage() {
 
                                 {/* Video Metadata Overlays */}
                                 <div className="absolute top-6 left-6 flex items-center gap-2.5">
-                                    <div className="px-3 py-1.5 bg-[#0F1115]/80 backdrop-blur-lg rounded-lg border border-white/10 flex items-center gap-2">
+                                    <div className="px-3 py-1.5 bg-background/80 backdrop-blur-lg rounded-lg border border-border flex items-center gap-2">
                                         <div className="h-1.5 w-1.5 rounded-full bg-primary animate-pulse shadow-[0_0_8px_rgba(99,102,241,1)]" />
-                                        <span className="text-[10px] font-bold uppercase tracking-widest text-white">Current Version</span>
+                                        <span className="text-[10px] font-bold uppercase tracking-widest text-foreground">Current Version</span>
                                     </div>
-                                    <div className="px-3 py-1.5 bg-[#0F1115]/80 backdrop-blur-lg rounded-lg border border-white/10">
-                                        <span className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest">v{latestRevision.version}</span>
+                                    <div className="px-3 py-1.5 bg-background/80 backdrop-blur-lg rounded-lg border border-border">
+                                        <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">v{latestRevision.version}</span>
                                     </div>
                                 </div>
                             </motion.div>
 
                             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-6 enterprise-card p-6 md:p-8">
                                 <div className="space-y-1">
-                                    <h3 className="font-heading font-bold text-xl text-white tracking-tight">Project Status</h3>
-                                    <p className="text-sm text-zinc-400 font-medium">Version v{latestRevision.version} is ready for you to look at.</p>
+                                    <h3 className="font-heading font-bold text-xl text-foreground tracking-tight">Project Status</h3>
+                                    <p className="text-sm text-muted-foreground font-medium">Version v{latestRevision.version} is ready for you to look at.</p>
                                 </div>
                                 <div className="flex items-center gap-3">
                                     {showFeedbackTool && (
                                         <Link href={`/dashboard/projects/${id}/review/${latestRevision.id}`}>
-                                            <button className="h-11 px-5 rounded-lg bg-white/[0.03] border border-white/10 hover:bg-white/[0.06] text-zinc-300 hover:text-white text-[11px] font-bold uppercase tracking-widest transition-all active:scale-[0.98] flex items-center gap-2.5">
+                                            <button className="h-11 px-5 rounded-lg bg-muted/50 border border-border hover:bg-muted/50 text-muted-foreground hover:text-foreground text-[11px] font-bold uppercase tracking-widest transition-all active:scale-[0.98] flex items-center gap-2.5">
                                                 <MessageSquare className="h-4 w-4" />
                                                 Add Comments
                                             </button>
@@ -554,7 +554,7 @@ export default function ProjectDetailsPage() {
                                                                 await initiateDownload(latestRevision.id);
                                                             }
                                                         }}
-                                                        className="h-11 px-6 rounded-lg bg-white text-black text-[11px] font-bold uppercase tracking-widest hover:bg-zinc-200 transition-all active:scale-[0.98] flex items-center gap-2.5 shadow-[0_0_20px_rgba(255,255,255,0.1)]"
+                                                        className="h-11 px-6 rounded-lg bg-primary  text-primary-foreground text-[11px] font-bold uppercase tracking-widest hover:bg-zinc-200 transition-all active:scale-[0.98] flex items-center gap-2.5 shadow-md shadow-primary/10"
                                                     >
                                                         {isDownloading ? <><Loader2 className="h-4 w-4 animate-spin" /> Fetching...</> : <><Download className="h-4 w-4" /> Download</>}
                                                     </button>
@@ -563,9 +563,9 @@ export default function ProjectDetailsPage() {
 
                                             if (project.downloadUnlockRequested) {
                                                 return (
-                                                    <div className="flex items-center gap-3 h-11 px-5 bg-white/[0.02] border border-white/5 rounded-lg">
-                                                        <Loader2 className="h-3.5 w-3.5 text-zinc-500 animate-spin" />
-                                                        <span className="text-[10px] text-zinc-500 font-bold uppercase tracking-widest">Checking Download Access</span>
+                                                    <div className="flex items-center gap-3 h-11 px-5 bg-muted/50 border border-border rounded-lg">
+                                                        <Loader2 className="h-3.5 w-3.5 text-muted-foreground animate-spin" />
+                                                        <span className="text-[10px] text-muted-foreground font-bold uppercase tracking-widest">Checking Download Access</span>
                                                     </div>
                                                 );
                                             }
@@ -594,17 +594,17 @@ export default function ProjectDetailsPage() {
                             </div>
                         </div>
                     ) : (
-                        <div className="aspect-video enterprise-card bg-transparent border-dashed border-white/10 flex flex-col items-center justify-center p-12 text-center">
-                            <div className="h-16 w-16 bg-white/[0.03] rounded-2xl flex items-center justify-center mb-6 border border-white/5">
-                                <Activity className="h-7 w-7 text-zinc-700" />
+                        <div className="aspect-video enterprise-card bg-transparent border-dashed border-border flex flex-col items-center justify-center p-12 text-center">
+                            <div className="h-16 w-16 bg-muted/50 rounded-2xl flex items-center justify-center mb-6 border border-border">
+                                <Activity className="h-7 w-7 text-muted-foreground" />
                             </div>
-                            <h3 className="text-xl font-bold text-white mb-2 tracking-tight">Setting Up Your Project</h3>
-                            <p className="text-zinc-500 max-w-sm mb-8 text-sm font-medium leading-relaxed">
+                            <h3 className="text-xl font-bold text-foreground mb-2 tracking-tight">Setting Up Your Project</h3>
+                            <p className="text-muted-foreground max-w-sm mb-8 text-sm font-medium leading-relaxed">
                                 {(isEditor || isAdmin) ? "Project is ready. Please upload the first version of the video to start the review process." : "We're working on your video! We'll let you know as soon as the first version is ready for you to see."}
                             </p>
                             {(isAdmin || (isAssignedEditor && (project.assignmentStatus === 'accepted' || project.status === 'active'))) && (
                                 <Link href={`/dashboard/projects/${id}/upload`}>
-                                    <button className="h-12 px-8 rounded-lg bg-white text-black text-[11px] font-bold uppercase tracking-widest hover:bg-zinc-200 transition-all shadow-[0_0_20px_rgba(255,255,255,0.1)] active:scale-[0.98]">
+                                    <button className="h-12 px-8 rounded-lg bg-primary  text-primary-foreground text-[11px] font-bold uppercase tracking-widest hover:bg-zinc-200 transition-all shadow-md shadow-primary/10 active:scale-[0.98]">
                                         Upload First Draft
                                     </button>
                                 </Link>
@@ -615,7 +615,7 @@ export default function ProjectDetailsPage() {
                     {/* History */}
                     {revisions.length > 1 && (
                         <div className="space-y-4">
-                            <h3 className="text-[10px] font-bold text-zinc-500 uppercase tracking-[0.25em] ml-1">Previous Versions</h3>
+                            <h3 className="text-[10px] font-bold text-muted-foreground uppercase tracking-[0.25em] ml-1">Previous Versions</h3>
                             <div className="grid gap-3">
                                 {revisions.slice(1).map((rev, idx) => (
                                     <Link href={`/dashboard/projects/${id}/review/${rev.id}`} key={rev.id}>
@@ -623,18 +623,18 @@ export default function ProjectDetailsPage() {
                                             initial={{ opacity: 0, x: -10 }}
                                             animate={{ opacity: 1, x: 0 }}
                                             transition={{ delay: idx * 0.05 }}
-                                            className="flex items-center justify-between p-4 px-6 rounded-xl bg-white/[0.02] border border-white/5 hover:bg-white/[0.04] hover:border-white/10 transition-all group lg:hover:pl-8 origin-left"
+                                            className="flex items-center justify-between p-4 px-6 rounded-xl bg-muted/50 border border-border hover:bg-muted/50 hover:border-border transition-all group lg:hover:pl-8 origin-left"
                                         >
                                             <div className="flex items-center gap-4">
-                                                <div className="h-10 w-10 bg-white/[0.03] rounded-lg flex items-center justify-center border border-white/5 group-hover:border-primary/40 group-hover:text-primary transition-all duration-300">
+                                                <div className="h-10 w-10 bg-muted/50 rounded-lg flex items-center justify-center border border-border group-hover:border-primary/40 group-hover:text-primary transition-all duration-300">
                                                     <FileVideo className="h-4.5 w-4.5" />
                                                 </div>
                                                 <div className="space-y-0.5">
-                                                    <p className="text-sm font-bold text-zinc-300 group-hover:text-white transition-colors tracking-tight">Version {rev.version}</p>
-                                                    <p className="text-[10px] text-zinc-600 font-bold uppercase tracking-widest" suppressHydrationWarning>{new Date(rev.createdAt).toLocaleDateString(undefined, { day: '2-digit', month: 'short', year: 'numeric' })}</p>
+                                                    <p className="text-sm font-bold text-muted-foreground group-hover:text-foreground transition-colors tracking-tight">Version {rev.version}</p>
+                                                    <p className="text-[10px] text-muted-foreground font-bold uppercase tracking-widest" suppressHydrationWarning>{new Date(rev.createdAt).toLocaleDateString(undefined, { day: '2-digit', month: 'short', year: 'numeric' })}</p>
                                                 </div>
                                             </div>
-                                            <div className="h-8 w-8 flex items-center justify-center rounded-lg bg-white/[0.02] border border-white/5 text-zinc-600 group-hover:text-white group-hover:bg-primary/20 group-hover:border-primary/30 transition-all">
+                                            <div className="h-8 w-8 flex items-center justify-center rounded-lg bg-muted/50 border border-border text-muted-foreground group-hover:text-foreground group-hover:bg-primary/20 group-hover:border-primary/30 transition-all">
                                                 <ChevronRight className="h-4 w-4" />
                                             </div>
                                         </motion.div>
@@ -661,7 +661,7 @@ export default function ProjectDetailsPage() {
                                     </h3>
                                     <button 
                                         onClick={() => setIsAssignModalOpen(true)}
-                                        className="text-[10px] font-bold uppercase tracking-widest text-zinc-500 hover:text-white transition-colors"
+                                        className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground hover:text-foreground transition-colors"
                                     >
                                         Modify
                                     </button>
@@ -669,7 +669,7 @@ export default function ProjectDetailsPage() {
                                 
                                 <div className="relative z-10">
                                     {project.assignedEditorId ? (
-                                        <div className="flex items-center gap-4 p-4 rounded-xl bg-[#0F1115]/80 border border-white/5 backdrop-blur-sm">
+                                        <div className="flex items-center gap-4 p-4 rounded-xl bg-background/80 border border-border backdrop-blur-sm">
                                             <div className="h-11 w-11 rounded-lg bg-primary/20 flex items-center justify-center text-primary font-bold border border-primary/30 overflow-hidden">
                                                 {editors.find(e => e.uid === project.assignedEditorId)?.photoURL ? (
                                                     <Image src={editors.find(e => e.uid === project.assignedEditorId)?.photoURL!} alt="Editor" width={44} height={44} className="w-full h-full object-cover" />
@@ -678,7 +678,7 @@ export default function ProjectDetailsPage() {
                                                 )}
                                             </div>
                                             <div className="flex-1 min-w-0">
-                                                <p className="text-sm font-bold text-white truncate">
+                                                <p className="text-sm font-bold text-foreground truncate">
                                                     {editors.find(e => e.uid === project.assignedEditorId)?.displayName || "Active Node"}
                                                 </p>
                                                 <div className="flex items-center gap-2 mt-1">
@@ -694,8 +694,8 @@ export default function ProjectDetailsPage() {
                                             </div>
                                         </div>
                                     ) : (
-                                        <div className="text-center py-8 border border-dashed border-white/10 rounded-xl bg-white/[0.01]">
-                                            <p className="text-zinc-600 text-[10px] font-bold uppercase tracking-widest">Awaiting Assignment</p>
+                                        <div className="text-center py-8 border border-dashed border-border rounded-xl bg-muted/50">
+                                            <p className="text-muted-foreground text-[10px] font-bold uppercase tracking-widest">Awaiting Assignment</p>
                                         </div>
                                     )}
                                 </div>
@@ -716,12 +716,12 @@ export default function ProjectDetailsPage() {
                                                         onClick={() => setSelectedEditorId(editor.uid)}
                                                         className={cn(
                                                             "flex items-center gap-4 p-4 rounded-xl border transition-all cursor-pointer",
-                                                            isSelected ? "bg-primary/10 border-primary shadow-[0_0_15px_rgba(99,102,241,0.1)]" : "bg-white/[0.02] border-white/5 hover:bg-white/[0.04]"
+                                                            isSelected ? "bg-primary/10 border-primary shadow-[0_0_15px_rgba(99,102,241,0.1)]" : "bg-muted/50 border-border hover:bg-muted/50"
                                                         )}
                                                     >
                                                         <div className={cn(
                                                             "h-10 w-10 rounded-lg flex items-center justify-center font-bold text-sm overflow-hidden",
-                                                            isSelected ? "bg-primary text-white border border-primary/30" : "bg-white/5 text-zinc-500 border border-white/5"
+                                                            isSelected ? "bg-primary text-foreground border border-primary/30" : "bg-muted text-muted-foreground border border-border"
                                                         )}>
                                                             {editor.photoURL ? (
                                                                 <Image src={editor.photoURL} alt={editor.displayName || "Editor"} width={40} height={40} className="w-full h-full object-cover" />
@@ -730,10 +730,10 @@ export default function ProjectDetailsPage() {
                                                             )}
                                                         </div>
                                                         <div className="flex-1 min-w-0">
-                                                            <p className={cn("text-sm font-bold truncate", isSelected ? "text-white" : "text-zinc-400")}>
+                                                            <p className={cn("text-sm font-bold truncate", isSelected ? "text-foreground" : "text-muted-foreground")}>
                                                                 {editor.displayName || "Unknown"}
                                                             </p>
-                                                            <p className="text-[10px] text-zinc-600 font-medium truncate">{editor.email}</p>
+                                                            <p className="text-[10px] text-muted-foreground font-medium truncate">{editor.email}</p>
                                                         </div>
                                                         {isSelected && <CheckCircle2 className="h-4 w-4 text-primary" />}
                                                     </div>
@@ -743,13 +743,13 @@ export default function ProjectDetailsPage() {
 
                                         <div className="space-y-4">
                                             <div className="space-y-1.5">
-                                                <label className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest ml-1">Editor Revenue Share (₹)</label>
+                                                <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest ml-1">Editor Revenue Share (₹)</label>
                                                 <input 
                                                     type="number"
                                                     value={editorRevenueShare}
                                                     onChange={(e) => setEditorRevenueShare(e.target.value)}
                                                     placeholder="e.g. 5000"
-                                                    className="w-full h-11 bg-black/20 border border-white/10 rounded-lg px-4 text-sm text-white focus:outline-none focus:border-primary/50 transition-colors"
+                                                    className="w-full h-11 bg-black/5 dark:bg-black/40 dark:bg-black/5 dark:bg-black/40 dark:bg-black/5 dark:bg-black/40 dark:bg-black/5 dark:bg-black/40 border border-border rounded-lg px-4 text-sm text-foreground focus:outline-none focus:border-primary/50 transition-colors"
                                                 />
                                             </div>
                                             <button 
@@ -778,7 +778,7 @@ export default function ProjectDetailsPage() {
                                                     }
                                                 }}
                                                 disabled={assigning || !selectedEditorId || !editorRevenueShare}
-                                                className="w-full h-12 rounded-lg bg-white text-black text-[11px] font-bold uppercase tracking-widest hover:bg-zinc-200 transition-all active:scale-[0.98] disabled:opacity-50"
+                                                className="w-full h-12 rounded-lg bg-primary  text-primary-foreground text-[11px] font-bold uppercase tracking-widest hover:bg-zinc-200 transition-all active:scale-[0.98] disabled:opacity-50"
                                             >
                                                 {assigning ? <Loader2 className="h-4 w-4 animate-spin mx-auto" /> : "Confirm Assignment"}
                                             </button>
@@ -794,7 +794,7 @@ export default function ProjectDetailsPage() {
                                          <ShieldCheck className="h-4 w-4" />
                                          <h3 className="text-[10px] font-bold uppercase tracking-widest">Override Options</h3>
                                      </div>
-                                     <p className="text-xs text-zinc-500 leading-relaxed font-medium">
+                                     <p className="text-xs text-muted-foreground leading-relaxed font-medium">
                                          Manual authorization can override billing gates for direct partner accounts.
                                      </p>
                                      <button 
@@ -812,7 +812,7 @@ export default function ProjectDetailsPage() {
                                                 toast.error("Override failed.");
                                             }
                                         }}
-                                        className="w-full h-11 rounded-lg bg-emerald-500/10 border border-emerald-500/30 text-emerald-500 text-[10px] font-bold uppercase tracking-widest hover:bg-emerald-500 hover:text-black transition-all active:scale-[0.98]"
+                                        className="w-full h-11 rounded-lg bg-emerald-500/10 border border-emerald-500/30 text-emerald-500 text-[10px] font-bold uppercase tracking-widest hover:bg-emerald-500 hover:text-primary-foreground transition-all active:scale-[0.98]"
                                      >
                                         Unlock Assets
                                      </button>
@@ -823,7 +823,7 @@ export default function ProjectDetailsPage() {
 
                     {/* Metadata Section */}
                     <div className="enterprise-card p-6 md:p-8 space-y-8">
-                        <div className="flex items-center gap-3 text-zinc-500">
+                        <div className="flex items-center gap-3 text-muted-foreground">
                             <LinkIcon className="h-4 w-4" /> 
                             <h3 className="text-[10px] font-bold uppercase tracking-widest">Project Details</h3>
                         </div>
@@ -832,9 +832,9 @@ export default function ProjectDetailsPage() {
                             <DetailRow label="Client Account" value={project.brand || project.clientName || 'N/A'} />
                             <DetailRow label="Estimated Duration" value={`${project.duration || 0}m`} />
                             <DetailRow label="Target Delivery" value={project.deadline ? project.deadline : "TBD"} />
-                            <div className="pt-6 border-t border-white/5 space-y-3">
-                                <label className="text-[9px] text-zinc-600 uppercase font-black tracking-widest block">Project Intent</label>
-                                <p className="text-sm text-zinc-400 leading-relaxed font-medium italic">
+                            <div className="pt-6 border-t border-border space-y-3">
+                                <label className="text-[9px] text-muted-foreground uppercase font-black tracking-widest block">Project Intent</label>
+                                <p className="text-sm text-muted-foreground leading-relaxed font-medium italic">
                                     "{project.description || "No description provided."}"
                                 </p>
                             </div>
@@ -843,7 +843,7 @@ export default function ProjectDetailsPage() {
 
                     {/* Technical Assets */}
                     <div className="enterprise-card p-6 md:p-8 space-y-8">
-                        <div className="flex items-center gap-3 text-zinc-500">
+                        <div className="flex items-center gap-3 text-muted-foreground">
                             <Briefcase className="h-4 w-4" /> 
                             <h3 className="text-[10px] font-bold uppercase tracking-widest">Project Files</h3>
                         </div>
@@ -854,15 +854,15 @@ export default function ProjectDetailsPage() {
                                 <a 
                                     href={project.footageLink.startsWith('http') ? project.footageLink : `https://${project.footageLink}`} 
                                     target="_blank" 
-                                    className="flex items-center justify-between p-4 rounded-xl bg-white/[0.02] border border-white/5 hover:bg-white/[0.04] hover:border-primary/30 transition-all group"
+                                    className="flex items-center justify-between p-4 rounded-xl bg-muted/50 border border-border hover:bg-muted/50 hover:border-primary/30 transition-all group"
                                 >
                                     <div className="flex items-center gap-3 min-w-0">
-                                        <div className="h-9 w-9 flex items-center justify-center rounded-lg bg-white/5 text-zinc-500 group-hover:text-primary transition-colors">
+                                        <div className="h-9 w-9 flex items-center justify-center rounded-lg bg-muted text-muted-foreground group-hover:text-primary transition-colors">
                                             <ExternalLink className="h-4 w-4" />
                                         </div>
                                         <div className="min-w-0">
-                                            <p className="text-[10px] text-zinc-600 font-bold uppercase tracking-widest leading-none mb-1.5">Raw Footage</p>
-                                            <p className="text-sm font-bold text-zinc-400 group-hover:text-white transition-colors truncate">Open Drive Link</p>
+                                            <p className="text-[10px] text-muted-foreground font-bold uppercase tracking-widest leading-none mb-1.5">Raw Footage</p>
+                                            <p className="text-sm font-bold text-muted-foreground group-hover:text-foreground transition-colors truncate">Open Drive Link</p>
                                         </div>
                                     </div>
                                 </a>
@@ -871,23 +871,23 @@ export default function ProjectDetailsPage() {
                             {/* Local Asset Grid */}
                             {project.rawFiles && project.rawFiles.length > 0 && (
                                 <div className="space-y-3 pt-2">
-                                    <p className="text-[9px] text-zinc-600 font-bold uppercase tracking-widest ml-1">Embedded Assets</p>
+                                    <p className="text-[9px] text-muted-foreground font-bold uppercase tracking-widest ml-1">Embedded Assets</p>
                                     <div className="grid gap-2">
                                         {project.rawFiles.map((file, idx) => (
                                             <a 
                                                 key={idx}
                                                 href={file.url}
                                                 target="_blank"
-                                                className="flex items-center gap-3 p-3.5 bg-white/[0.01] hover:bg-white/[0.03] rounded-xl border border-white/5 transition-all group"
+                                                className="flex items-center gap-3 p-3.5 bg-muted/50 hover:bg-muted/50 rounded-xl border border-border transition-all group"
                                             >
-                                                <div className="h-9 w-9 rounded-lg bg-zinc-900 border border-white/5 flex items-center justify-center text-zinc-600 group-hover:text-primary group-hover:bg-primary/5 transition-all">
+                                                <div className="h-9 w-9 rounded-lg bg-zinc-900 border border-border flex items-center justify-center text-muted-foreground group-hover:text-primary group-hover:bg-primary/5 transition-all">
                                                     <FileVideo className="h-4 w-4" />
                                                 </div>
                                                 <div className="flex-1 min-w-0 text-left">
-                                                    <p className="text-xs font-bold text-zinc-400 truncate group-hover:text-white mb-0.5">{file.name}</p>
-                                                    <p className="text-[9px] text-zinc-700 font-bold uppercase tracking-tighter">{(file.size ? (file.size / (1024*1024)).toFixed(2) : '?')} MB</p>
+                                                    <p className="text-xs font-bold text-muted-foreground truncate group-hover:text-foreground mb-0.5">{file.name}</p>
+                                                    <p className="text-[9px] text-muted-foreground font-bold uppercase tracking-tighter">{(file.size ? (file.size / (1024*1024)).toFixed(2) : '?')} MB</p>
                                                 </div>
-                                                <Download className="h-3.5 w-3.5 text-zinc-800 group-hover:text-white transition-colors mr-1" />
+                                                <Download className="h-3.5 w-3.5 text-muted-foreground group-hover:text-foreground transition-colors mr-1" />
                                             </a>
                                         ))}
                                     </div>
@@ -898,9 +898,9 @@ export default function ProjectDetailsPage() {
                             {isClient && (
                                 <div className="pt-2">
                                     {isUploadingAsset ? (
-                                        <div className="h-12 w-full bg-white/[0.02] rounded-xl border border-white/10 flex items-center px-5 gap-4">
+                                        <div className="h-12 w-full bg-muted/50 rounded-xl border border-border flex items-center px-5 gap-4">
                                             <Loader2 className="h-4 w-4 animate-spin text-primary shrink-0" />
-                                            <div className="flex-1 h-1 bg-white/5 rounded-full overflow-hidden">
+                                            <div className="flex-1 h-1 bg-muted rounded-full overflow-hidden">
                                                 <motion.div 
                                                     initial={{ width: 0 }}
                                                     animate={{ width: `${uploadAssetProgress}%` }}
@@ -910,7 +910,7 @@ export default function ProjectDetailsPage() {
                                         </div>
                                     ) : (
                                         <div className="relative">
-                                            <button className="w-full h-12 rounded-xl bg-white/[0.02] border border-white/10 hover:border-white/20 hover:bg-white/[0.04] text-zinc-500 hover:text-white transition-all group relative overflow-hidden">
+                                            <button className="w-full h-12 rounded-xl bg-muted/50 border border-border hover:border-border hover:bg-muted/50 text-muted-foreground hover:text-foreground transition-all group relative overflow-hidden">
                                                 <div className="flex items-center justify-center gap-2.5 relative z-10 text-[10px] font-bold uppercase tracking-widest">
                                                     <Upload className="h-3.5 w-3.5" />
                                                     Add Files
@@ -931,11 +931,11 @@ export default function ProjectDetailsPage() {
                     {/* Operational Progress */}
                     <div className="enterprise-card p-6 md:p-8 space-y-8">
                         <div className="flex justify-between items-center">
-                            <h3 className="text-[10px] font-bold uppercase tracking-widest text-zinc-500">Project Timeline</h3>
-                            <Activity className="h-3 w-3 text-zinc-700" />
+                            <h3 className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Project Timeline</h3>
+                            <Activity className="h-3 w-3 text-muted-foreground" />
                         </div>
                         <div className="space-y-8 relative px-2">
-                            <div className="absolute left-[13px] top-4 bottom-4 w-[1px] bg-white/[0.05]" />
+                            <div className="absolute left-[13px] top-4 bottom-4 w-[1px] bg-muted/50" />
                             <Milestone label="Project Started" date="Validated" active />
                             <Milestone label="Editing" date={revisions.length > 0 ? "Active" : "Pending"} active={revisions.length > 0} />
                             <Milestone label="Client Review" date="Scheduled" active={revisions.length > 0} />
@@ -960,22 +960,22 @@ export default function ProjectDetailsPage() {
                         </div>
                         <div className="space-y-0.5 min-w-0">
                             <h4 className="font-bold text-base tracking-tight truncate">Final Payment</h4>
-                            <p className="text-xs text-zinc-500 font-medium leading-relaxed">Complete the payment to unlock and download your final high-quality video.</p>
+                            <p className="text-xs text-muted-foreground font-medium leading-relaxed">Complete the payment to unlock and download your final high-quality video.</p>
                         </div>
                     </div>
 
                     <div className="space-y-3 px-1">
                         <div className="flex justify-between items-center text-sm">
-                            <span className="text-zinc-500 font-bold uppercase tracking-widest text-[10px]">Total Price</span>
-                            <span className="text-zinc-300 font-bold font-heading">₹{project?.totalCost?.toLocaleString()}</span>
+                            <span className="text-muted-foreground font-bold uppercase tracking-widest text-[10px]">Total Price</span>
+                            <span className="text-muted-foreground font-bold font-heading">₹{project?.totalCost?.toLocaleString()}</span>
                         </div>
                         <div className="flex justify-between items-center text-sm">
-                            <span className="text-zinc-500 font-bold uppercase tracking-widest text-[10px]">Paid So Far</span>
-                            <span className="text-zinc-300 font-bold font-heading">₹{project?.amountPaid?.toLocaleString() || '0'}</span>
+                            <span className="text-muted-foreground font-bold uppercase tracking-widest text-[10px]">Paid So Far</span>
+                            <span className="text-muted-foreground font-bold font-heading">₹{project?.amountPaid?.toLocaleString() || '0'}</span>
                         </div>
-                        <div className="h-px bg-white/[0.05] my-4" />
+                        <div className="h-px bg-muted/50 my-4" />
                         <div className="flex justify-between items-end">
-                            <span className="text-white font-bold uppercase tracking-widest text-[11px] mb-1">Remaining Balance</span>
+                            <span className="text-foreground font-bold uppercase tracking-widest text-[11px] mb-1">Remaining Balance</span>
                             <span className="text-primary font-black font-heading text-4xl tracking-tighter text-glow">₹{((project?.totalCost || 0) - (project?.amountPaid || 0)).toLocaleString()}</span>
                         </div>
                     </div>
@@ -996,7 +996,7 @@ export default function ProjectDetailsPage() {
                                 toast.success("Payment successful! Your final video is now available for download.");
                             }}
                         />
-                        <p className="text-center text-[10px] text-zinc-600 font-bold uppercase tracking-widest opacity-60">
+                        <p className="text-center text-[10px] text-muted-foreground font-bold uppercase tracking-widest opacity-60">
                             Secure payments by Razorpay
                         </p>
                     </div>
@@ -1010,7 +1010,7 @@ export default function ProjectDetailsPage() {
                 title="Rate Your Editor"
             >
                 <div className="space-y-6">
-                    <p className="text-zinc-400 text-sm leading-relaxed text-center">
+                    <p className="text-muted-foreground text-sm leading-relaxed text-center">
                         How was your experience working with {project?.assignedEditorId ? editors.find(e => e.uid === project.assignedEditorId)?.displayName || 'your editor' : 'your editor'}?
                     </p>
                     <div className="flex justify-center gap-2">
@@ -1020,7 +1020,7 @@ export default function ProjectDetailsPage() {
                                 onClick={() => setEditorRating(star)}
                                 className={cn(
                                     "p-2 rounded-xl transition-all",
-                                    editorRating >= star ? "text-yellow-400 bg-yellow-400/10 shadow-[0_0_15px_rgba(250,204,21,0.2)]" : "text-zinc-600 hover:text-yellow-400/50 hover:bg-white/5"
+                                    editorRating >= star ? "text-yellow-400 bg-yellow-400/10 shadow-[0_0_15px_rgba(250,204,21,0.2)]" : "text-muted-foreground hover:text-yellow-400/50 hover:bg-muted"
                                 )}
                             >
                                 <Star className={cn("h-8 w-8", editorRating >= star ? "fill-yellow-400" : "")} />
@@ -1028,18 +1028,18 @@ export default function ProjectDetailsPage() {
                         ))}
                     </div>
                     <div className="space-y-2">
-                        <label className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest ml-1">Leave a Review (Optional)</label>
+                        <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest ml-1">Leave a Review (Optional)</label>
                         <textarea
                             value={editorReview}
                             onChange={(e) => setEditorReview(e.target.value)}
                             placeholder="Share your thoughts about the video editing quality, speed, and communication..."
-                            className="w-full h-32 bg-black/20 border border-white/10 rounded-xl p-4 text-sm text-white focus:outline-none focus:border-primary/50 transition-colors resize-none"
+                            className="w-full h-32 bg-black/5 dark:bg-black/40 dark:bg-black/5 dark:bg-black/40 dark:bg-black/5 dark:bg-black/40 dark:bg-black/5 dark:bg-black/40 border border-border rounded-xl p-4 text-sm text-foreground focus:outline-none focus:border-primary/50 transition-colors resize-none"
                         />
                     </div>
                     <button
                         onClick={handleRatingSubmit}
                         disabled={isSubmittingRating || editorRating === 0}
-                        className="w-full h-12 rounded-xl bg-white text-black text-[11px] font-bold uppercase tracking-widest hover:bg-zinc-200 transition-all active:scale-[0.98] disabled:opacity-50"
+                        className="w-full h-12 rounded-xl bg-primary  text-primary-foreground text-[11px] font-bold uppercase tracking-widest hover:bg-zinc-200 transition-all active:scale-[0.98] disabled:opacity-50"
                     >
                         {isSubmittingRating ? <Loader2 className="h-4 w-4 animate-spin mx-auto" /> : "Submit Feedback"}
                     </button>
@@ -1058,7 +1058,7 @@ function StatusIndicator({ status }: { status: string }) {
     };
     const c = config[status] || config.active;
     return (
-        <div className={cn("px-4 py-2 rounded-xl border text-[11px] font-black uppercase tracking-[0.1em] bg-black/60 shadow-lg", c.border, c.text)}>
+        <div className={cn("px-4 py-2 rounded-xl border text-[11px] font-black uppercase tracking-[0.1em] bg-black/5 dark:bg-black/40 dark:bg-black/5 dark:bg-black/40 dark:bg-black/5 dark:bg-black/40 dark:bg-black/5 dark:bg-black/40 shadow-lg", c.border, c.text)}>
             <div className="flex items-center gap-2">
                 <div className={cn("h-1.5 w-1.5 rounded-full bg-current", status !== 'completed' && "animate-pulse")} />
                 {c.label}
@@ -1069,9 +1069,9 @@ function StatusIndicator({ status }: { status: string }) {
 
 function DetailRow({ label, value }: { label: string, value: string }) {
     return (
-        <div className="flex justify-between items-end border-b border-white/[0.05] pb-4 group last:border-0 last:pb-0">
-            <span className="text-[10px] font-black uppercase tracking-[0.2em] text-zinc-500 group-hover:text-zinc-400 transition-colors mb-0.5">{label}</span>
-            <span className="font-heading font-black text-base text-white group-hover:text-primary transition-all tracking-tight">{value}</span>
+        <div className="flex justify-between items-end border-b border-border pb-4 group last:border-0 last:pb-0">
+            <span className="text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground group-hover:text-muted-foreground transition-colors mb-0.5">{label}</span>
+            <span className="font-heading font-black text-base text-foreground group-hover:text-primary transition-all tracking-tight">{value}</span>
         </div>
     );
 }
@@ -1081,13 +1081,13 @@ function Milestone({ label, date, active }: { label: string, date: string, activ
         <div className="flex items-start gap-6 relative z-10 group">
             <div className={cn(
                 "h-6 w-6 rounded-lg border transition-all duration-700 relative z-20 mt-0.5 flex items-center justify-center shadow-lg",
-                active ? "bg-primary border-primary/50 shadow-primary/20 rotate-45" : "bg-zinc-900 border-white/10"
+                active ? "bg-primary border-primary/50 shadow-primary/20 rotate-45" : "bg-zinc-900 border-border"
             )}>
-                 {active && <div className="h-2 w-2 bg-white rounded-full -rotate-45 shadow-[0_0_8px_rgba(255,255,255,0.8)]" />}
+                 {active && <div className="h-2 w-2 bg-primary  rounded-full -rotate-45 shadow-[0_0_8px_rgba(255,255,255,0.8)]" />}
             </div>
             <div className="space-y-1">
-                <p className={cn("text-[11px] font-black uppercase tracking-[0.2em] transition-colors", active ? "text-white" : "text-zinc-600")}>{label}</p>
-                <p className={cn("text-[10px] font-bold tracking-widest uppercase", active ? "text-zinc-400" : "text-zinc-700")}>{date}</p>
+                <p className={cn("text-[11px] font-black uppercase tracking-[0.2em] transition-colors", active ? "text-foreground" : "text-muted-foreground")}>{label}</p>
+                <p className={cn("text-[10px] font-bold tracking-widest uppercase", active ? "text-muted-foreground" : "text-muted-foreground")}>{date}</p>
             </div>
             {active && (
                 <div className="absolute left-2.5 top-2.5 -translate-x-1/2 -translate-y-1/2 w-4 h-4 bg-primary/20 blur-md rounded-full pointer-events-none" />

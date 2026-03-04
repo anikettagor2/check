@@ -95,13 +95,13 @@ export default function AssignEditorPage(props: { params: Promise<{ id: string }
     };
 
     return (
-        <div className="min-h-screen bg-black text-white p-8">
+        <div className="min-h-screen bg-background text-foreground p-8">
             <div className="max-w-5xl mx-auto">
                 <header className="mb-12 text-center">
                     <h1 className="text-4xl font-bold mb-4 bg-gradient-to-r from-white to-zinc-500 bg-clip-text text-transparent">
                         Find Your Perfect Editor
                     </h1>
-                    <p className="text-zinc-400">
+                    <p className="text-muted-foreground">
                         Choose how you'd like to match with an editor for your project.
                     </p>
                 </header>
@@ -111,7 +111,7 @@ export default function AssignEditorPage(props: { params: Promise<{ id: string }
                         {/* Option 1: Automate */}
                         <div 
                             onClick={runUseAutomate}
-                            className="group relative overflow-hidden rounded-3xl border border-white/10 bg-zinc-900/50 p-8 hover:bg-zinc-800/50 transition-all cursor-pointer hover:border-primary/50"
+                            className="group relative overflow-hidden rounded-3xl border border-border bg-zinc-900/50 p-8 hover:bg-muted-foreground/50 transition-all cursor-pointer hover:border-primary/50"
                         >
                             <div className="absolute top-0 right-0 p-4 opacity-50 group-hover:opacity-100 transition-opacity">
                                 <Sparkles className="w-24 h-24 text-primary/20" />
@@ -122,14 +122,14 @@ export default function AssignEditorPage(props: { params: Promise<{ id: string }
                                     <Zap className="w-6 h-6" />
                                 </div>
                                 <h2 className="text-2xl font-bold mb-2">Automate Match</h2>
-                                <p className="text-zinc-400 mb-6">
+                                <p className="text-muted-foreground mb-6">
                                     Our AI analyzes your project requirements and instantly matches you with the best available editor.
                                 </p>
-                                <div className="flex items-center gap-2 text-sm text-zinc-500">
+                                <div className="flex items-center gap-2 text-sm text-muted-foreground">
                                     <CheckCircle2 className="w-4 h-4 text-green-500" />
                                     <span>Fastest assignment</span>
                                 </div>
-                                <div className="flex items-center gap-2 text-sm text-zinc-500 mt-1">
+                                <div className="flex items-center gap-2 text-sm text-muted-foreground mt-1">
                                     <CheckCircle2 className="w-4 h-4 text-green-500" />
                                     <span>Verified top-tier talent</span>
                                 </div>
@@ -139,7 +139,7 @@ export default function AssignEditorPage(props: { params: Promise<{ id: string }
                         {/* Option 2: Browse */}
                         <div 
                             onClick={() => setViewMode('list')}
-                            className="group relative overflow-hidden rounded-3xl border border-white/10 bg-zinc-900/50 p-8 hover:bg-zinc-800/50 transition-all cursor-pointer hover:border-blue-500/50"
+                            className="group relative overflow-hidden rounded-3xl border border-border bg-zinc-900/50 p-8 hover:bg-muted-foreground/50 transition-all cursor-pointer hover:border-blue-500/50"
                         >
                              <div className="absolute top-0 right-0 p-4 opacity-50 group-hover:opacity-100 transition-opacity">
                                 <Users className="w-24 h-24 text-blue-500/20" />
@@ -150,10 +150,10 @@ export default function AssignEditorPage(props: { params: Promise<{ id: string }
                                     <Users className="w-6 h-6" />
                                 </div>
                                 <h2 className="text-2xl font-bold mb-2">Browse Editors</h2>
-                                <p className="text-zinc-400 mb-6">
+                                <p className="text-muted-foreground mb-6">
                                     Browse through our curated list of professional editors, view portfolios, and choose your favorite.
                                 </p>
-                                <Button variant="outline" className="w-full bg-transparent border-white/10 hover:bg-white/5 hover:text-white group-hover:border-blue-500/50">
+                                <Button variant="outline" className="w-full bg-transparent border-border hover:bg-muted hover:text-foreground group-hover:border-blue-500/50">
                                     View Available Editors <ArrowRight className="ml-2 w-4 h-4" />
                                 </Button>
                             </div>
@@ -169,7 +169,7 @@ export default function AssignEditorPage(props: { params: Promise<{ id: string }
                             <Sparkles className="absolute inset-0 m-auto w-8 h-8 text-primary animate-pulse" />
                         </div>
                         <h2 className="text-2xl font-bold mb-2">Finding the best match...</h2>
-                        <p className="text-zinc-400">Analyzing your requirements and checking status...</p>
+                        <p className="text-muted-foreground">Analyzing your requirements and checking status...</p>
                     </div>
                 )}
 
@@ -182,16 +182,16 @@ export default function AssignEditorPage(props: { params: Promise<{ id: string }
 
                         <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
                             {MOCK_EDITORS.map((editor) => (
-                                <div key={editor.id} className="bg-zinc-900/50 border border-white/5 rounded-2xl p-6 hover:border-white/10 transition-all">
+                                <div key={editor.id} className="bg-zinc-900/50 border border-border rounded-2xl p-6 hover:border-border transition-all">
                                     <div className="flex items-start justify-between mb-4">
                                         <div className="flex items-center gap-3">
-                                            <Avatar className="w-12 h-12 border border-white/10">
+                                            <Avatar className="w-12 h-12 border border-border">
                                                 <AvatarImage src={editor.avatar} />
                                                 <AvatarFallback>{editor.name.substring(0,2)}</AvatarFallback>
                                             </Avatar>
                                             <div>
                                                 <h3 className="font-bold">{editor.name}</h3>
-                                                <p className="text-xs text-zinc-400">{editor.role}</p>
+                                                <p className="text-xs text-muted-foreground">{editor.role}</p>
                                             </div>
                                         </div>
                                         <div className="flex items-center gap-1 bg-yellow-500/10 text-yellow-500 px-2 py-1 rounded text-xs font-bold">
@@ -202,7 +202,7 @@ export default function AssignEditorPage(props: { params: Promise<{ id: string }
 
                                     <div className="flex flex-wrap gap-2 mb-6">
                                         {editor.skills.map(skill => (
-                                            <span key={skill} className="px-2 py-1 rounded-md bg-white/5 text-[10px] text-zinc-300 border border-white/5">
+                                            <span key={skill} className="px-2 py-1 rounded-md bg-muted text-[10px] text-muted-foreground border border-border">
                                                 {skill}
                                             </span>
                                         ))}
@@ -210,15 +210,15 @@ export default function AssignEditorPage(props: { params: Promise<{ id: string }
 
                                     <div className="flex items-center justify-between mt-auto">
                                         <div className="text-sm">
-                                            <span className="text-white font-bold">${editor.rate}</span>
-                                            <span className="text-zinc-500">/min</span>
+                                            <span className="text-foreground font-bold">${editor.rate}</span>
+                                            <span className="text-muted-foreground">/min</span>
                                         </div>
                                         <Button 
                                             onClick={() => handleAssign(editor.id)}
                                             disabled={isProcessing}
                                             className={cn(
-                                                "bg-white text-black hover:bg-zinc-200 min-w-[100px]",
-                                                selectedEditor === editor.id && "bg-primary text-white border-primary"
+                                                "bg-primary  text-primary-foreground hover:bg-zinc-200 min-w-[100px]",
+                                                selectedEditor === editor.id && "bg-primary text-foreground border-primary"
                                             )}
                                         >
                                             {selectedEditor === editor.id ? (

@@ -52,16 +52,16 @@ export default function InvoicePage(props: { params: Promise<{ id: string }> }) 
     if (!invoice) return <div className="text-center py-20 text-red-500">Invoice not found or deleted.</div>;
 
     return (
-        <div className="min-h-screen bg-zinc-100 print:bg-white text-zinc-900 flex flex-col items-center py-12 md:py-20 invoice-page">
+        <div className="min-h-screen bg-zinc-100 print:bg-primary  text-zinc-900 flex flex-col items-center py-12 md:py-20 invoice-page">
             
             {/* Action Bar (Hidden when printing) */}
             <div className="w-full max-w-[210mm] mb-8 flex flex-col md:flex-row justify-between items-center gap-4 print:hidden px-4 md:px-0">
-                <Link href="/dashboard/invoices" className="flex items-center text-sm font-medium text-zinc-500 hover:text-zinc-900 transition-colors">
+                <Link href="/dashboard/invoices" className="flex items-center text-sm font-medium text-muted-foreground hover:text-zinc-900 transition-colors">
                     <ArrowLeft className="h-4 w-4 mr-2" /> Back to List
                 </Link>
                 
                 <div className="flex gap-3">
-                    <Button onClick={() => window.print()} variant="outline" className="gap-2 bg-white hover:bg-zinc-50 border-zinc-200 text-zinc-700">
+                    <Button onClick={() => window.print()} variant="outline" className="gap-2 bg-primary  hover:bg-zinc-50 border-zinc-200 text-muted-foreground">
                         <Printer className="h-4 w-4" /> Print / Save PDF
                     </Button>
                     
@@ -76,7 +76,7 @@ export default function InvoicePage(props: { params: Promise<{ id: string }> }) 
                                     email: invoice.clientEmail
                                 }}
                                 onSuccess={handlePaymentSuccess}
-                                className="bg-emerald-600 hover:bg-emerald-700 text-white shadow-lg shadow-emerald-500/20"
+                                className="bg-emerald-600 hover:bg-emerald-700 text-foreground shadow-lg shadow-emerald-500/20"
                             />
                         </div>
                     ) : (
@@ -88,7 +88,7 @@ export default function InvoicePage(props: { params: Promise<{ id: string }> }) 
             </div>
 
             {/* Render Invoice */}
-            <div className="w-full max-w-[210mm] bg-white shadow-xl print:shadow-none print:w-full">
+            <div className="w-full max-w-[210mm] bg-primary  shadow-xl print:shadow-none print:w-full">
                 <InvoiceRenderer invoice={invoice} />
             </div>
 

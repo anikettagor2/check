@@ -230,11 +230,11 @@ export function ProjectManagerDashboard() {
                             <select 
                                 value={pmStatus}
                                 onChange={(e) => handleStatusUpdate(e.target.value as any)}
-                                className="bg-transparent border-none text-[11px] font-bold uppercase tracking-widest text-primary hover:text-white transition-colors focus:ring-0 cursor-pointer appearance-none pr-6"
+                                className="bg-transparent border-none text-[11px] font-bold uppercase tracking-widest text-primary hover:text-foreground transition-colors focus:ring-0 cursor-pointer appearance-none pr-6"
                             >
-                                <option value="online" className="bg-[#161920]">Online</option>
-                                <option value="sleep" className="bg-[#161920]">Sleep</option>
-                                <option value="offline" className="bg-[#161920]">Offline</option>
+                                <option value="online" className="bg-card">Online</option>
+                                <option value="sleep" className="bg-card">Sleep</option>
+                                <option value="offline" className="bg-card">Offline</option>
                             </select>
                             <ChevronDown className="absolute right-0 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-primary pointer-events-none" />
                         </div>
@@ -301,29 +301,29 @@ export function ProjectManagerDashboard() {
             <motion.div 
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
-                className="enterprise-card bg-[#161920]/40 backdrop-blur-sm overflow-hidden"
+                className="enterprise-card bg-card/40 backdrop-blur-sm overflow-hidden"
             >
-                <div className="p-6 border-b border-white/5 flex flex-col lg:flex-row lg:items-center justify-between gap-6">
+                <div className="p-6 border-b border-border flex flex-col lg:flex-row lg:items-center justify-between gap-6">
                     <div className="flex flex-col sm:flex-row items-start sm:items-center gap-6 w-full lg:w-auto">
                         <div className="relative w-full sm:w-80">
-                             <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-zinc-500 transition-colors" />
+                             <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground transition-colors" />
                              <input 
                                 type="text" 
                                 placeholder={`Locate ${activeTab} in system...`} 
-                                className="h-10 w-full rounded-lg border border-white/10 bg-white/[0.02] pl-11 pr-4 text-xs font-medium text-white focus:bg-white/[0.04] focus:border-primary/50 focus:outline-none transition-all placeholder:text-zinc-600"
+                                className="h-10 w-full rounded-lg border border-border bg-muted/50 pl-11 pr-4 text-xs font-medium text-foreground focus:bg-muted/50 focus:border-primary/50 focus:outline-none transition-all placeholder:text-muted-foreground"
                                 value={searchQuery}
                                 onChange={(e) => setSearchQuery(e.target.value)}
                              />
                         </div>
                         
                         <div className="hidden lg:flex items-center gap-2">
-                             <Monitor className="h-3.5 w-3.5 text-zinc-600" />
-                             <span className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest">Search & Filter</span>
+                             <Monitor className="h-3.5 w-3.5 text-muted-foreground" />
+                             <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Search & Filter</span>
                         </div>
                     </div>
 
                     <div className="flex items-center gap-3">
-                        <button className="h-10 px-4 rounded-lg border border-white/10 bg-white/[0.03] text-[11px] font-bold uppercase tracking-widest text-zinc-400 hover:text-white transition-all flex items-center gap-2">
+                        <button className="h-10 px-4 rounded-lg border border-border bg-muted/50 text-[11px] font-bold uppercase tracking-widest text-muted-foreground hover:text-foreground transition-all flex items-center gap-2">
                             <Filter className="h-3.5 w-3.5" /> Filter
                         </button>
                     </div>
@@ -340,18 +340,18 @@ export function ProjectManagerDashboard() {
                         className="w-full text-left"
                      >
                         <thead>
-                            <tr className="bg-white/[0.01]">
-                                <th className="px-6 py-4 text-[11px] font-bold text-zinc-500 uppercase tracking-widest border-b border-white/5">Project Identifier</th>
-                                <th className="px-6 py-4 text-[11px] font-bold text-zinc-500 uppercase tracking-widest border-b border-white/5">Status</th>
-                                <th className="px-6 py-4 text-[11px] font-bold text-zinc-500 uppercase tracking-widest border-b border-white/5">Assigned Editor</th>
-                                <th className="px-6 py-4 border-b border-white/5 w-[80px]"></th>
+                            <tr className="bg-muted/50">
+                                <th className="px-6 py-4 text-[11px] font-bold text-muted-foreground uppercase tracking-widest border-b border-border">Project Identifier</th>
+                                <th className="px-6 py-4 text-[11px] font-bold text-muted-foreground uppercase tracking-widest border-b border-border">Status</th>
+                                <th className="px-6 py-4 text-[11px] font-bold text-muted-foreground uppercase tracking-widest border-b border-border">Assigned Editor</th>
+                                <th className="px-6 py-4 border-b border-border w-[80px]"></th>
                             </tr>
                         </thead>
-                        <tbody className="divide-y divide-white/5">
+                        <tbody className="divide-y divide-border">
                             {loading ? (
                                 <tr><td colSpan={4} className="px-6 py-24 text-center"><RefreshCw className="animate-spin h-5 w-5 mx-auto text-primary" /></td></tr>
                             ) : projects.length === 0 ? (
-                                <tr><td colSpan={4} className="px-6 py-24 text-center text-zinc-600 text-[10px] font-bold uppercase tracking-widest">No Projects Found</td></tr>
+                                <tr><td colSpan={4} className="px-6 py-24 text-center text-muted-foreground text-[10px] font-bold uppercase tracking-widest">No Projects Found</td></tr>
                             ) : (
                                 projects.filter(p => !searchQuery || p.name.toLowerCase().includes(searchQuery.toLowerCase()) || p.clientName?.toLowerCase().includes(searchQuery.toLowerCase())).map((project, idx) => {
                                     const assignedEditor = editors.find(e => e.uid === project.assignedEditorId);
@@ -362,30 +362,30 @@ export function ProjectManagerDashboard() {
                                         initial={{ opacity: 0, y: 10 }}
                                         animate={{ opacity: 1, y: 0 }}
                                         transition={{ delay: idx * 0.05 }}
-                                        className="group hover:bg-white/[0.02] transition-colors"
+                                        className="group hover:bg-muted/50 transition-colors"
                                     >
                                         <td className="px-6 py-6 transition-all duration-300 group-hover:pl-8">
                                             <div className="flex flex-col gap-1">
-                                                <div className="text-base font-bold text-white tracking-tight leading-tight group-hover:text-primary transition-colors">{project.name}</div>
+                                                <div className="text-base font-bold text-foreground tracking-tight leading-tight group-hover:text-primary transition-colors">{project.name}</div>
                                                 <div className="flex items-center gap-3">
-                                                    <span className="text-[10px] text-zinc-600 font-bold uppercase tracking-widest">{project.clientName || 'ENTITY_NULL'}</span>
-                                                    <span className="text-[9px] text-zinc-800 font-bold tracking-widest uppercase">HEX: {project.id.slice(0,12)}</span>
+                                                    <span className="text-[10px] text-muted-foreground font-bold uppercase tracking-widest">{project.clientName || 'ENTITY_NULL'}</span>
+                                                    <span className="text-[9px] text-muted-foreground font-bold tracking-widest uppercase">HEX: {project.id.slice(0,12)}</span>
                                                 </div>
                                             </div>
                                         </td>
-                                        <td className="px-6 py-6 border-b border-white/0 group-hover:border-white/5">
+                                        <td className="px-6 py-6 border-b border-border group-hover:border-border">
                                             <StatusIndicator status={project.status} />
                                         </td>
                                         <td className="px-6 py-6">
                                             {assignedEditor ? (
-                                                <div className="flex items-center gap-3 bg-white/[0.03] border border-white/10 p-2 rounded-lg w-fit group-hover:border-primary/30 transition-all">
-                                                    <Avatar className="h-7 w-7 border border-white/10 rounded-md">
+                                                <div className="flex items-center gap-3 bg-muted/50 border border-border p-2 rounded-lg w-fit group-hover:border-primary/30 transition-all">
+                                                    <Avatar className="h-7 w-7 border border-border rounded-md">
                                                         <AvatarImage src={assignedEditor.photoURL || undefined} className="object-cover" />
                                                         <AvatarFallback className="text-[9px] bg-primary/20 text-primary font-bold">{assignedEditor.displayName?.[0]}</AvatarFallback>
                                                     </Avatar>
                                                     <div className="flex flex-col">
-                                                         <span className="text-[11px] font-bold text-white leading-none uppercase tracking-tight">{assignedEditor.displayName}</span>
-                                                         <span className="text-[9px] text-zinc-600 leading-none mt-1 uppercase font-bold tracking-widest">Authorized</span>
+                                                         <span className="text-[11px] font-bold text-foreground leading-none uppercase tracking-tight">{assignedEditor.displayName}</span>
+                                                         <span className="text-[9px] text-muted-foreground leading-none mt-1 uppercase font-bold tracking-widest">Authorized</span>
                                                     </div>
                                                 </div>
                                             ) : (
@@ -399,7 +399,7 @@ export function ProjectManagerDashboard() {
                                             <div className="flex items-center justify-end gap-3">
                                                 {project.downloadUnlockRequested && project.paymentStatus !== 'full_paid' && (
                                                         <button
-                                                        className="h-8 px-4 text-[9px] font-bold uppercase tracking-widest bg-emerald-500 text-white rounded-lg shadow-lg hover:opacity-90 transition-all active:scale-[0.98]"
+                                                        className="h-8 px-4 text-[9px] font-bold uppercase tracking-widest bg-emerald-500 text-foreground rounded-lg shadow-lg hover:opacity-90 transition-all active:scale-[0.98]"
                                                         onClick={async () => {
                                                             if (!user) return;
                                                             const res = await unlockProjectDownloads(project.id, user.uid);
@@ -494,7 +494,7 @@ export function ProjectManagerDashboard() {
                                                     "h-9 px-4 rounded-lg text-[9px] font-bold uppercase tracking-widest transition-all border",
                                                     u.payLater 
                                                         ? "bg-emerald-500/10 text-emerald-500 border-emerald-500/20 shadow-lg" 
-                                                        : "bg-white/[0.02] text-zinc-500 border-white/10 hover:text-white"
+                                                        : "bg-muted/50 text-muted-foreground border-border hover:text-foreground"
                                                 )}
                                                 onClick={async () => {
                                                     const res = await togglePayLater(u.uid, !u.payLater);
@@ -509,7 +509,7 @@ export function ProjectManagerDashboard() {
                                 ))}
                              </div>
                              {users.filter(u => u.role === 'client').length === 0 && (
-                                 <div className="px-6 py-24 text-center text-zinc-700 text-[10px] font-bold uppercase tracking-widest">NUL_INDEX: No Clients Located</div>
+                                 <div className="px-6 py-24 text-center text-muted-foreground text-[10px] font-bold uppercase tracking-widest">NUL_INDEX: No Clients Located</div>
                              )}
                         </motion.div>
                     )}
@@ -523,11 +523,11 @@ export function ProjectManagerDashboard() {
                             className="p-8 space-y-6"
                         >
                             <div className="flex flex-col gap-2 mb-6">
-                                <h2 className="text-xl font-bold tracking-tight text-white mb-1 flex items-center gap-2">
+                                <h2 className="text-xl font-bold tracking-tight text-foreground mb-1 flex items-center gap-2">
                                     <IndianRupee className="h-5 w-5 text-primary" />
                                     Financial Settlement Hub
                                 </h2>
-                                <p className="text-xs font-medium text-zinc-400 leading-relaxed max-w-2xl">
+                                <p className="text-xs font-medium text-muted-foreground leading-relaxed max-w-2xl">
                                     Centralized treasury for managing outstanding liabilities. Track and settle dues for both clients (receivables) and editors (payables).
                                 </p>
                             </div>
@@ -537,7 +537,7 @@ export function ProjectManagerDashboard() {
                                 <div className="space-y-4">
                                     <div className="flex items-center gap-2 px-1">
                                         <div className="h-2 w-2 rounded-full bg-orange-500 shadow-[0_0_8px_rgba(249,115,22,0.5)]" />
-                                        <h3 className="text-[10px] font-black uppercase tracking-[0.2em] text-zinc-400">Client Receivables (Pay Later)</h3>
+                                        <h3 className="text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground">Client Receivables (Pay Later)</h3>
                                     </div>
                                     <div className="grid gap-6">
                                         {users.filter(u => u.role === 'client' && (u.payLater || projects.some(p => p.clientId === u.uid && (p as any).isPayLaterRequest))).map(client => {
@@ -551,38 +551,38 @@ export function ProjectManagerDashboard() {
                                                     key={client.uid}
                                                     initial={{ opacity: 0, y: 10 }}
                                                     animate={{ opacity: 1, y: 0 }}
-                                                    className="enterprise-card bg-white/[0.02] border border-white/5 rounded-xl overflow-hidden"
+                                                    className="enterprise-card bg-muted/50 border border-border rounded-xl overflow-hidden"
                                                 >
-                                                    <div className="p-6 border-b border-white/5 bg-white/[0.01] flex flex-col md:flex-row md:items-center justify-between gap-4">
+                                                    <div className="p-6 border-b border-border bg-muted/50 flex flex-col md:flex-row md:items-center justify-between gap-4">
                                                         <div className="flex items-center gap-4">
                                                             <div className="h-12 w-12 rounded-xl bg-orange-500/10 border border-orange-500/20 flex items-center justify-center text-orange-500">
                                                                 <IndianRupee className="h-6 w-6" />
                                                             </div>
                                                             <div>
-                                                                <h3 className="text-lg font-bold text-white tracking-tight">{client.displayName || 'Unknown Client'}</h3>
-                                                                <p className="text-xs text-zinc-500 font-bold uppercase tracking-widest mt-1">{client.companyName || client.email}</p>
+                                                                <h3 className="text-lg font-bold text-foreground tracking-tight">{client.displayName || 'Unknown Client'}</h3>
+                                                                <p className="text-xs text-muted-foreground font-bold uppercase tracking-widest mt-1">{client.companyName || client.email}</p>
                                                             </div>
                                                         </div>
                                                         <div className="flex flex-col md:items-end gap-1 border border-orange-500/20 bg-orange-500/5 px-6 py-3 rounded-xl">
-                                                            <span className="text-[10px] text-zinc-500 uppercase font-bold tracking-widest">Total Pending Dues</span>
+                                                            <span className="text-[10px] text-muted-foreground uppercase font-bold tracking-widest">Total Pending Dues</span>
                                                             <span className="text-2xl font-black text-orange-400 tabular-nums">₹{totalDues.toLocaleString()}</span>
                                                         </div>
                                                     </div>
                                                     
-                                                    <div className="divide-y divide-white/5 bg-[#161920]/40">
+                                                    <div className="divide-y divide-border bg-card/40">
                                                         {clientProjects.map(project => (
-                                                            <div key={project.id} className="p-4 px-6 flex flex-col sm:flex-row sm:items-center justify-between gap-4 hover:bg-white/[0.02] transition-colors">
+                                                            <div key={project.id} className="p-4 px-6 flex flex-col sm:flex-row sm:items-center justify-between gap-4 hover:bg-muted/50 transition-colors">
                                                                 <div className="flex items-center gap-4 min-w-0">
-                                                                    <div className="h-8 w-8 rounded bg-white/[0.03] border border-white/5 flex items-center justify-center shrink-0">
-                                                                        <FileText className="h-3.5 w-3.5 text-zinc-400" />
+                                                                    <div className="h-8 w-8 rounded bg-muted/50 border border-border flex items-center justify-center shrink-0">
+                                                                        <FileText className="h-3.5 w-3.5 text-muted-foreground" />
                                                                     </div>
                                                                     <div className="min-w-0">
-                                                                        <Link href={`/dashboard/projects/${project.id}`} className="text-sm font-bold text-white tracking-tight truncate hover:text-primary transition-colors block">
+                                                                        <Link href={`/dashboard/projects/${project.id}`} className="text-sm font-bold text-foreground tracking-tight truncate hover:text-primary transition-colors block">
                                                                             {project.name}
                                                                         </Link>
                                                                         <div className="flex items-center gap-2 mt-1">
-                                                                            <span className="text-[9px] text-zinc-600 font-bold uppercase tracking-widest">ID: {project.id.slice(0,8)}</span>
-                                                                            <div className="h-1 w-1 rounded-full bg-zinc-700" />
+                                                                            <span className="text-[9px] text-muted-foreground font-bold uppercase tracking-widest">ID: {project.id.slice(0,8)}</span>
+                                                                            <div className="h-1 w-1 rounded-full bg-muted-foreground" />
                                                                             <span className={cn("text-[9px] font-bold uppercase tracking-widest", project.clientHasDownloaded ? "text-emerald-500" : "text-amber-500")}>
                                                                                 {project.clientHasDownloaded ? "File Downloaded" : "File Not Downloaded"}
                                                                             </span>
@@ -590,10 +590,10 @@ export function ProjectManagerDashboard() {
                                                                     </div>
                                                                 </div>
                                                                 <div className="flex items-center justify-between sm:justify-end gap-6 w-full sm:w-auto shrink-0">
-                                                                    <span className="text-sm font-black text-white tabular-nums">₹{project.totalCost?.toLocaleString() || 0}</span>
+                                                                    <span className="text-sm font-black text-foreground tabular-nums">₹{project.totalCost?.toLocaleString() || 0}</span>
                                                                     <button 
                                                                         onClick={(e) => { e.preventDefault(); handleSettlePayment(project.id); }}
-                                                                        className="h-9 px-4 rounded-lg bg-emerald-500/10 border border-emerald-500/20 text-emerald-500 hover:bg-emerald-500 text-[10px] hover:text-white font-bold uppercase tracking-widest transition-all shadow-[0_0_15px_rgba(16,185,129,0.1)] hover:shadow-[0_0_20px_rgba(16,185,129,0.4)] active:scale-95 flex items-center gap-2"
+                                                                        className="h-9 px-4 rounded-lg bg-emerald-500/10 border border-emerald-500/20 text-emerald-500 hover:bg-emerald-500 text-[10px] hover:text-foreground font-bold uppercase tracking-widest transition-all shadow-[0_0_15px_rgba(16,185,129,0.1)] hover:shadow-[0_0_20px_rgba(16,185,129,0.4)] active:scale-95 flex items-center gap-2"
                                                                     >
                                                                         <CheckCircle2 className="h-3.5 w-3.5" />
                                                                         Mark Received
@@ -609,8 +609,8 @@ export function ProjectManagerDashboard() {
                                         {users.filter(u => u.role === 'client' && (u.payLater || projects.some(p => p.clientId === u.uid && (p as any).isPayLaterRequest))).every(client => {
                                             return projects.filter(p => p.clientId === client.uid && p.paymentStatus !== 'full_paid' && ((p as any).isPayLaterRequest || client.payLater)).reduce((sum, p) => sum + (p.totalCost || 0), 0) === 0;
                                         }) && (
-                                            <div className="enterprise-card p-8 text-center flex flex-col items-center justify-center border-dashed border-2 border-white/5 opacity-60">
-                                                <h3 className="text-sm font-bold text-zinc-500 uppercase tracking-widest">All client balances cleared</h3>
+                                            <div className="enterprise-card p-8 text-center flex flex-col items-center justify-center border-dashed border-2 border-border opacity-60">
+                                                <h3 className="text-sm font-bold text-muted-foreground uppercase tracking-widest">All client balances cleared</h3>
                                             </div>
                                         )}
                                     </div>
@@ -620,7 +620,7 @@ export function ProjectManagerDashboard() {
                                 <div className="space-y-4">
                                     <div className="flex items-center gap-2 px-1">
                                         <div className="h-2 w-2 rounded-full bg-blue-500 shadow-[0_0_8px_rgba(59,130,246,0.5)]" />
-                                        <h3 className="text-[10px] font-black uppercase tracking-[0.2em] text-zinc-400">Editor Payables (Pending Payouts)</h3>
+                                        <h3 className="text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground">Editor Payables (Pending Payouts)</h3>
                                     </div>
                                     <div className="grid gap-6">
                                         {users.filter(u => u.role === 'editor' && projects.some(p => p.assignedEditorId === u.uid && p.status === 'completed' && !p.editorPaid)).map(editor => {
@@ -634,51 +634,51 @@ export function ProjectManagerDashboard() {
                                                     key={editor.uid}
                                                     initial={{ opacity: 0, y: 10 }}
                                                     animate={{ opacity: 1, y: 0 }}
-                                                    className="enterprise-card bg-white/[0.02] border border-white/5 rounded-xl overflow-hidden"
+                                                    className="enterprise-card bg-muted/50 border border-border rounded-xl overflow-hidden"
                                                 >
-                                                    <div className="p-6 border-b border-white/5 bg-white/[0.01] flex flex-col md:flex-row md:items-center justify-between gap-4">
+                                                    <div className="p-6 border-b border-border bg-muted/50 flex flex-col md:flex-row md:items-center justify-between gap-4">
                                                         <div className="flex items-center gap-4">
-                                                            <Avatar className="h-12 w-12 border border-white/10 rounded-xl bg-white/[0.03]">
+                                                            <Avatar className="h-12 w-12 border border-border rounded-xl bg-muted/50">
                                                                 <AvatarImage src={editor.photoURL || undefined} className="object-cover" />
                                                                 <AvatarFallback className="text-primary font-bold text-sm uppercase">{editor.displayName?.[0]}</AvatarFallback>
                                                             </Avatar>
                                                             <div>
-                                                                <h3 className="text-lg font-bold text-white tracking-tight">{editor.displayName || 'Unknown Editor'}</h3>
-                                                                <p className="text-xs text-zinc-500 font-bold uppercase tracking-widest mt-1 text-blue-400/80">{editor.email}</p>
+                                                                <h3 className="text-lg font-bold text-foreground tracking-tight">{editor.displayName || 'Unknown Editor'}</h3>
+                                                                <p className="text-xs text-muted-foreground font-bold uppercase tracking-widest mt-1 text-blue-400/80">{editor.email}</p>
                                                             </div>
                                                         </div>
                                                         <div className="flex flex-col md:items-end gap-1 border border-blue-500/20 bg-blue-500/5 px-6 py-3 rounded-xl">
-                                                            <span className="text-[10px] text-zinc-500 uppercase font-bold tracking-widest">Total Payout Pending</span>
+                                                            <span className="text-[10px] text-muted-foreground uppercase font-bold tracking-widest">Total Payout Pending</span>
                                                             <span className="text-2xl font-black text-blue-400 tabular-nums">₹{totalEditorDues.toLocaleString()}</span>
                                                         </div>
                                                     </div>
                                                     
-                                                    <div className="divide-y divide-white/5 bg-[#161920]/40">
+                                                    <div className="divide-y divide-border bg-card/40">
                                                         {editorProjects.map(project => (
-                                                            <div key={project.id} className="p-4 px-6 flex flex-col sm:flex-row sm:items-center justify-between gap-4 hover:bg-white/[0.02] transition-colors">
+                                                            <div key={project.id} className="p-4 px-6 flex flex-col sm:flex-row sm:items-center justify-between gap-4 hover:bg-muted/50 transition-colors">
                                                                 <div className="flex items-center gap-4 min-w-0">
-                                                                    <div className="h-8 w-8 rounded bg-white/[0.03] border border-white/5 flex items-center justify-center shrink-0">
-                                                                        <FileText className="h-3.5 w-3.5 text-zinc-400" />
+                                                                    <div className="h-8 w-8 rounded bg-muted/50 border border-border flex items-center justify-center shrink-0">
+                                                                        <FileText className="h-3.5 w-3.5 text-muted-foreground" />
                                                                     </div>
                                                                     <div className="min-w-0">
-                                                                        <Link href={`/dashboard/projects/${project.id}`} className="text-sm font-bold text-white tracking-tight truncate hover:text-primary transition-colors block">
+                                                                        <Link href={`/dashboard/projects/${project.id}`} className="text-sm font-bold text-foreground tracking-tight truncate hover:text-primary transition-colors block">
                                                                             {project.name}
                                                                         </Link>
                                                                         <div className="flex items-center gap-2 mt-1">
-                                                                            <span className="text-[9px] text-zinc-600 font-bold uppercase tracking-widest">ID: {project.id.slice(0,8)}</span>
-                                                                            <div className="h-1 w-1 rounded-full bg-zinc-700" />
+                                                                            <span className="text-[9px] text-muted-foreground font-bold uppercase tracking-widest">ID: {project.id.slice(0,8)}</span>
+                                                                            <div className="h-1 w-1 rounded-full bg-muted-foreground" />
                                                                             <span className="text-[9px] font-bold uppercase tracking-widest text-emerald-500">Project Completed</span>
                                                                         </div>
                                                                     </div>
                                                                 </div>
                                                                 <div className="flex items-center justify-between sm:justify-end gap-6 w-full sm:w-auto shrink-0">
                                                                     <div className="flex flex-col items-end mr-4">
-                                                                        <span className="text-[9px] text-zinc-500 font-bold uppercase tracking-tighter">Editor Share</span>
-                                                                        <span className="text-sm font-black text-white tabular-nums">₹{project.editorPrice?.toLocaleString() || 0}</span>
+                                                                        <span className="text-[9px] text-muted-foreground font-bold uppercase tracking-tighter">Editor Share</span>
+                                                                        <span className="text-sm font-black text-foreground tabular-nums">₹{project.editorPrice?.toLocaleString() || 0}</span>
                                                                     </div>
                                                                     <button 
                                                                         onClick={(e) => { e.preventDefault(); handleReimburseEditor(project.id); }}
-                                                                        className="h-9 px-4 rounded-lg bg-blue-500/10 border border-blue-500/20 text-blue-400 hover:bg-blue-500 hover:text-white text-[10px] font-bold uppercase tracking-widest transition-all active:scale-95 flex items-center gap-2 shadow-[0_0_15px_rgba(59,130,246,0.1)] hover:shadow-[0_0_20px_rgba(59,130,246,0.4)]"
+                                                                        className="h-9 px-4 rounded-lg bg-blue-500/10 border border-blue-500/20 text-blue-400 hover:bg-blue-500 hover:text-foreground text-[10px] font-bold uppercase tracking-widest transition-all active:scale-95 flex items-center gap-2 shadow-[0_0_15px_rgba(59,130,246,0.1)] hover:shadow-[0_0_20px_rgba(59,130,246,0.4)]"
                                                                     >
                                                                         <RefreshCw className="h-3.5 w-3.5" />
                                                                         Settle Payout
@@ -692,8 +692,8 @@ export function ProjectManagerDashboard() {
                                         })}
 
                                         {users.filter(u => u.role === 'editor' && projects.some(p => p.assignedEditorId === u.uid && p.status === 'completed' && !p.editorPaid)).length === 0 && (
-                                            <div className="enterprise-card p-8 text-center flex flex-col items-center justify-center border-dashed border-2 border-white/5 opacity-60">
-                                                <h3 className="text-sm font-bold text-zinc-500 uppercase tracking-widest">All editor payouts settled</h3>
+                                            <div className="enterprise-card p-8 text-center flex flex-col items-center justify-center border-dashed border-2 border-border opacity-60">
+                                                <h3 className="text-sm font-bold text-muted-foreground uppercase tracking-widest">All editor payouts settled</h3>
                                             </div>
                                         )}
                                     </div>
@@ -726,7 +726,7 @@ export function ProjectManagerDashboard() {
                       </div>
 
                       <div className="p-4 bg-muted/30 border border-border rounded-xl mb-4 space-y-3">
-                          <Label className="text-[10px] font-bold uppercase tracking-widest text-zinc-500">Set Editor Revenue (₹) - Required</Label>
+                          <Label className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Set Editor Revenue (₹) - Required</Label>
                           <input 
                               type="number"
                               placeholder="e.g. 500"
@@ -738,30 +738,30 @@ export function ProjectManagerDashboard() {
 
                       <div className="grid gap-3">
                         {editors.length === 0 ? (
-                            <div className="py-12 text-center text-zinc-600 text-[10px] font-bold uppercase tracking-widest border border-dashed border-white/5 rounded-2xl">
+                            <div className="py-12 text-center text-muted-foreground text-[10px] font-bold uppercase tracking-widest border border-dashed border-border rounded-2xl">
                                 No Editors Available
                             </div>
                         ) : (
                             editors.map(editor => {
                                  const isOnline = (editor as any).updatedAt > Date.now() - 10 * 60 * 1000;
                                  return (
-                                    <div key={editor.uid} className="flex items-center justify-between p-4 bg-white/[0.02] border border-white/5 rounded-xl hover:border-primary/50 transition-all group/editor">
+                                    <div key={editor.uid} className="flex items-center justify-between p-4 bg-muted/50 border border-border rounded-xl hover:border-primary/50 transition-all group/editor">
                                         <div className="flex items-center gap-4 cursor-pointer" onClick={() => { setSelectedEditorDetail(editor); setIsEditorModalOpen(true); }}>
-                                            <Avatar className="h-10 w-10 border border-white/10">
+                                            <Avatar className="h-10 w-10 border border-border">
                                                 <AvatarImage src={editor.photoURL || undefined} className="object-cover" />
                                                 <AvatarFallback className="bg-primary/10 text-primary font-bold">{editor.displayName?.[0]}</AvatarFallback>
                                             </Avatar>
                                             <div>
-                                                <div className="text-sm font-bold text-white group-hover/editor:text-primary transition-colors">{editor.displayName}</div>
+                                                <div className="text-sm font-bold text-foreground group-hover/editor:text-primary transition-colors">{editor.displayName}</div>
                                                 <div className="flex items-center gap-2 mt-0.5">
-                                                    <div className={cn("h-1.5 w-1.5 rounded-full", isOnline ? "bg-emerald-500 animate-pulse" : "bg-zinc-700")} />
-                                                    <span className="text-[9px] font-bold text-zinc-600 uppercase tracking-widest">{isOnline ? 'Online' : 'Offline'}</span>
+                                                    <div className={cn("h-1.5 w-1.5 rounded-full", isOnline ? "bg-emerald-500 animate-pulse" : "bg-muted-foreground")} />
+                                                    <span className="text-[9px] font-bold text-muted-foreground uppercase tracking-widest">{isOnline ? 'Online' : 'Offline'}</span>
                                                 </div>
                                             </div>
                                         </div>
                                         <button 
                                             onClick={() => handleAssignEditor(editor.uid)}
-                                            className="h-9 px-4 bg-white text-black text-[10px] font-bold uppercase tracking-widest rounded-lg hover:bg-zinc-200 transition-all"
+                                            className="h-9 px-4 bg-primary  text-primary-foreground text-[10px] font-bold uppercase tracking-widest rounded-lg hover:bg-zinc-200 transition-all"
                                         >
                                             Assign Editor
                                         </button>
@@ -778,7 +778,7 @@ export function ProjectManagerDashboard() {
                  {selectedEditorDetail && (
                      <div className="mt-8 space-y-8 max-h-[70vh] overflow-y-auto pr-4 custom-scrollbar">
                          <div className="flex items-start gap-8">
-                             <div className="h-24 w-24 rounded-2xl overflow-hidden border-2 border-white/5 bg-white/[0.02] relative">
+                             <div className="h-24 w-24 rounded-2xl overflow-hidden border-2 border-border bg-muted/50 relative">
                                  {selectedEditorDetail.photoURL ? (
                                      <Image src={selectedEditorDetail.photoURL} alt="" fill className="object-cover" />
                                  ) : (
@@ -788,40 +788,40 @@ export function ProjectManagerDashboard() {
                                  )}
                              </div>
                              <div className="flex-1 space-y-2">
-                                 <h2 className="text-2xl font-black text-white">{selectedEditorDetail.displayName}</h2>
+                                 <h2 className="text-2xl font-black text-foreground">{selectedEditorDetail.displayName}</h2>
                                  <div className="flex items-center gap-3">
                                      <span className="px-2 py-0.5 bg-primary/10 text-primary border border-primary/20 rounded text-[9px] font-bold uppercase tracking-widest">Authorized Editor</span>
-                                     <span className="text-[10px] text-zinc-500 font-bold uppercase tracking-widest">Member for {Math.floor((Date.now() - (selectedEditorDetail.createdAt || Date.now())) / (1000 * 60 * 60 * 24))} Days</span>
+                                     <span className="text-[10px] text-muted-foreground font-bold uppercase tracking-widest">Member for {Math.floor((Date.now() - (selectedEditorDetail.createdAt || Date.now())) / (1000 * 60 * 60 * 24))} Days</span>
                                  </div>
                                  <div className="flex gap-4 pt-2">
                                      <div className="text-center">
-                                         <div className="text-lg font-black text-white">{projects.filter(p => p.assignedEditorId === selectedEditorDetail.uid && p.status === 'completed').length}</div>
-                                         <div className="text-[8px] font-bold text-zinc-600 uppercase tracking-widest">Done</div>
+                                         <div className="text-lg font-black text-foreground">{projects.filter(p => p.assignedEditorId === selectedEditorDetail.uid && p.status === 'completed').length}</div>
+                                         <div className="text-[8px] font-bold text-muted-foreground uppercase tracking-widest">Done</div>
                                      </div>
                                      <div className="text-center">
                                          <div className="text-lg font-black text-primary">₹{(selectedEditorDetail.income || 0).toLocaleString()}</div>
-                                         <div className="text-[8px] font-bold text-zinc-600 uppercase tracking-widest">Earnings</div>
+                                         <div className="text-[8px] font-bold text-muted-foreground uppercase tracking-widest">Earnings</div>
                                      </div>
                                      <div className="text-center">
-                                         <div className="text-lg font-black text-white">{selectedEditorDetail.rating || '—'}</div>
-                                         <div className="text-[8px] font-bold text-zinc-600 uppercase tracking-widest">Rating</div>
+                                         <div className="text-lg font-black text-foreground">{selectedEditorDetail.rating || '—'}</div>
+                                         <div className="text-[8px] font-bold text-muted-foreground uppercase tracking-widest">Rating</div>
                                      </div>
                                  </div>
                              </div>
                          </div>
 
                          <div className="space-y-4">
-                             <h4 className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest flex items-center gap-2">
+                             <h4 className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest flex items-center gap-2">
                                  <MonitorPlay className="h-3 w-3 text-primary" /> Showcase Portfolio
                              </h4>
                              <div className="grid grid-cols-2 gap-3">
                                  {selectedEditorDetail.portfolio?.map((item, i) => (
-                                     <a key={i} href={item.url} target="_blank" className="p-3 bg-white/[0.02] border border-white/5 rounded-xl flex items-center justify-between group/link">
-                                         <span className="text-[11px] font-bold text-zinc-300 group-hover:text-white transition-colors">{item.name}</span>
-                                         <ExternalLink className="h-3 w-3 text-zinc-700" />
+                                     <a key={i} href={item.url} target="_blank" className="p-3 bg-muted/50 border border-border rounded-xl flex items-center justify-between group/link">
+                                         <span className="text-[11px] font-bold text-foreground/80 group-hover:text-foreground transition-colors">{item.name}</span>
+                                         <ExternalLink className="h-3 w-3 text-muted-foreground" />
                                      </a>
                                  )) || (
-                                     <div className="col-span-2 py-10 border border-dashed border-white/5 rounded-2xl text-center text-zinc-700 text-[10px] font-bold uppercase tracking-widest">No Showcase Items Ingested</div>
+                                     <div className="col-span-2 py-10 border border-dashed border-border rounded-2xl text-center text-muted-foreground text-[10px] font-bold uppercase tracking-widest">No Showcase Items Ingested</div>
                                  )}
                              </div>
                          </div>
@@ -837,7 +837,7 @@ export function ProjectManagerDashboard() {
                 <div className="space-y-8 py-4">
                     <p className="text-[10px] text-muted-foreground font-medium uppercase tracking-widest mb-4">Configure revenue share and workflow automation.</p>
                     <div className="space-y-4">
-                        <Label className="text-[10px] font-bold uppercase tracking-widest text-zinc-500">Editor Revenue Share (₹)</Label>
+                        <Label className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Editor Revenue Share (₹)</Label>
                         <div className="flex gap-3">
                             <input 
                                 type="number"
@@ -882,8 +882,8 @@ export function ProjectManagerDashboard() {
                                 className={cn(
                                     "h-10 px-6 rounded-lg text-[10px] font-bold uppercase tracking-widest transition-all",
                                     selectedProject?.autoPay 
-                                        ? "bg-emerald-500 text-white shadow-[0_0_15px_rgba(16,185,129,0.3)]" 
-                                        : "bg-zinc-800 text-zinc-400 border border-zinc-700 hover:text-white"
+                                        ? "bg-emerald-500 text-foreground shadow-[0_0_15px_rgba(16,185,129,0.3)]" 
+                                        : "bg-muted-foreground text-muted-foreground border border-zinc-700 hover:text-foreground"
                                 )}
                             >
                                 {selectedProject?.autoPay ? "ENABLED" : "DISABLED"}
@@ -909,29 +909,29 @@ export function ProjectManagerDashboard() {
                                     <MonitorPlay className="h-6 w-6" />
                                 </div>
                                 <div>
-                                    <h4 className="text-xl font-bold text-white tracking-tight">{inspectProject.name}</h4>
-                                    <p className="text-[10px] text-zinc-500 font-bold uppercase tracking-widest mt-1">Management Overview // Ref: {inspectProject.id}</p>
+                                    <h4 className="text-xl font-bold text-foreground tracking-tight">{inspectProject.name}</h4>
+                                    <p className="text-[10px] text-muted-foreground font-bold uppercase tracking-widest mt-1">Management Overview // Ref: {inspectProject.id}</p>
                                 </div>
                             </div>
 
                             <div className="grid grid-cols-2 lg:grid-cols-4 gap-6">
-                                <div className="p-6 rounded-2xl bg-white/[0.02] border border-white/5 space-y-2.5 group hover:border-primary/20 transition-all">
-                                    <span className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest">Total Price</span>
-                                    <div className="text-2xl font-black text-white tabular-nums tracking-tight">₹{inspectProject.totalCost?.toLocaleString()}</div>
+                                <div className="p-6 rounded-2xl bg-muted/50 border border-border space-y-2.5 group hover:border-primary/20 transition-all">
+                                    <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Total Price</span>
+                                    <div className="text-2xl font-black text-foreground tabular-nums tracking-tight">₹{inspectProject.totalCost?.toLocaleString()}</div>
                                 </div>
-                                <div className="p-6 rounded-2xl bg-white/[0.02] border border-white/5 space-y-2.5 group hover:border-emerald-500/20 transition-all">
-                                    <span className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest">Editor Share</span>
+                                <div className="p-6 rounded-2xl bg-muted/50 border border-border space-y-2.5 group hover:border-emerald-500/20 transition-all">
+                                    <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Editor Share</span>
                                     <div className="text-2xl font-black text-emerald-500 tabular-nums tracking-tight">₹{inspectProject.editorPrice?.toLocaleString() || '0'}</div>
                                 </div>
-                                <div className="p-6 rounded-2xl bg-white/[0.02] border border-white/5 space-y-2.5 group transition-all">
-                                    <span className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest">AutoPay</span>
-                                    <div className={cn("text-sm font-black uppercase tracking-widest", inspectProject.autoPay ? "text-primary drop-shadow-[0_0_8px_rgba(99,102,241,0.4)]" : "text-zinc-600")}>
+                                <div className="p-6 rounded-2xl bg-muted/50 border border-border space-y-2.5 group transition-all">
+                                    <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">AutoPay</span>
+                                    <div className={cn("text-sm font-black uppercase tracking-widest", inspectProject.autoPay ? "text-primary drop-shadow-[0_0_8px_rgba(99,102,241,0.4)]" : "text-muted-foreground")}>
                                         {inspectProject.autoPay ? 'Authorized' : 'Disabled'}
                                     </div>
                                 </div>
-                                <div className="p-6 rounded-2xl bg-white/[0.02] border border-white/5 space-y-2.5 group transition-all">
-                                    <span className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest">Assigned PM</span>
-                                    <div className="text-[13px] font-bold text-zinc-300 truncate tracking-tight group-hover:text-white transition-colors">
+                                <div className="p-6 rounded-2xl bg-muted/50 border border-border space-y-2.5 group transition-all">
+                                    <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Assigned PM</span>
+                                    <div className="text-[13px] font-bold text-foreground/80 truncate tracking-tight group-hover:text-foreground transition-colors">
                                         {users.find((u: any) => u.uid === inspectProject.assignedPMId)?.displayName || 'Unassigned'}
                                     </div>
                                 </div>
@@ -951,29 +951,29 @@ export function ProjectManagerDashboard() {
                         <div className="space-y-6">
                             <div className="flex items-center gap-2.5">
                                 <Activity className="h-4 w-4 text-primary" />
-                                <h5 className="text-[11px] font-bold text-zinc-400 uppercase tracking-widest">Project Event History</h5>
+                                <h5 className="text-[11px] font-bold text-muted-foreground uppercase tracking-widest">Project Event History</h5>
                             </div>
 
-                            <div className="relative space-y-8 pl-8 before:absolute before:left-3 before:top-2 before:bottom-2 before:w-px before:bg-white/5">
+                            <div className="relative space-y-8 pl-8 before:absolute before:left-3 before:top-2 before:bottom-2 before:w-px before:bg-card">
                                 {inspectProject.logs && inspectProject.logs.length > 0 ? (
                                     [...inspectProject.logs].reverse().map((log: any, i) => (
                                         <div key={i} className="relative group">
-                                            <div className="absolute -left-[25px] top-1.5 h-2.5 w-2.5 rounded-full bg-zinc-800 border border-zinc-700 group-hover:bg-primary group-hover:border-primary transition-all z-10" />
+                                            <div className="absolute -left-[25px] top-1.5 h-2.5 w-2.5 rounded-full bg-muted-foreground border border-zinc-700 group-hover:bg-primary group-hover:border-primary transition-all z-10" />
                                             <div className="space-y-1">
                                                 <div className="flex items-center justify-between">
-                                                    <span className="text-[10px] font-black text-white uppercase tracking-widest">{log.event.replace('_', ' ')}</span>
-                                                    <span className="text-[9px] font-bold text-zinc-600 tabular-nums">{new Date(log.timestamp).toLocaleString()}</span>
+                                                    <span className="text-[10px] font-black text-foreground uppercase tracking-widest">{log.event.replace('_', ' ')}</span>
+                                                    <span className="text-[9px] font-bold text-muted-foreground tabular-nums">{new Date(log.timestamp).toLocaleString()}</span>
                                                 </div>
-                                                <p className="text-xs text-zinc-400 font-medium leading-relaxed">{log.details}</p>
-                                                <div className="flex flex-col gap-1 text-[9px] font-bold text-zinc-600 uppercase tracking-widest pt-1">
+                                                <p className="text-xs text-muted-foreground font-medium leading-relaxed">{log.details}</p>
+                                                <div className="flex flex-col gap-1 text-[9px] font-bold text-muted-foreground uppercase tracking-widest pt-1">
                                                     <div className="flex items-center gap-2">
                                                         <span>Performed By:</span>
-                                                        <span className="text-zinc-500">{log.userName}</span>
+                                                        <span className="text-muted-foreground">{log.userName}</span>
                                                     </div>
                                                     {(log as any).designation && (
                                                         <div className="flex items-center gap-2">
                                                             <span>Designation:</span>
-                                                            <span className="text-zinc-500">{(log as any).designation}</span>
+                                                            <span className="text-muted-foreground">{(log as any).designation}</span>
                                                         </div>
                                                     )}
                                                 </div>
@@ -981,9 +981,9 @@ export function ProjectManagerDashboard() {
                                         </div>
                                     ))
                                 ) : (
-                                    <div className="py-12 flex flex-col items-center justify-center border border-dashed border-white/5 rounded-2xl opacity-30 gap-4">
-                                        <Database className="h-8 w-8 text-zinc-600" />
-                                        <p className="text-[10px] font-bold uppercase tracking-widest text-zinc-600">No activity history available</p>
+                                    <div className="py-12 flex flex-col items-center justify-center border border-dashed border-border rounded-2xl opacity-30 gap-4">
+                                        <Database className="h-8 w-8 text-muted-foreground" />
+                                        <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">No activity history available</p>
                                     </div>
                                 )}
                             </div>
@@ -1041,7 +1041,7 @@ function StatusIndicator({ status }: { status: string }) {
         in_review: { label: "QA REVIEW", color: "text-purple-400", bg: "bg-purple-400/5", border: "border-purple-400/20" },
         pending_assignment: { label: "IDLE QUEUE", color: "text-amber-400", bg: "bg-amber-400/5", border: "border-amber-400/20" },
         approved: { label: "AUTHORIZED", color: "text-emerald-400", bg: "bg-emerald-400/5", border: "border-emerald-400/20" },
-        completed: { label: "COMPLETED", color: "text-zinc-500", bg: "bg-zinc-500/5", border: "border-zinc-500/20" },
+        completed: { label: "COMPLETED", color: "text-muted-foreground", bg: "bg-zinc-500/5", border: "border-zinc-500/20" },
     };
     const s = config[status] || config.completed;
     return (

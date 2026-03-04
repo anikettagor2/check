@@ -381,7 +381,7 @@ export function SalesDashboard() {
                         initial={{ opacity: 0, scale: 0.95 }}
                         animate={{ opacity: 1, scale: 1 }}
                         exit={{ opacity: 0, scale: 0.95 }}
-                        className="lg:col-span-5 bg-[#161920]/40 backdrop-blur-sm border border-white/10 p-8 rounded-2xl relative overflow-hidden group/form"
+                        className="lg:col-span-5 bg-card/40 backdrop-blur-sm border border-border p-8 rounded-2xl relative overflow-hidden group/form"
                     >
                         <div className="absolute top-0 right-0 p-8 opacity-5 pointer-events-none group-hover/form:opacity-10 transition-opacity">
                             <Zap className="h-32 w-32 text-primary blur-2xl" />
@@ -391,47 +391,47 @@ export function SalesDashboard() {
                             <div className="p-1.5 rounded bg-primary/20 border border-primary/30">
                                 <ShieldCheck className="h-4 w-4 text-primary" />
                             </div>
-                            <h3 className="text-[11px] font-bold text-zinc-200 uppercase tracking-widest">Initialize Entity</h3>
+                            <h3 className="text-[11px] font-bold text-foreground/90 uppercase tracking-widest">Initialize Entity</h3>
                         </div>
                         
                         <form onSubmit={handleCreateClient} className="space-y-6 relative z-10">
                             <div className="space-y-2">
-                                <Label className="text-[10px] font-bold uppercase tracking-widest text-zinc-500 ml-1">Client Identity</Label>
+                                <Label className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground ml-1">Client Identity</Label>
                                 <input 
                                     placeholder="Entity Full Name" 
                                     value={name} 
                                     onChange={e => setName(e.target.value)} 
                                     required 
-                                    className="w-full h-11 px-4 rounded-lg border border-white/10 bg-white/[0.02] text-sm text-white focus:border-primary/50 focus:outline-none transition-all placeholder:text-zinc-700 font-medium"
+                                    className="w-full h-11 px-4 rounded-lg border border-border bg-muted/50 text-sm text-foreground focus:border-primary/50 focus:outline-none transition-all placeholder:text-muted-foreground font-medium"
                                 />
                             </div>
                             <div className="space-y-2">
-                                <Label className="text-[10px] font-bold uppercase tracking-widest text-zinc-500 ml-1">Auth Endpoint (Email)</Label>
+                                <Label className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground ml-1">Auth Endpoint (Email)</Label>
                                 <input 
                                     type="email" 
                                     placeholder="endpoint@client.hub" 
                                     value={email} 
                                     onChange={e => setEmail(e.target.value)} 
                                     required 
-                                    className="w-full h-11 px-4 rounded-lg border border-white/10 bg-white/[0.02] text-sm text-white focus:border-primary/50 focus:outline-none transition-all placeholder:text-zinc-700 font-medium"
+                                    className="w-full h-11 px-4 rounded-lg border border-border bg-muted/50 text-sm text-foreground focus:border-primary/50 focus:outline-none transition-all placeholder:text-muted-foreground font-medium"
                                 />
                             </div>
                             <div className="space-y-2">
-                                <Label className="text-[10px] font-bold uppercase tracking-widest text-zinc-500 ml-1">Network Contact (Phone)</Label>
+                                <Label className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground ml-1">Network Contact (Phone)</Label>
                                 <div className="flex gap-3">
-                                    <div className="flex items-center justify-center h-11 px-3 bg-white/[0.03] border border-white/10 rounded-lg text-[10px] font-bold text-zinc-500 tracking-widest">+91</div>
+                                    <div className="flex items-center justify-center h-11 px-3 bg-muted/50 border border-border rounded-lg text-[10px] font-bold text-muted-foreground tracking-widest">+91</div>
                                     <input 
                                         type="tel" 
                                         placeholder="Operational Mobile" 
                                         value={phone} 
                                         onChange={e => setPhone(e.target.value.replace(/\D/g, '').slice(0, 10))} 
                                         required 
-                                        className="w-full h-11 px-4 rounded-lg border border-white/10 bg-white/[0.02] text-sm text-white focus:border-primary/50 focus:outline-none transition-all placeholder:text-zinc-700 font-medium"
+                                        className="w-full h-11 px-4 rounded-lg border border-border bg-muted/50 text-sm text-foreground focus:border-primary/50 focus:outline-none transition-all placeholder:text-muted-foreground font-medium"
                                     />
                                 </div>
                             </div>
                             <div className="space-y-2">
-                                <Label className="text-[10px] font-bold uppercase tracking-widest text-zinc-500 ml-1">Access Key</Label>
+                                <Label className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground ml-1">Access Key</Label>
                                 <div className="flex gap-2">
                                     <input 
                                         type="text" 
@@ -439,38 +439,38 @@ export function SalesDashboard() {
                                         value={password} 
                                         onChange={e => setPassword(e.target.value)} 
                                         required 
-                                        className="w-full h-11 px-4 rounded-lg border border-white/10 bg-white/[0.02] text-sm text-white font-mono focus:border-primary/50 focus:outline-none transition-all placeholder:text-zinc-700"
+                                        className="w-full h-11 px-4 rounded-lg border border-border bg-muted/50 text-sm text-foreground font-mono focus:border-primary/50 focus:outline-none transition-all placeholder:text-muted-foreground"
                                     />
-                                    <button type="button" onClick={generatePassword} className="h-11 w-11 flex items-center justify-center rounded-lg bg-white/[0.03] border border-white/10 hover:bg-white/[0.08] transition-all group active:scale-[0.95]">
-                                        <Key className="h-4 w-4 text-zinc-500 group-hover:text-primary transition-colors" />
+                                    <button type="button" onClick={generatePassword} className="h-11 w-11 flex items-center justify-center rounded-lg bg-muted/50 border border-border hover:bg-muted/50 transition-all group active:scale-[0.95]">
+                                        <Key className="h-4 w-4 text-muted-foreground group-hover:text-primary transition-colors" />
                                     </button>
                                 </div>
                             </div>
                             
-                            <div className="pt-6 border-t border-white/5">
-                                <Label className="mb-4 block text-[10px] uppercase text-zinc-500 font-bold tracking-widest ml-1">Asset Pricing Matrix</Label>
+                            <div className="pt-6 border-t border-border">
+                                <Label className="mb-4 block text-[10px] uppercase text-muted-foreground font-bold tracking-widest ml-1">Asset Pricing Matrix</Label>
                                 <div className="grid gap-3">
                                     {VIDEO_TYPES_LABELS.map((type) => (
                                         <div key={type} className={cn(
                                             "flex items-center justify-between p-3.5 rounded-xl border transition-all", 
                                             allowedFormats[type] 
                                                 ? "bg-primary/[0.05] border-primary/30" 
-                                                : "bg-white/[0.01] border-white/5 opacity-40 grayscale"
+                                                : "bg-muted/50 border-border opacity-40 grayscale"
                                         )}>
                                             <div className="flex items-center gap-3">
                                                 <input 
                                                     type="checkbox" 
                                                     checked={allowedFormats[type]} 
                                                     onChange={(e) => setAllowedFormats({...allowedFormats, [type]: e.target.checked})}
-                                                    className="h-4 w-4 rounded border-white/20 bg-white/5 text-primary focus:ring-primary/40 transition-all cursor-pointer"
+                                                    className="h-4 w-4 rounded border-border bg-card text-primary focus:ring-primary/40 transition-all cursor-pointer"
                                                 />
-                                                <span className="text-[11px] font-bold text-zinc-300 uppercase tracking-widest">{type}</span>
+                                                <span className="text-[11px] font-bold text-foreground/80 uppercase tracking-widest">{type}</span>
                                             </div>
                                             <div className="flex items-center gap-2">
-                                                <span className="text-[10px] text-zinc-600 font-bold">₹</span>
+                                                <span className="text-[10px] text-muted-foreground font-bold">₹</span>
                                                 <input 
                                                     disabled={!allowedFormats[type]}
-                                                    className="h-8 w-20 text-xs font-bold bg-transparent border-none text-white focus:ring-0 text-right pr-0 disabled:opacity-30 tabular-nums" 
+                                                    className="h-8 w-20 text-xs font-bold bg-transparent border-none text-foreground focus:ring-0 text-right pr-0 disabled:opacity-30 tabular-nums" 
                                                     value={customRates[type]} 
                                                     onChange={(e) => setCustomRates({...customRates, [type]: parseInt(e.target.value) || 0})}
                                                 />
@@ -480,43 +480,43 @@ export function SalesDashboard() {
                                 </div>
                             </div>
 
-                            <div className="pt-6 border-t border-white/5 flex items-center justify-between">
+                            <div className="pt-6 border-t border-border flex items-center justify-between">
                                 <div className="space-y-1">
-                                    <Label className="text-[10px] uppercase text-zinc-500 font-bold tracking-widest ml-1">Pay Later Authority</Label>
-                                    <p className="text-[10px] text-zinc-600 font-medium ml-1">Enable deferred payment options for this client.</p>
+                                    <Label className="text-[10px] uppercase text-muted-foreground font-bold tracking-widest ml-1">Pay Later Authority</Label>
+                                    <p className="text-[10px] text-muted-foreground font-medium ml-1">Enable deferred payment options for this client.</p>
                                 </div>
                                 <input 
                                     type="checkbox" 
                                     checked={payLaterEligible} 
                                     onChange={(e) => setPayLaterEligible(e.target.checked)}
-                                    className="h-5 w-5 rounded border-white/20 bg-white/5 text-primary focus:ring-primary/40 transition-all cursor-pointer"
+                                    className="h-5 w-5 rounded border-border bg-card text-primary focus:ring-primary/40 transition-all cursor-pointer"
                                 />
                             </div>
 
-                            <div className="pt-6 border-t border-white/5">
-                                <Label className="text-[10px] font-bold uppercase tracking-widest text-zinc-500 ml-1">Project Manager Assignment</Label>
-                                <p className="text-[10px] text-zinc-600 font-medium ml-1 mb-3">Assign a Project Manager to automatically handle projects from this client.</p>
+                            <div className="pt-6 border-t border-border">
+                                <Label className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground ml-1">Project Manager Assignment</Label>
+                                <p className="text-[10px] text-muted-foreground font-medium ml-1 mb-3">Assign a Project Manager to automatically handle projects from this client.</p>
                                 <div className="relative">
                                     <select
                                         value={assignedPM}
                                         onChange={(e) => setAssignedPM(e.target.value)}
-                                        className="w-full h-11 px-4 rounded-lg border border-white/10 bg-white/[0.02] text-sm text-white focus:border-primary/50 focus:outline-none transition-all font-medium appearance-none"
+                                        className="w-full h-11 px-4 rounded-lg border border-border bg-muted/50 text-sm text-foreground focus:border-primary/50 focus:outline-none transition-all font-medium appearance-none"
                                     >
-                                        <option value="automatic" className="bg-[#161920]">Auto-Assign (Based on availability & load)</option>
+                                        <option value="automatic" className="bg-card">Auto-Assign (Based on availability & load)</option>
                                         {projectManagers.map(pm => (
-                                            <option key={pm.uid} value={pm.uid} className="bg-[#161920]">
+                                            <option key={pm.uid} value={pm.uid} className="bg-card">
                                                 {pm.displayName} 
                                                 {pm.availabilityStatus === 'online' ? ' (Online)' : pm.availabilityStatus === 'sleep' ? ' (Away)' : ' (Offline)'}
                                             </option>
                                         ))}
                                     </select>
-                                    <ChevronDown className="absolute right-4 top-1/2 -translate-y-1/2 h-4 w-4 text-zinc-500 pointer-events-none" />
+                                    <ChevronDown className="absolute right-4 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
                                 </div>
                             </div>
 
                             <button 
                                 type="submit" 
-                                className="w-full h-12 bg-white text-black text-[11px] font-bold uppercase tracking-widest rounded-lg shadow-xl hover:bg-zinc-200 transition-all active:scale-[0.98] disabled:opacity-20 flex items-center justify-center gap-2" 
+                                className="w-full h-12 bg-primary  text-primary-foreground text-[11px] font-bold uppercase tracking-widest rounded-lg shadow-xl hover:bg-zinc-200 transition-all active:scale-[0.98] disabled:opacity-20 flex items-center justify-center gap-2" 
                                 disabled={isLoading}
                             >
                                 {isLoading ? <RefreshCw className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />}
@@ -530,29 +530,29 @@ export function SalesDashboard() {
                  <motion.div 
                     layout
                     className={cn(
-                        "enterprise-card bg-[#161920]/40 backdrop-blur-sm overflow-hidden", 
+                        "enterprise-card bg-card/40 backdrop-blur-sm overflow-hidden", 
                         isCreateOpen ? "lg:col-span-7" : "lg:col-span-12"
                     )}
                  >
                       {/* Search & Tool Layer */}
-                      <div className="p-6 border-b border-white/5 flex flex-col lg:flex-row lg:items-center justify-between gap-6">
+                      <div className="p-6 border-b border-border flex flex-col lg:flex-row lg:items-center justify-between gap-6">
                         <div className="relative w-full sm:w-96">
-                             <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-zinc-500 transition-colors" />
+                             <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground transition-colors" />
                              <input 
                                 type="text"
                                 placeholder="Locate entity in database..." 
-                                className="h-10 w-full rounded-lg border border-white/10 bg-white/[0.02] pl-11 pr-4 text-xs font-medium text-white focus:bg-white/[0.04] focus:border-primary/50 focus:outline-none transition-all placeholder:text-zinc-600"
+                                className="h-10 w-full rounded-lg border border-border bg-muted/50 pl-11 pr-4 text-xs font-medium text-foreground focus:bg-muted/50 focus:border-primary/50 focus:outline-none transition-all placeholder:text-muted-foreground"
                                 value={searchQuery}
                                 onChange={(e) => setSearchQuery(e.target.value)}
                             />
                         </div>
                         <div className="flex items-center gap-4">
                              <div className="hidden sm:flex items-center gap-2.5">
-                                 <Monitor className="h-3.5 w-3.5 text-zinc-600" />
-                                 <span className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest">Index Scale: {displayedClients.length} Units</span>
+                                 <Monitor className="h-3.5 w-3.5 text-muted-foreground" />
+                                 <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Index Scale: {displayedClients.length} Units</span>
                              </div>
-                             <div className="h-4 w-px bg-white/10" />
-                             <button className="h-10 px-5 rounded-lg border border-white/10 bg-white/[0.03] text-[11px] font-bold uppercase tracking-widest text-zinc-400 hover:text-white transition-all flex items-center gap-2">
+                             <div className="h-4 w-px bg-card" />
+                             <button className="h-10 px-5 rounded-lg border border-border bg-muted/50 text-[11px] font-bold uppercase tracking-widest text-muted-foreground hover:text-foreground transition-all flex items-center gap-2">
                                  <Filter className="h-3.5 w-3.5" /> Operations Filter
                              </button>
                         </div>
@@ -568,13 +568,13 @@ export function SalesDashboard() {
                                          <th className="px-6 py-4 border-b border-border w-[80px]"></th>
                                      </tr>
                                  </thead>
-                                 <tbody className="divide-y divide-white/5">
+                                 <tbody className="divide-y divide-border">
                                      {displayedClients.length === 0 ? (
                                          <tr>
                                              <td colSpan={4} className="px-6 py-24 text-center">
                                                  <div className="flex flex-col items-center gap-4 opacity-30">
-                                                     <Globe className="h-12 w-12 text-zinc-600" />
-                                                     <p className="text-sm font-medium text-zinc-500 uppercase tracking-widest">Index Null: No Entities found</p>
+                                                     <Globe className="h-12 w-12 text-muted-foreground" />
+                                                     <p className="text-sm font-medium text-muted-foreground uppercase tracking-widest">Index Null: No Entities found</p>
                                                  </div>
                                              </td>
                                          </tr>
@@ -609,24 +609,24 @@ export function SalesDashboard() {
                                                  </td>
                                                  <td className="px-6 py-6">
                                                       <div className="flex items-center gap-2 group/copy cursor-pointer w-fit" onClick={() => { navigator.clipboard.writeText(client.email); toast.success("Endpoint copied"); }}>
-                                                         <span className="text-sm font-medium text-zinc-400 group-hover:text-zinc-200 transition-colors">{client.email}</span>
-                                                         <Copy className="h-3.5 w-3.5 text-zinc-700 opacity-0 group-hover/copy:opacity-100 transition-opacity" />
+                                                         <span className="text-sm font-medium text-muted-foreground group-hover:text-foreground/90 transition-colors">{client.email}</span>
+                                                         <Copy className="h-3.5 w-3.5 text-muted-foreground opacity-0 group-hover/copy:opacity-100 transition-opacity" />
                                                       </div>
                                                  </td>
                                                  <td className="px-6 py-6">
                                                      {client.initialPassword ? (
                                                          <div className="flex items-center gap-3 group/pass cursor-pointer w-fit" onClick={() => { navigator.clipboard.writeText(client.initialPassword); toast.success("Access key copied"); }}>
                                                              <span className="font-mono text-[11px] text-primary bg-primary/10 px-2.5 py-1 rounded border border-primary/20 transition-all group-hover:shadow-[0_0_10px_rgba(var(--primary),0.3)]">{client.initialPassword}</span>
-                                                             <Copy className="h-3.5 w-3.5 text-zinc-700 opacity-0 group-hover/pass:opacity-100 transition-opacity" />
+                                                             <Copy className="h-3.5 w-3.5 text-muted-foreground opacity-0 group-hover/pass:opacity-100 transition-opacity" />
                                                          </div>
                                                      ) : (
-                                                         <span className="text-zinc-700 text-[9px] font-bold uppercase tracking-widest">ENCRYPTED_KEY</span>
+                                                         <span className="text-muted-foreground text-[9px] font-bold uppercase tracking-widest">ENCRYPTED_KEY</span>
                                                      )}
                                                  </td>
                                                  <td className="px-6 py-6 text-right">
                                                      <DropdownMenu>
                                                          <DropdownMenuTrigger asChild>
-                                                             <button className="h-9 w-9 flex items-center justify-center rounded-lg hover:bg-white/[0.05] text-zinc-600 hover:text-white transition-all active:scale-[0.98]"><MoreHorizontal className="h-4 w-4" /></button>
+                                                             <button className="h-9 w-9 flex items-center justify-center rounded-lg hover:bg-muted/50 text-muted-foreground hover:text-foreground transition-all active:scale-[0.98]"><MoreHorizontal className="h-4 w-4" /></button>
                                                          </DropdownMenuTrigger>
                                                          <DropdownMenuContent align="end" className="w-56 bg-popover border-border p-1.5 rounded-xl shadow-2xl">
                                                              <DropdownMenuLabel className="text-[10px] text-muted-foreground font-bold uppercase tracking-widest px-3 py-2">Operational Actions</DropdownMenuLabel>

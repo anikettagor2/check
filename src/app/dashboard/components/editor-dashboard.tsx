@@ -123,7 +123,7 @@ export function EditorDashboard() {
   return (
     <div className="space-y-10 max-w-[1600px] mx-auto pb-20 pt-4">
        {/* Header Section */}
-        <div className="flex flex-col lg:flex-row lg:items-end justify-between gap-8 pb-10 border-b border-white/5 relative">
+        <div className="flex flex-col lg:flex-row lg:items-end justify-between gap-8 pb-10 border-b border-border relative">
             <div className="absolute -bottom-px left-0 w-32 h-px bg-primary shadow-[0_0_15px_rgba(99,102,241,0.5)]" />
             
             <motion.div 
@@ -136,15 +136,15 @@ export function EditorDashboard() {
                         <div className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse shadow-[0_0_8px_rgba(16,185,129,0.8)]" />
                         <span className="text-[10px] font-bold text-emerald-500 uppercase tracking-widest">Network Node: Active</span>
                     </div>
-                    <div className="h-4 w-px bg-white/10" />
-                    <span className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest font-mono">Editor Protocol v4.2.0</span>
+                    <div className="h-4 w-px bg-card" />
+                    <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest font-mono">Editor Protocol v4.2.0</span>
                 </div>
                 
                 <div className="space-y-1">
-                    <h1 className="text-5xl md:text-6xl font-heading font-black tracking-tighter text-white leading-none">
-                        Editor <span className="text-zinc-500">Dashboard</span>
+                    <h1 className="text-5xl md:text-6xl font-heading font-black tracking-tighter text-foreground leading-none">
+                        Editor <span className="text-muted-foreground">Dashboard</span>
                     </h1>
-                    <p className="text-zinc-400 text-sm font-medium tracking-tight">System synchronization complete. Welcome back, {user?.displayName}.</p>
+                    <p className="text-muted-foreground text-sm font-medium tracking-tight">System synchronization complete. Welcome back, {user?.displayName}.</p>
                 </div>
             </motion.div>
             
@@ -203,22 +203,22 @@ export function EditorDashboard() {
         <motion.div 
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
-            className="enterprise-card bg-zinc-900/40 backdrop-blur-md overflow-hidden border-white/5 shadow-2xl"
+            className="enterprise-card bg-zinc-900/40 backdrop-blur-md overflow-hidden border-border shadow-2xl"
        >
-            <div className="p-8 border-b border-white/5 flex flex-col lg:flex-row lg:items-center justify-between gap-6">
+            <div className="p-8 border-b border-border flex flex-col lg:flex-row lg:items-center justify-between gap-6">
                 <div className="flex flex-col sm:flex-row items-start sm:items-center gap-6 w-full lg:w-auto">
                     <div className="relative w-full sm:w-80">
-                         <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-zinc-400" />
+                         <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                          <input 
                             type="text" 
                             placeholder="Filter by Project Name or ID..." 
-                            className="h-11 w-full rounded-xl border border-white/10 bg-black/20 pl-11 pr-4 text-sm font-medium text-white focus:bg-black/40 focus:border-primary/50 focus:outline-none transition-all placeholder:text-zinc-600 shadow-inner"
+                            className="h-11 w-full rounded-xl border border-border bg-black/5 dark:bg-black/40 pl-11 pr-4 text-sm font-medium text-foreground focus:bg-black/5 dark:bg-black/40 focus:border-primary/50 focus:outline-none transition-all placeholder:text-muted-foreground shadow-inner"
                             value={searchQuery}
                             onChange={(e) => setSearchQuery(e.target.value)}
                          />
                     </div>
                     
-                    <div className="flex bg-black/20 border border-white/10 rounded-xl p-1 shadow-inner">
+                    <div className="flex bg-black/5 dark:bg-black/40 border border-border rounded-xl p-1 shadow-inner">
                         {[
                             { id: 'all', label: 'Global' },
                             { id: 'todo', label: 'Active' },
@@ -231,8 +231,8 @@ export function EditorDashboard() {
                                 className={cn(
                                     "px-6 py-2 text-[10px] font-bold uppercase tracking-widest rounded-lg transition-all",
                                     activeTab === tab.id 
-                                        ? "bg-white text-black shadow-[0_0_20px_rgba(255,255,255,0.15)] scale-[1.02]" 
-                                        : "text-zinc-500 hover:text-zinc-300"
+                                        ? "bg-primary  text-primary-foreground shadow-[0_0_20px_rgba(255,255,255,0.15)] scale-[1.02]" 
+                                        : "text-muted-foreground hover:text-foreground/80"
                                 )}
                             >
                                 {tab.label}
@@ -242,8 +242,8 @@ export function EditorDashboard() {
                 </div>
 
                 <div className="flex items-center gap-3">
-                    <div className="text-[10px] font-bold text-zinc-600 uppercase tracking-widest mr-2">{filteredProjects.length} Tasks Found</div>
-                    <button className="h-11 px-5 rounded-xl border border-white/10 bg-white/[0.03] text-[11px] font-bold uppercase tracking-widest text-zinc-400 hover:text-white hover:bg-white/[0.05] transition-all flex items-center gap-2.5">
+                    <div className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest mr-2">{filteredProjects.length} Tasks Found</div>
+                    <button className="h-11 px-5 rounded-xl border border-border bg-muted/50 text-[11px] font-bold uppercase tracking-widest text-muted-foreground hover:text-foreground hover:bg-muted/50 transition-all flex items-center gap-2.5">
                         <Filter className="h-4 w-4" />
                         Advanced Sort
                     </button>
@@ -253,23 +253,23 @@ export function EditorDashboard() {
             <div className="overflow-x-auto">
                 <table className="w-full text-left border-collapse">
                     <thead>
-                        <tr className="bg-black/20">
-                            <th className="px-8 py-5 text-[11px] font-black text-zinc-400 uppercase tracking-[0.2em] border-b border-white/5">Project Specifications</th>
-                            <th className="px-8 py-5 text-[11px] font-black text-zinc-400 uppercase tracking-[0.2em] border-b border-white/5">Operation Status</th>
-                            <th className="px-8 py-5 text-[11px] font-black text-zinc-400 uppercase tracking-[0.2em] border-b border-white/5">Client Entity</th>
-                            <th className="px-8 py-5 text-[11px] font-black text-zinc-400 uppercase tracking-[0.2em] border-b border-white/5">Timeline Target</th>
-                            <th className="px-8 py-5 text-[11px] font-black text-zinc-400 uppercase tracking-[0.2em] border-b border-white/5 text-right">Revenue Share</th>
-                            <th className="px-8 py-5 border-b border-white/5 w-[100px]"></th>
+                        <tr className="bg-black/5 dark:bg-black/40">
+                            <th className="px-8 py-5 text-[11px] font-black text-muted-foreground uppercase tracking-[0.2em] border-b border-border">Project Specifications</th>
+                            <th className="px-8 py-5 text-[11px] font-black text-muted-foreground uppercase tracking-[0.2em] border-b border-border">Operation Status</th>
+                            <th className="px-8 py-5 text-[11px] font-black text-muted-foreground uppercase tracking-[0.2em] border-b border-border">Client Entity</th>
+                            <th className="px-8 py-5 text-[11px] font-black text-muted-foreground uppercase tracking-[0.2em] border-b border-border">Timeline Target</th>
+                            <th className="px-8 py-5 text-[11px] font-black text-muted-foreground uppercase tracking-[0.2em] border-b border-border text-right">Revenue Share</th>
+                            <th className="px-8 py-5 border-b border-border w-[100px]"></th>
                         </tr>
                     </thead>
-                    <tbody className="divide-y divide-white/5">
+                    <tbody className="divide-y divide-border">
                          <AnimatePresence mode="wait">
                          {loading ? (
                             <tr key="loading">
                                 <td colSpan={6} className="px-6 py-24 text-center">
                                     <div className="flex flex-col items-center gap-4">
                                         <RefreshCw className="h-6 w-6 text-primary animate-spin" />
-                                        <p className="text-xs font-medium text-zinc-500 animate-pulse">Updating your tasks...</p>
+                                        <p className="text-xs font-medium text-muted-foreground animate-pulse">Updating your tasks...</p>
                                     </div>
                                 </td>
                             </tr>
@@ -277,8 +277,8 @@ export function EditorDashboard() {
                             <tr key="empty">
                                 <td colSpan={6} className="px-6 py-24 text-center">
                                     <div className="flex flex-col items-center gap-4 opacity-40">
-                                        <Layers className="h-12 w-12 text-zinc-600" />
-                                        <p className="text-sm font-medium text-zinc-500">No projects found in this category.</p>
+                                        <Layers className="h-12 w-12 text-muted-foreground" />
+                                        <p className="text-sm font-medium text-muted-foreground">No projects found in this category.</p>
                                     </div>
                                 </td>
                             </tr>
@@ -294,12 +294,12 @@ export function EditorDashboard() {
                                         initial={{ opacity: 0, y: 10 }}
                                         animate={{ opacity: 1, y: 0 }}
                                         transition={{ delay: idx * 0.03 }}
-                                        className="group hover:bg-white/[0.02] transition-colors"
+                                        className="group hover:bg-muted/50 transition-colors"
                                     >
                                         <td className="px-8 py-6">
                                             <div className="flex flex-col gap-1.5">
                                                 <div className="flex items-center gap-3">
-                                                    <span className="text-sm font-black text-white group-hover:text-primary transition-colors tracking-tight">
+                                                    <span className="text-sm font-black text-foreground group-hover:text-primary transition-colors tracking-tight">
                                                         {project.name}
                                                     </span>
                                                     {isUrgent && (
@@ -308,7 +308,7 @@ export function EditorDashboard() {
                                                         </span>
                                                     )}
                                                 </div>
-                                                <span className="text-[10px] font-bold text-zinc-600 uppercase tracking-widest">
+                                                <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">
                                                     ID: {project.id.slice(0, 8)}...
                                                 </span>
                                             </div>
@@ -324,13 +324,13 @@ export function EditorDashboard() {
                                                        <div className="flex gap-2">
                                                             <button 
                                                                 onClick={(e) => { e.stopPropagation(); handleResponse(project.id, 'accepted'); }}
-                                                                className="h-8 px-4 rounded-lg bg-white text-black text-[9px] font-black uppercase tracking-widest hover:bg-zinc-200 transition-all shadow-lg"
+                                                                className="h-8 px-4 rounded-lg bg-primary  text-primary-foreground text-[9px] font-black uppercase tracking-widest hover:bg-zinc-200 transition-all shadow-lg"
                                                             >
                                                                 Accept
                                                             </button>
                                                             <button 
                                                                 onClick={(e) => { e.stopPropagation(); handleResponse(project.id, 'rejected'); }}
-                                                                className="h-8 px-4 rounded-lg bg-zinc-800 text-zinc-400 text-[9px] font-black uppercase tracking-widest hover:bg-red-500/10 hover:text-red-500 transition-all"
+                                                                className="h-8 px-4 rounded-lg bg-muted-foreground text-muted-foreground text-[9px] font-black uppercase tracking-widest hover:bg-red-500/10 hover:text-red-500 transition-all"
                                                             >
                                                                 Decline
                                                             </button>
@@ -343,10 +343,10 @@ export function EditorDashboard() {
                                         </td>
                                         <td className="px-8 py-6">
                                             <div className="flex items-center gap-3">
-                                                <div className="h-9 w-9 rounded-xl bg-white/5 border border-white/10 flex items-center justify-center text-zinc-400 font-bold group-hover:border-primary/30 group-hover:text-primary transition-all">
+                                                <div className="h-9 w-9 rounded-xl bg-card border border-border flex items-center justify-center text-muted-foreground font-bold group-hover:border-primary/30 group-hover:text-primary transition-all">
                                                     {(project.clientName || project.brand || 'U')[0]}
                                                 </div>
-                                                <span className="text-[11px] font-black text-zinc-300 group-hover:text-white transition-colors uppercase tracking-widest">
+                                                <span className="text-[11px] font-black text-foreground/80 group-hover:text-foreground transition-colors uppercase tracking-widest">
                                                     {project.clientName || project.brand || 'Unknown Client'}
                                                 </span>
                                             </div>
@@ -355,13 +355,13 @@ export function EditorDashboard() {
                                             <div className="flex items-center gap-3">
                                                 <div className={cn(
                                                     "h-8 w-8 rounded-lg flex items-center justify-center border",
-                                                    isUrgent ? "bg-red-500/10 border-red-500/20 text-red-500" : "bg-white/5 border-white/10 text-zinc-500"
+                                                    isUrgent ? "bg-red-500/10 border-red-500/20 text-red-500" : "bg-card border-border text-muted-foreground"
                                                 )}>
                                                     <Calendar className="h-3.5 w-3.5" />
                                                 </div>
                                                 <span className={cn(
                                                     "text-[11px] font-black uppercase tracking-widest",
-                                                    isUrgent ? "text-red-400" : "text-zinc-400"
+                                                    isUrgent ? "text-red-400" : "text-muted-foreground"
                                                 )}>
                                                     {project.deadline || 'NO_LIMIT'}
                                                 </span>
@@ -369,7 +369,7 @@ export function EditorDashboard() {
                                         </td>
                                         <td className="px-8 py-6 text-right">
                                             <div className="flex flex-col items-end gap-1">
-                                                <span className="text-lg font-black font-heading text-white tracking-tighter leading-none">
+                                                <span className="text-lg font-black font-heading text-foreground tracking-tighter leading-none">
                                                     ₹{project.editorPrice?.toLocaleString() || '0'}
                                                 </span>
                                                 <span className="text-[9px] font-bold text-emerald-500/70 uppercase tracking-widest">Secured</span>
@@ -378,19 +378,19 @@ export function EditorDashboard() {
                                         <td className="px-8 py-6 text-right">
                                             <DropdownMenu>
                                                 <DropdownMenuTrigger asChild>
-                                                    <button className="h-10 w-10 flex items-center justify-center rounded-xl hover:bg-white/5 text-zinc-500 transition-all">
+                                                    <button className="h-10 w-10 flex items-center justify-center rounded-xl hover:bg-card text-muted-foreground transition-all">
                                                         <MoreHorizontal className="h-5 w-5" />
                                                     </button>
                                                 </DropdownMenuTrigger>
-                                                <DropdownMenuContent align="end" className="w-56 bg-zinc-900 border-white/10 p-2 shadow-2xl rounded-2xl">
-                                                    <DropdownMenuLabel className="text-[9px] font-black text-zinc-600 uppercase tracking-[0.2em] px-3 py-2">Operation Menu</DropdownMenuLabel>
-                                                    <DropdownMenuSeparator className="bg-white/5" />
+                                                <DropdownMenuContent align="end" className="w-56 bg-zinc-900 border-border p-2 shadow-2xl rounded-2xl">
+                                                    <DropdownMenuLabel className="text-[9px] font-black text-muted-foreground uppercase tracking-[0.2em] px-3 py-2">Operation Menu</DropdownMenuLabel>
+                                                    <DropdownMenuSeparator className="bg-card" />
                                                     <Link href={`/dashboard/projects/${project.id}`}>
                                                         <DropdownMenuItem className="flex items-center gap-3 px-3 py-2.5 rounded-xl cursor-pointer focus:bg-primary/10 transition-colors">
-                                                            <div className="h-8 w-8 rounded-lg bg-white/5 flex items-center justify-center">
-                                                                <FileText className="h-3.5 w-3.5 text-zinc-400" />
+                                                            <div className="h-8 w-8 rounded-lg bg-card flex items-center justify-center">
+                                                                <FileText className="h-3.5 w-3.5 text-muted-foreground" />
                                                             </div>
-                                                            <span className="text-[11px] font-bold text-zinc-300 uppercase tracking-widest">
+                                                            <span className="text-[11px] font-bold text-foreground/80 uppercase tracking-widest">
                                                                 {['completed', 'approved'].includes(project.status) ? "Inspect History" : "View Work"}
                                                             </span>
                                                         </DropdownMenuItem>
@@ -398,10 +398,10 @@ export function EditorDashboard() {
                                                     {!['completed', 'approved'].includes(project.status) && (
                                                         <Link href={`/dashboard/projects/${project.id}/upload`}>
                                                             <DropdownMenuItem className="flex items-center gap-3 px-3 py-2.5 rounded-xl cursor-pointer focus:bg-primary/10 transition-colors">
-                                                                <div className="h-8 w-8 rounded-lg bg-white/5 flex items-center justify-center">
-                                                                    <Upload className="h-3.5 w-3.5 text-zinc-400" />
+                                                                <div className="h-8 w-8 rounded-lg bg-card flex items-center justify-center">
+                                                                    <Upload className="h-3.5 w-3.5 text-muted-foreground" />
                                                                 </div>
-                                                                <span className="text-[11px] font-bold text-zinc-300 uppercase tracking-widest">Handover Draft</span>
+                                                                <span className="text-[11px] font-bold text-foreground/80 uppercase tracking-widest">Handover Draft</span>
                                                             </DropdownMenuItem>
                                                         </Link>
                                                     )}
@@ -438,12 +438,12 @@ function IndicatorCard({ label, value, subtext, trend, trendUp, alert, icon }: a
             animate={{ opacity: 1, y: 0 }}
             whileHover={{ y: -4, transition: { duration: 0.2 } }}
             className={cn(
-                "group relative bg-zinc-900 shadow-2xl border border-white/5 p-8 rounded-[2rem] transition-all duration-300",
+                "group relative bg-zinc-900 shadow-2xl border border-border p-8 rounded-[2rem] transition-all duration-300",
                 alert && "after:absolute after:inset-0 after:rounded-[2rem] after:ring-2 after:ring-primary/40 after:animate-pulse"
             )}
         >
             <div className="flex justify-between items-start mb-8">
-                <div className="h-12 w-12 bg-black border border-white/10 rounded-2xl flex items-center justify-center text-zinc-500 group-hover:text-primary group-hover:border-primary/30 transition-all duration-500 shadow-inner">
+                <div className="h-12 w-12 bg-background border border-border rounded-2xl flex items-center justify-center text-muted-foreground group-hover:text-primary group-hover:border-primary/30 transition-all duration-500 shadow-inner">
                     {icon}
                 </div>
                 {alert ? (
@@ -452,29 +452,29 @@ function IndicatorCard({ label, value, subtext, trend, trendUp, alert, icon }: a
                         <span className="text-[9px] font-black text-primary uppercase tracking-tighter">Priority</span>
                     </div>
                 ) : (
-                    <div className="h-8 w-8 rounded-full bg-white/[0.02] border border-white/5 flex items-center justify-center">
-                        <ArrowUpRight className="h-3.5 w-3.5 text-zinc-700 group-hover:text-zinc-400 transition-colors" />
+                    <div className="h-8 w-8 rounded-full bg-muted/50 border border-border flex items-center justify-center">
+                        <ArrowUpRight className="h-3.5 w-3.5 text-muted-foreground group-hover:text-muted-foreground transition-colors" />
                     </div>
                 )}
             </div>
             
             <div className="space-y-2">
-                <span className="text-[11px] uppercase font-black tracking-[0.2em] text-zinc-500 group-hover:text-zinc-300 transition-colors">{label}</span>
+                <span className="text-[11px] uppercase font-black tracking-[0.2em] text-muted-foreground group-hover:text-foreground/80 transition-colors">{label}</span>
                 <div className="flex flex-col">
-                    <span className="text-4xl font-black tracking-tighter text-white font-heading tabular-nums leading-none">{value}</span>
-                    <span className="text-zinc-500 text-[11px] font-bold uppercase tracking-wider mt-2 group-hover:text-zinc-400 transition-colors">{subtext}</span>
+                    <span className="text-4xl font-black tracking-tighter text-foreground font-heading tabular-nums leading-none">{value}</span>
+                    <span className="text-muted-foreground text-[11px] font-bold uppercase tracking-wider mt-2 group-hover:text-muted-foreground transition-colors">{subtext}</span>
                 </div>
                 
                 {trend && (
-                    <div className="pt-6 mt-6 border-t border-white/5 flex flex-col items-end gap-2">
+                    <div className="pt-6 mt-6 border-t border-border flex flex-col items-end gap-2">
                         <div className={cn(
                             "flex items-center gap-1.5 px-3 py-1.5 rounded-xl shadow-sm border",
-                            trendUp ? "bg-emerald-500/10 border-emerald-500/30 text-emerald-400" : "bg-zinc-800 border-white/5 text-zinc-500"
+                            trendUp ? "bg-emerald-500/10 border-emerald-500/30 text-emerald-400" : "bg-muted-foreground border-border text-muted-foreground"
                         )}>
                              {trendUp ? <ArrowUpRight className="h-3.5 w-3.5" /> : <Zap className="h-3.5 w-3.5" />}
                              <span className="text-[11px] font-black uppercase tracking-tight">{trend}</span>
                         </div>
-                        <span className="text-[9px] font-black text-zinc-500 uppercase tracking-[0.2em] px-1 group-hover:text-zinc-400 transition-colors">Performance Trend</span>
+                        <span className="text-[9px] font-black text-muted-foreground uppercase tracking-[0.2em] px-1 group-hover:text-muted-foreground transition-colors">Performance Trend</span>
                     </div>
                 )}
             </div>
@@ -488,7 +488,7 @@ function StatusIndicator({ status }: { status: string }) {
         in_review: { label: "QA Cycle", color: "text-purple-400", bg: "bg-purple-400/10", border: "border-purple-400/20", glow: "shadow-[0_0_15px_rgba(192,132,252,0.3)]" },
         pending_assignment: { label: "Invitation", color: "text-amber-400", bg: "bg-amber-400/10", border: "border-amber-400/20", glow: "shadow-[0_0_15px_rgba(251,191,36,0.3)]" },
         approved: { label: "Authorized", color: "text-emerald-400", bg: "bg-emerald-400/10", border: "border-emerald-400/20", glow: "shadow-[0_0_15px_rgba(52,211,153,0.3)]" },
-        completed: { label: "Completed", color: "text-zinc-500", bg: "bg-zinc-800", border: "border-white/5", glow: "" },
+        completed: { label: "Completed", color: "text-muted-foreground", bg: "bg-muted-foreground", border: "border-border", glow: "" },
     };
     const s = config[status] || config.completed;
     return (

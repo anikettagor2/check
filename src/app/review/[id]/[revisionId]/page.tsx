@@ -258,13 +258,13 @@ export default function PublicReviewPage(props: { params: Promise<{ id: string; 
 
   if (loading) {
       return (
-          <div className="flex h-screen items-center justify-center bg-black">
+          <div className="flex h-screen items-center justify-center bg-background">
               <Loader2 className="h-8 w-8 animate-spin text-primary" />
           </div>
       );
   }
 
-  if(!revision && !loading) return <div className="text-white p-10">Revision not found</div>;
+  if(!revision && !loading) return <div className="text-foreground p-10">Revision not found</div>;
 
   const isInternalUser = user?.role === "admin" || user?.role === "project_manager" || user?.role === "editor";
   const isProjectOwner = user?.uid === project?.ownerId || user?.uid === project?.clientId;
@@ -274,9 +274,9 @@ export default function PublicReviewPage(props: { params: Promise<{ id: string; 
   const showPaymentLock = !isUnlocked;
 
   return (
-    <div className="flex h-screen flex-col bg-black text-white overflow-hidden">
+    <div className="flex h-screen flex-col bg-background text-foreground overflow-hidden">
        {/* Public Header */}
-       <header className="flex h-16 items-center justify-between border-b border-white/10 px-4 bg-zinc-900/50 backdrop-blur">
+       <header className="flex h-16 items-center justify-between border-b border-border px-4 bg-zinc-900/50 backdrop-blur">
           <div className="flex items-center gap-4">
              <div className="flex items-center gap-2 font-bold text-lg tracking-tight mr-4">
                 <div className="h-8 w-8 rounded-lg bg-primary text-primary-foreground flex items-center justify-center">
@@ -284,10 +284,10 @@ export default function PublicReviewPage(props: { params: Promise<{ id: string; 
                 </div>
                 <span className="hidden sm:inline">EditoHub</span>
              </div>
-             <div className="h-8 w-px bg-white/10 hidden sm:block" />
+             <div className="h-8 w-px bg-card hidden sm:block" />
              <div>
-                <h1 className="text-sm font-bold text-white uppercase tracking-wider">{project?.name || "Review"}</h1>
-                <div className="flex items-center gap-2 text-xs text-zinc-400">
+                <h1 className="text-sm font-bold text-foreground uppercase tracking-wider">{project?.name || "Review"}</h1>
+                <div className="flex items-center gap-2 text-xs text-muted-foreground">
                    <span className="bg-primary/20 text-primary px-1.5 py-0.5 rounded text-[10px] font-bold tracking-wider">V{revision?.version || '?'}</span>
                    <span>Shared Review</span>
                 </div>
@@ -327,8 +327,8 @@ export default function PublicReviewPage(props: { params: Promise<{ id: string; 
                     variant="outline" 
                     disabled={!showPaymentLock && (revision?.downloadCount || 0) >= 3}
                     className={cn(
-                        "h-8 gap-2 bg-transparent border-zinc-700 hover:text-white transition-colors",
-                        !showPaymentLock ? "text-zinc-300" : "text-amber-500 border-amber-500/50 hover:bg-amber-500/10"
+                        "h-8 gap-2 bg-transparent border-zinc-700 hover:text-foreground transition-colors",
+                        !showPaymentLock ? "text-foreground/80" : "text-amber-500 border-amber-500/50 hover:bg-amber-500/10"
                     )}
                   >
                      {!showPaymentLock ? <Download className="h-4 w-4" /> : <DollarSign className="h-4 w-4" />}
@@ -339,7 +339,7 @@ export default function PublicReviewPage(props: { params: Promise<{ id: string; 
                      </span>
                   </Button>
               ) : (
-                  <div className="flex items-center gap-2 px-3 h-8 bg-zinc-900 border border-zinc-800 rounded-lg text-zinc-500 text-xs font-medium grayscale">
+                  <div className="flex items-center gap-2 px-3 h-8 bg-zinc-900 border border-zinc-800 rounded-lg text-muted-foreground text-xs font-medium grayscale">
                       <Download className="h-3.5 w-3.5" />
                       <span className="hidden sm:inline">Download Locked</span>
                   </div>
@@ -349,7 +349,7 @@ export default function PublicReviewPage(props: { params: Promise<{ id: string; 
                   const url = window.location.href;
                   navigator.clipboard.writeText(url);
                   toast.success("Link copied to clipboard!");
-              }} className="h-8 gap-2 bg-transparent border-zinc-700 hover:text-white transition-colors">
+              }} className="h-8 gap-2 bg-transparent border-zinc-700 hover:text-foreground transition-colors">
                   <Share2 className="h-4 w-4" />
                   <span className="hidden sm:inline">Copy Link</span>
               </Button>
@@ -358,7 +358,7 @@ export default function PublicReviewPage(props: { params: Promise<{ id: string; 
 
        <div className="flex flex-1 overflow-hidden">
           <main className="relative flex-1 flex flex-col items-center justify-center bg-zinc-950 p-6">
-             <div className="relative w-full max-w-5xl aspect-video bg-black shadow-2xl rounded-xl border border-white/5 overflow-visible">
+             <div className="relative w-full max-w-5xl aspect-video bg-background shadow-2xl rounded-xl border border-border overflow-visible">
                 {revision && (
                     <VideoPlayer 
                         ref={playerRef}
@@ -379,7 +379,7 @@ export default function PublicReviewPage(props: { params: Promise<{ id: string; 
              </div>
 
              <div className="mt-12 flex gap-4">
-                 <Button onClick={handleAddCommentStart} className="gap-2 bg-zinc-800 hover:bg-zinc-700 text-white border border-white/10 shadow-lg transition-transform active:scale-95">
+                 <Button onClick={handleAddCommentStart} className="gap-2 bg-muted-foreground hover:bg-muted-foreground text-foreground border border-border shadow-lg transition-transform active:scale-95">
                     <MessageSquarePlus className="h-4 w-4" />
                     {isAddingComment ? "Commenting..." : `Add Comment at ${Math.floor(currentTime)}s`}
                  </Button>
@@ -387,7 +387,7 @@ export default function PublicReviewPage(props: { params: Promise<{ id: string; 
           </main>
 
           <aside className={cn(
-              "w-96 border-l border-white/10 bg-zinc-900 flex flex-col transition-all duration-300",
+              "w-96 border-l border-border bg-zinc-900 flex flex-col transition-all duration-300",
               !isSidebarOpen && "w-0 opacity-0 overflow-hidden"
           )}>
               <CommentThread 
@@ -428,11 +428,11 @@ export default function PublicReviewPage(props: { params: Promise<{ id: string; 
             <div className="space-y-6">
                 <div className="p-4 bg-zinc-900 border border-zinc-800 rounded-2xl space-y-3">
                    <div className="flex items-center justify-between">
-                       <span className="text-zinc-400 text-sm font-medium">Project</span>
-                       <span className="text-white text-sm font-semibold">{project?.name}</span>
+                       <span className="text-muted-foreground text-sm font-medium">Project</span>
+                       <span className="text-foreground text-sm font-semibold">{project?.name}</span>
                    </div>
                    <div className="flex justify-between items-center">
-                       <span className="text-zinc-400 text-sm font-medium">Due Balance</span>
+                       <span className="text-muted-foreground text-sm font-medium">Due Balance</span>
                        <span className="text-primary font-mono font-bold">${((project?.totalCost || 0) - (project?.amountPaid || 0)).toLocaleString()}</span>
                    </div>
                 </div>
@@ -445,18 +445,18 @@ export default function PublicReviewPage(props: { params: Promise<{ id: string; 
                             "w-full group relative flex flex-col items-start p-4 rounded-2xl border transition-all text-left",
                             project?.downloadUnlockRequested 
                                 ? "bg-zinc-900/50 border-zinc-800 cursor-not-allowed opacity-70" 
-                                : "bg-zinc-900 border-zinc-800 hover:border-primary/50 hover:bg-zinc-800/50"
+                                : "bg-zinc-900 border-zinc-800 hover:border-primary/50 hover:bg-muted-foreground/50"
                         )}
                     >
                         <div className="flex items-center gap-3 mb-1">
                             <div className="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center text-primary group-hover:scale-110 transition-transform">
                                 {isRequesting ? <Loader2 className="h-4 w-4 animate-spin" /> : <ShieldCheck className="h-4 w-4" />}
                             </div>
-                            <span className="font-bold text-white">
+                            <span className="font-bold text-foreground">
                                 {project?.downloadUnlockRequested ? "Request Sent" : "Request PM Approval"}
                             </span>
                         </div>
-                        <p className="text-xs text-zinc-500 ml-11">Request access from your project manager. Best for direct billing accounts.</p>
+                        <p className="text-xs text-muted-foreground ml-11">Request access from your project manager. Best for direct billing accounts.</p>
                         
                         {project?.downloadUnlockRequested && (
                             <div className="absolute top-4 right-4 text-[10px] bg-emerald-500/10 text-emerald-500 px-1.5 py-0.5 rounded font-bold border border-emerald-500/20">
@@ -468,18 +468,18 @@ export default function PublicReviewPage(props: { params: Promise<{ id: string; 
                     <div className="relative group grayscale cursor-not-allowed">
                         <div className="flex flex-col items-start p-4 rounded-2xl border border-zinc-800 bg-zinc-900 opacity-50">
                             <div className="flex items-center gap-3 mb-1">
-                                <div className="h-8 w-8 rounded-full bg-zinc-800 flex items-center justify-center text-zinc-500">
+                                <div className="h-8 w-8 rounded-full bg-muted-foreground flex items-center justify-center text-muted-foreground">
                                     <DollarSign className="h-4 w-4" />
                                 </div>
-                                <span className="font-bold text-zinc-400">Pay Now & Unlock</span>
+                                <span className="font-bold text-muted-foreground">Pay Now & Unlock</span>
                             </div>
-                            <p className="text-xs text-zinc-500 ml-11 italic">Instant unlock via direct payment (Currently Disabled)</p>
+                            <p className="text-xs text-muted-foreground ml-11 italic">Instant unlock via direct payment (Currently Disabled)</p>
                         </div>
                         <div className="absolute inset-0 z-10" />
                     </div>
                 </div>
 
-                <p className="text-center text-[11px] text-zinc-500 leading-relaxed px-4">
+                <p className="text-center text-[11px] text-muted-foreground leading-relaxed px-4">
                     By requesting an unlock, you agree to our settlement terms. Once approved, the download button will be enabled for this revision.
                 </p>
             </div>

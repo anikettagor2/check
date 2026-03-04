@@ -77,12 +77,13 @@ import { useSearchParams } from "next/navigation";
 import { useAuth } from "@/lib/context/auth-context";
 import { assignEditor, updateProject, togglePayLater, deleteProject, deleteUser, toggleUserStatus, rejectDeletionRequest, verifyEditor, getWhatsAppTemplates, updateWhatsAppTemplates, settleProjectPayment } from "@/app/actions/admin-actions";
 import { AdminOverviewGraphs } from "./admin-overview-graphs";
+import { AdminPerformanceTab } from "./admin-performance";
 
 export function AdminDashboard() {
   const { user: currentUser } = useAuth();
   const searchParams = useSearchParams();
-  const initialTab = (searchParams.get('tab') as 'overview' | 'projects' | 'users' | 'team' | 'terminations' | 'requests' | 'whatsapp' | 'finance') || 'overview';
-  const [activeTab, setActiveTab] = useState<'overview' | 'projects' | 'users' | 'team' | 'terminations' | 'requests' | 'whatsapp' | 'finance'>(initialTab);
+  const initialTab = (searchParams.get('tab') as 'overview' | 'projects' | 'users' | 'team' | 'terminations' | 'requests' | 'whatsapp' | 'finance' | 'performance') || 'overview';
+  const [activeTab, setActiveTab] = useState<'overview' | 'projects' | 'users' | 'team' | 'terminations' | 'requests' | 'whatsapp' | 'finance' | 'performance'>(initialTab);
   const [projects, setProjects] = useState<Project[]>([]);
   const [users, setUsers] = useState<User[]>([]);
   const [loading, setLoading] = useState(true);
@@ -108,7 +109,7 @@ export function AdminDashboard() {
   // Add Editor State
   const [isAddEditorModalOpen, setIsAddEditorModalOpen] = useState(false);
   const [isCreatingEditor, setIsCreatingEditor] = useState(false);
-  const [newEditor, setNewEditor] = useState({ name: '', email: '', password: '', whatsapp: '', portfolio: '' });
+  const [newEditor, setNewEditor] = useState<{name: string, email: string, password: string, whatsapp: string, portfolio: string, location: string, skills: string[], skillPrices: Record<string, string>}>({ name: '', email: '', password: '', whatsapp: '', portfolio: '', location: '', skills: [], skillPrices: {} });
 
   const [editForm, setEditForm] = useState({
       totalCost: 0,
@@ -119,8 +120,12 @@ export function AdminDashboard() {
     revenue: 0,
     activeProjects: 0,
     totalDuePending: 0,
+    clientPending: 0,
+    editorPending: 0,
+    avgPayout: 0,
     profit: 0,
-    totalClients: 0
+    totalClients: 0,
+    lastPaymentDate: null as number | null
   });
 
   const [whatsappTemplates, setWhatsappTemplates] = useState<any>({});
@@ -160,22 +165,42 @@ export function AdminDashboard() {
   useEffect(() => {
     if(projects.length > 0 || users.length > 0) {
         setLoading(false);
-        const revenue = projects.reduce((acc, curr) => acc + (curr.amountPaid || 0), 0);
-        const totalDuePending = projects.reduce((acc, curr) => acc + Math.max(0, (curr.totalCost || 0) - (curr.amountPaid || 0)), 0);
+        const realizedRevenue = projects.reduce((acc, curr) => acc + (curr.amountPaid || 0), 0);
+        const clientPending = projects.reduce((acc, curr) => acc + Math.max(0, (curr.totalCost || 0) - (curr.amountPaid || 0)), 0);
+        
+        const editorPending = projects.reduce((acc, curr) => {
+            if (curr.assignedEditorId && !curr.editorPaid) {
+                return acc + (curr.editorPrice || 0);
+            }
+            return acc;
+        }, 0);
+
+        const totalEditorpayouts = projects.reduce((acc, curr) => acc + (curr.editorPrice || 0), 0);
+        const projectsWithEditors = projects.filter(p => p.assignedEditorId).length;
+        const avgPayout = projectsWithEditors > 0 ? totalEditorpayouts / projectsWithEditors : 0;
+
         const profit = projects.reduce((acc, curr) => {
-            // Only count projects that are assigned to editors for profit calculation
             if (curr.totalCost && curr.assignedEditorId) {
                 return acc + (curr.totalCost - (curr.editorPrice || 0));
             }
             return acc;
         }, 0);
 
+        const projectsWithPayment = projects.filter(p => (p.amountPaid || 0) > 0);
+        const lastPaymentDate = projectsWithPayment.length > 0 
+            ? Math.max(...projectsWithPayment.map(p => p.updatedAt)) 
+            : null;
+
         setStats({
-          revenue,
-          totalDuePending,
+          revenue: realizedRevenue,
+          totalDuePending: clientPending,
+          clientPending,
+          editorPending,
+          avgPayout,
           profit,
           activeProjects: projects.filter(p => !['completed', 'approved', 'archived'].includes(p.status)).length,
-          totalClients: users.filter(u => u.role === 'client').length
+          totalClients: users.filter(u => u.role === 'client').length,
+          lastPaymentDate
       });
     }
   }, [projects, users]);
@@ -237,12 +262,15 @@ export function AdminDashboard() {
               await updateDoc(doc(db, "users", responseData.uid), {
                  whatsappNumber: newEditor.whatsapp,
                  portfolio: newEditor.portfolio ? [{ name: "Main Portfolio", url: newEditor.portfolio, date: Date.now() }] : [],
+                 location: newEditor.location || '',
+                 skills: newEditor.skills,
+                 skillPrices: newEditor.skillPrices,
                  onboardingStatus: 'approved'
               });
           }
 
           toast.success(`Editor account created successfully`);
-          setNewEditor({ name: '', email: '', password: '', whatsapp: '', portfolio: '' });
+          setNewEditor({ name: '', email: '', password: '', whatsapp: '', portfolio: '', location: '', skills: [], skillPrices: {} });
           setIsAddEditorModalOpen(false);
        } catch (err: any) {
           toast.error(err.message);
@@ -388,7 +416,7 @@ export function AdminDashboard() {
     <div className="space-y-10 max-w-[1600px] mx-auto pb-20 pt-4">
        
        {/* Dashboard Header */}
-       <div className="flex flex-col lg:flex-row lg:items-end justify-between gap-8 pb-8 border-b border-white/10">
+       <div className="flex flex-col lg:flex-row lg:items-end justify-between gap-8 pb-8 border-b border-border">
             <motion.div 
               initial={{ opacity: 0, x: -20 }}
               animate={{ opacity: 1, x: 0 }}
@@ -400,7 +428,7 @@ export function AdminDashboard() {
                     </div>
                     <div className="flex items-center gap-2 ml-2">
                          <div className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse" />
-                         <span className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest">Live Updates</span>
+                         <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Live Updates</span>
                     </div>
                 </div>
                 <h1 className="text-4xl md:text-5xl font-heading font-bold tracking-tight text-foreground leading-tight">Admin <span className="text-muted-foreground">Dashboard</span></h1>
@@ -422,7 +450,7 @@ export function AdminDashboard() {
                className="flex flex-wrap items-center gap-3"
             >
                 <div className="flex bg-muted/50 border border-border rounded-lg p-1">
-                    {['overview', 'projects', 'users', 'team', 'terminations', 'requests', 'whatsapp', 'finance'].map(tab => (
+                    {['overview', 'projects', 'users', 'team', 'terminations', 'requests', 'whatsapp', 'finance', 'performance'].map(tab => (
                         <button
                             key={tab}
                             onClick={() => { setActiveTab(tab as any); setSearchQuery(""); }}
@@ -447,38 +475,49 @@ export function AdminDashboard() {
            </div>
        )}
 
-       {/* Statistics Grid */}
-       {activeTab === 'overview' && (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
-                 <IndicatorCard 
-                     label="Realized Revenue" 
-                     value={`₹${stats.revenue.toLocaleString()}`} 
-                     trend="+15.2%" 
-                     trendUp={true}
-                     icon={<IndianRupee className="h-4 w-4" />}
-                     subtext="Total payments received"
-                 />
-                 <IndicatorCard 
-                     label="Total Due Pending" 
-                     value={`₹${stats.totalDuePending.toLocaleString()}`} 
-                     alert={stats.totalDuePending > 0}
-                     icon={<Clock className="h-4 w-4" />}
-                     subtext="Client payments left"
-                 />
-                 <IndicatorCard 
-                     label="Realized Margin" 
-                     value={`₹${stats.profit.toLocaleString()}`} 
-                     icon={<TrendingUp className="h-4 w-4" />}
-                     subtext="Company profit (Realized)"
-                 />
-                 <IndicatorCard 
-                     label="Active Projects" 
-                     value={stats.activeProjects} 
-                     icon={<Cpu className="h-4 w-4" />}
-                     subtext="Currently in production"
-                 />
-            </div>
-       )}
+        {/* Statistics Grid */}
+        {activeTab === 'overview' && (
+             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4 mb-8">
+                  <IndicatorCard 
+                      label="Total Earned" 
+                      value={`₹${stats.revenue.toLocaleString()}`} 
+                      icon={<IndianRupee className="h-4 w-4" />}
+                      subtext="Total payments received"
+                  />
+                  <IndicatorCard 
+                      label="Client Pending Dues" 
+                      value={`₹${stats.clientPending.toLocaleString()}`} 
+                      alert={stats.clientPending > 0}
+                      icon={<Clock className="h-4 w-4" />}
+                      subtext="Payments from clients"
+                  />
+                  <IndicatorCard 
+                      label="Editor Pending Dues" 
+                      value={`₹${stats.editorPending.toLocaleString()}`} 
+                      alert={stats.editorPending > 0}
+                      icon={<Clock className="h-4 w-4 text-amber-500" />}
+                      subtext="Payouts to editors"
+                  />
+                  <IndicatorCard 
+                      label="Profit Contribution" 
+                      value={`₹${stats.profit.toLocaleString()}`} 
+                      icon={<TrendingUp className="h-4 w-4" />}
+                      subtext="Total realized margin"
+                  />
+                  <IndicatorCard 
+                      label="Avg Payout / Project" 
+                      value={`₹${Math.round(stats.avgPayout).toLocaleString()}`} 
+                      icon={<ArrowUpRight className="h-4 w-4" />}
+                      subtext="Average editor cost"
+                  />
+                  <IndicatorCard 
+                      label="Last Payment Date" 
+                      value={stats.lastPaymentDate ? new Date(stats.lastPaymentDate).toLocaleDateString('en-IN', { day: '2-digit', month: 'short' }) : 'N/A'} 
+                      icon={<Calendar className="h-4 w-4" />}
+                      subtext="Recent activity"
+                  />
+             </div>
+        )}
 
        {/* Main Content Area */}
        <motion.div 
@@ -487,7 +526,7 @@ export function AdminDashboard() {
             className="enterprise-card bg-muted backdrop-blur-sm overflow-hidden"
        >
             {/* Toolbar */}
-            <div className="p-6 border-b border-white/5 flex flex-col lg:flex-row lg:items-center justify-between gap-6">
+            <div className="p-6 border-b border-border flex flex-col lg:flex-row lg:items-center justify-between gap-6">
                 <div className="flex flex-col sm:flex-row items-start sm:items-center gap-6 w-full lg:w-auto">
                     {(activeTab === 'projects' || activeTab === 'overview' || activeTab === 'users') && (
                         <div className="relative w-full sm:w-80">
@@ -503,8 +542,8 @@ export function AdminDashboard() {
                     )}
                     
                     <div className="hidden lg:flex items-center gap-2">
-                         <LayoutDashboard className="h-3.5 w-3.5 text-zinc-600" />
-                         <span className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest">Viewing: {activeTab.replace('_', ' ')}</span>
+                         <LayoutDashboard className="h-3.5 w-3.5 text-muted-foreground" />
+                         <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Viewing: {activeTab.replace('_', ' ')}</span>
                     </div>
                 </div>
 
@@ -529,17 +568,17 @@ export function AdminDashboard() {
                     )}
                     <DropdownMenu>
                          <DropdownMenuTrigger asChild>
-                             <button className="h-10 px-4 rounded-lg border border-white/10 bg-white/[0.03] text-[11px] font-bold uppercase tracking-widest text-zinc-400 hover:text-white transition-all flex items-center gap-2">
+                             <button className="h-10 px-4 rounded-lg border border-border bg-muted/50 text-[11px] font-bold uppercase tracking-widest text-muted-foreground hover:text-foreground transition-all flex items-center gap-2">
                                  <Filter className="h-3.5 w-3.5" />
                                  Export Data
                                  <ChevronDown className="h-3 w-3 ml-1 opacity-50" />
                              </button>
                          </DropdownMenuTrigger>
-                         <DropdownMenuContent align="end" className="w-52 bg-[#161920] border-white/10 p-1.5 rounded-xl shadow-2xl">
-                             <DropdownMenuLabel className="text-[10px] text-zinc-500 font-bold uppercase tracking-widest px-3 py-2">Download Options</DropdownMenuLabel>
-                             <DropdownMenuSeparator className="my-1 bg-white/5" />
-                             <DropdownMenuItem className="p-2.5 text-xs text-zinc-300 hover:text-white hover:bg-white/5 transition-colors cursor-pointer rounded-lg">Export as JSON</DropdownMenuItem>
-                             <DropdownMenuItem className="p-2.5 text-xs text-zinc-300 hover:text-white hover:bg-white/5 transition-colors cursor-pointer rounded-lg">Export as CSV</DropdownMenuItem>
+                         <DropdownMenuContent align="end" className="w-52 bg-card border-border p-1.5 rounded-xl shadow-2xl">
+                             <DropdownMenuLabel className="text-[10px] text-muted-foreground font-bold uppercase tracking-widest px-3 py-2">Download Options</DropdownMenuLabel>
+                             <DropdownMenuSeparator className="my-1 bg-card" />
+                             <DropdownMenuItem className="p-2.5 text-xs text-foreground/80 hover:text-foreground hover:bg-card transition-colors cursor-pointer rounded-lg">Export as JSON</DropdownMenuItem>
+                             <DropdownMenuItem className="p-2.5 text-xs text-foreground/80 hover:text-foreground hover:bg-card transition-colors cursor-pointer rounded-lg">Export as CSV</DropdownMenuItem>
                          </DropdownMenuContent>
                     </DropdownMenu>
                 </div>
@@ -564,14 +603,14 @@ export function AdminDashboard() {
                                 <th className="px-6 py-4 border-b border-border w-[80px]"></th>
                             </tr>
                         </thead>
-                        <tbody className="divide-y divide-white/5">
+                        <tbody className="divide-y divide-border">
                             {projects.slice(0, 10).map((project, idx) => (
                                 <motion.tr 
                                     key={project.id}
                                     initial={{ opacity: 0, y: 10 }}
                                     animate={{ opacity: 1, y: 0 }}
                                     transition={{ delay: idx * 0.05 }}
-                                    className="hover:bg-white/[0.02] transition-colors group"
+                                    className="hover:bg-muted/50 transition-colors group"
                                 >
                                     <td className="px-6 py-5">
                                         <div className="text-sm font-bold text-foreground tracking-tight">{project.name}</div>
@@ -580,13 +619,13 @@ export function AdminDashboard() {
                                     <td className="px-6 py-5">
                                         <ProjectStatusBadges project={project} />
                                     </td>
-                                    <td className="px-6 py-5 text-zinc-400 text-[11px] font-medium uppercase tracking-tight" suppressHydrationWarning>
+                                    <td className="px-6 py-5 text-muted-foreground text-[11px] font-medium uppercase tracking-tight" suppressHydrationWarning>
                                         {new Date(project.updatedAt).toLocaleDateString()} — {new Date(project.updatedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                                     </td>
                                     <td className="px-6 py-5 text-right">
                                         <button 
                                             onClick={() => { setSelectedProject(project); setEditForm({totalCost: project.totalCost||0, status: project.status}); setIsEditModalOpen(true); }}
-                                            className="h-9 w-9 flex items-center justify-center rounded-lg hover:bg-white/[0.05] text-zinc-500 hover:text-white transition-all active:scale-[0.98]"
+                                            className="h-9 w-9 flex items-center justify-center rounded-lg hover:bg-muted/50 text-muted-foreground hover:text-foreground transition-all active:scale-[0.98]"
                                         >
                                             <Edit className="h-3.5 w-3.5" />
                                         </button>
@@ -615,14 +654,14 @@ export function AdminDashboard() {
                                <th className="px-6 py-4 border-b border-border w-[80px]"></th>
                            </tr>
                        </thead>
-                       <tbody className="divide-y divide-white/5">
+                       <tbody className="divide-y divide-border">
                            {filteredProjects.map((project, idx) => (
                                <motion.tr 
                                     key={project.id}
                                     initial={{ opacity: 0, y: 10 }}
                                     animate={{ opacity: 1, y: 0 }}
                                     transition={{ delay: idx * 0.05 }}
-                                    className="hover:bg-white/[0.02] transition-colors group"
+                                    className="hover:bg-muted/50 transition-colors group"
                                >
                                     <td className="px-6 py-6 border-b border-transparent group-hover:border-border">
                                         <div className="text-base font-bold text-foreground tracking-tight leading-tight">{project.name}</div>
@@ -645,7 +684,7 @@ export function AdminDashboard() {
                                         {project.assignedEditorId ? (
                                             <div className="flex flex-col gap-1.5">
                                                 <div className="flex items-center gap-2">
-                                                    <span className="text-zinc-200 text-xs font-bold truncate max-w-[120px]">
+                                                    <span className="text-foreground/90 text-xs font-bold truncate max-w-[120px]">
                                                         {users.find(u => u.uid === project.assignedEditorId)?.displayName || 'Unknown Editor'}
                                                     </span>
                                                 </div>
@@ -676,7 +715,7 @@ export function AdminDashboard() {
                                    <td className="px-6 py-6 text-right">
                                        <DropdownMenu>
                                             <DropdownMenuTrigger asChild>
-                                                <button className="h-9 w-9 flex items-center justify-center rounded-lg hover:bg-white/[0.05] text-zinc-500 hover:text-white transition-all active:scale-[0.98]"><MoreHorizontal className="h-3.5 w-3.5" /></button>
+                                                <button className="h-9 w-9 flex items-center justify-center rounded-lg hover:bg-muted/50 text-muted-foreground hover:text-foreground transition-all active:scale-[0.98]"><MoreHorizontal className="h-3.5 w-3.5" /></button>
                                             </DropdownMenuTrigger>
                                              <DropdownMenuContent align="end" className="w-52 bg-popover border-border p-1.5 rounded-xl shadow-2xl">
                                                 {!(project.status === 'completed' || project.status === 'archived') && (
@@ -720,22 +759,23 @@ export function AdminDashboard() {
                         className="w-full text-left"
                     >
                          <thead>
-                            <tr className="bg-muted/30">
-                                <th className="px-6 py-4 text-[11px] font-bold text-muted-foreground uppercase tracking-widest border-b border-border">User</th>
-                                <th className="px-6 py-4 text-[11px] font-bold text-muted-foreground uppercase tracking-widest border-b border-border">Email Address</th>
-                                <th className="px-6 py-4 text-[11px] font-bold text-muted-foreground uppercase tracking-widest border-b border-border">User Role</th>
-                                <th className="px-6 py-4 text-[11px] font-bold text-muted-foreground uppercase tracking-widest border-b border-border">Access Key</th>
-                                <th className="px-6 py-4 border-b border-border w-[80px]"></th>
-                            </tr>
+                             <tr className="bg-muted/30">
+                                 <th className="px-6 py-4 text-[11px] font-bold text-muted-foreground uppercase tracking-widest border-b border-border">Editor / User</th>
+                                 <th className="px-6 py-4 text-[11px] font-bold text-muted-foreground uppercase tracking-widest border-b border-border">Contact & Reach</th>
+                                 <th className="px-6 py-4 text-[11px] font-bold text-muted-foreground uppercase tracking-widest border-b border-border">Details & Tenure</th>
+                                 <th className="px-6 py-4 text-[11px] font-bold text-muted-foreground uppercase tracking-widest border-b border-border">Role & Specialization</th>
+                                 <th className="px-6 py-4 text-[11px] font-bold text-muted-foreground uppercase tracking-widest border-b border-border">Access Key</th>
+                                 <th className="px-6 py-4 border-b border-border w-[80px]"></th>
+                             </tr>
                         </thead>
-                        <tbody className="divide-y divide-white/5">
+                        <tbody className="divide-y divide-border">
                             {filteredUsers.map((u, idx) => (
                                 <motion.tr 
                                     key={u.uid}
                                     initial={{ opacity: 0, y: 10 }}
                                     animate={{ opacity: 1, y: 0 }}
                                     transition={{ delay: idx * 0.05 }}
-                                    className={cn("group hover:bg-white/[0.02] transition-colors", (u as any).status === 'inactive' && "opacity-40 grayscale")}
+                                    className={cn("group hover:bg-muted/50 transition-colors", (u as any).status === 'inactive' && "opacity-40 grayscale")}
                                 >
                                     <td className="px-6 py-4 cursor-pointer group/profile" onClick={() => { setSelectedUserDetail(u); setIsUserDetailModalOpen(true); }}>
                                         <div className="flex items-center gap-3">
@@ -749,25 +789,60 @@ export function AdminDashboard() {
                                             </div>
                                         </div>
                                     </td>
-                                    <td className="px-6 py-4">
-                                        <div className="text-sm text-zinc-200 font-medium tracking-tight truncate max-w-[150px]">{u.email}</div>
-                                    </td>
-                                    <td className="px-6 py-4">
-                                        <span className={cn(
-                                            "inline-flex px-2 py-0.5 rounded text-[9px] font-bold uppercase tracking-widest border w-fit",
-                                            u.role === 'admin' ? "bg-red-500/10 text-red-500 border-red-500/20" :
-                                            u.role === 'client' ? "bg-blue-500/10 text-blue-500 border-blue-500/20" :
-                                            u.role === 'editor' ? "bg-primary/10 text-primary border-primary/20" :
-                                            "bg-emerald-500/10 text-emerald-500 border-emerald-500/20"
-                                        )}>
-                                            {u.role?.replace('_', ' ') || 'UNLINKED'}
-                                        </span>
-                                    </td>
+                                     <td className="px-6 py-4">
+                                         <div className="flex flex-col gap-0.5">
+                                             <div className="text-sm text-foreground/90 font-medium tracking-tight truncate max-w-[180px]">{u.email}</div>
+                                             {u.phoneNumber && (
+                                                 <div className="text-[10px] text-muted-foreground font-bold uppercase tracking-widest">{u.phoneNumber}</div>
+                                             )}
+                                         </div>
+                                     </td>
+                                     <td className="px-6 py-4">
+                                         <div className="flex flex-col gap-0.5">
+                                             <div className="text-sm text-foreground/90 font-bold tracking-tight">{(u as any).location || 'Global'}</div>
+                                             <div className="text-[10px] text-muted-foreground font-bold uppercase tracking-widest">Joined {new Date(u.createdAt).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}</div>
+                                         </div>
+                                     </td>
+                                     <td className="px-6 py-4">
+                                         <div className="flex flex-col gap-2">
+                                             <span className={cn(
+                                                 "inline-flex px-2 py-0.5 rounded text-[9px] font-bold uppercase tracking-widest border w-fit shadow-sm",
+                                                 u.role === 'admin' ? "bg-red-500/10 text-red-500 border-red-500/20" :
+                                                 u.role === 'client' ? "bg-blue-500/10 text-blue-500 border-blue-500/20" :
+                                                 u.role === 'editor' ? "bg-primary/10 text-primary border-primary/20" :
+                                                 "bg-emerald-500/10 text-emerald-500 border-emerald-500/20"
+                                             )}>
+                                                 {u.role?.replace('_', ' ') || 'UNLINKED'}
+                                             </span>
+                                             {(u as any).skills && (u as any).skills.length > 0 && (
+                                                 <div className="flex flex-wrap gap-1">
+                                                     {(u as any).skills.map((skill: string, sidx: number) => (
+                                                         <span key={sidx} className="bg-muted/50 text-muted-foreground border border-border px-1.5 py-0.5 rounded-[4px] text-[8px] font-bold uppercase tracking-tighter">
+                                                             {skill}
+                                                         </span>
+                                                     ))}
+                                                 </div>
+                                             )}
+                                             {(u as any).skillPrices && Object.keys((u as any).skillPrices).length > 0 && (
+                                                 <div className="flex flex-col gap-1 mt-1">
+                                                     {Object.entries((u as any).skillPrices).map(([skill, price]) => (
+                                                         <div key={skill} className="text-[9px] text-muted-foreground font-bold tracking-widest flex items-center gap-1.5">
+                                                             <span className="text-muted-foreground truncate max-w-[60px]">{skill}</span> 
+                                                             <div className="flex items-center text-primary/80 bg-primary/5 px-1 rounded">
+                                                                <IndianRupee className="h-2 w-2 mr-0.5" /> 
+                                                                {price as string}
+                                                             </div>
+                                                         </div>
+                                                     ))}
+                                                 </div>
+                                             )}
+                                         </div>
+                                     </td>
                                     <td className="px-6 py-4">
                                         {u.initialPassword ? (
                                             <div className="flex items-center gap-2 group/copy cursor-pointer w-fit" onClick={() => { navigator.clipboard.writeText(u.initialPassword!); toast.success("Access key copied"); }}>
-                                                <span className="font-mono text-xs text-zinc-100 bg-white/[0.05] px-2.5 py-1 rounded border border-white/10 group-hover/copy:border-primary/50 group-hover/copy:text-white transition-all shadow-sm">{u.initialPassword}</span>
-                                                <Copy className="h-3.5 w-3.5 text-zinc-400 opacity-0 group-hover/copy:opacity-100 transition-opacity" />
+                                                <span className="font-mono text-xs text-zinc-100 bg-muted/50 px-2.5 py-1 rounded border border-border group-hover/copy:border-primary/50 group-hover/copy:text-foreground transition-all shadow-sm">{u.initialPassword}</span>
+                                                <Copy className="h-3.5 w-3.5 text-muted-foreground opacity-0 group-hover/copy:opacity-100 transition-opacity" />
                                             </div>
                                         ) : (
                                             <span className="text-muted-foreground/40 text-[9px] font-bold uppercase tracking-widest">ENCRYPTED</span>
@@ -788,7 +863,7 @@ export function AdminDashboard() {
                                             </button>
                                             <DropdownMenu>
                                                 <DropdownMenuTrigger asChild>
-                                                    <button className="h-8 w-8 flex items-center justify-center rounded-lg hover:bg-white/[0.05] text-zinc-600 hover:text-white transition-all active:scale-[0.98]"><MoreHorizontal className="h-3.5 w-3.5" /></button>
+                                                    <button className="h-8 w-8 flex items-center justify-center rounded-lg hover:bg-muted/50 text-muted-foreground hover:text-foreground transition-all active:scale-[0.98]"><MoreHorizontal className="h-3.5 w-3.5" /></button>
                                                 </DropdownMenuTrigger>
                                                 <DropdownMenuContent align="end" className="w-52 bg-popover border-border p-1.5 rounded-xl shadow-2xl">
                                                     {u.role === 'client' && (
@@ -825,11 +900,11 @@ export function AdminDashboard() {
                         className="p-8"
                     >
                          <div className="grid grid-cols-1 lg:grid-cols-12 gap-12">
-                             <div className="lg:col-span-5 bg-white/[0.02] border border-white/10 p-8 rounded-2xl relative overflow-hidden group/form">
+                             <div className="lg:col-span-5 bg-muted/50 border border-border p-8 rounded-2xl relative overflow-hidden group/form">
                                  <div className="absolute top-0 right-0 p-8 opacity-5 pointer-events-none group-hover/form:opacity-10 transition-opacity">
                                      <UserPlus className="h-24 w-24 text-primary blur-xl" />
                                  </div>
-                                 <h3 className="text-[11px] font-bold text-zinc-200 flex items-center gap-2.5 mb-8 uppercase tracking-widest">
+                                 <h3 className="text-[11px] font-bold text-foreground/90 flex items-center gap-2.5 mb-8 uppercase tracking-widest">
                                      <div className="p-1.5 rounded bg-primary/20 border border-primary/30">
                                         <Zap className="h-3.5 w-3.5 text-primary" />
                                      </div>
@@ -837,63 +912,63 @@ export function AdminDashboard() {
                                  </h3>
                                  <form onSubmit={handleCreateUser} className="space-y-6 relative z-10">
                                      <div className="space-y-2">
-                                         <Label className="text-[10px] font-bold uppercase tracking-widest text-zinc-500 ml-1">Full Name</Label>
+                                         <Label className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground ml-1">Full Name</Label>
                                          <input 
                                             value={newUser.name} 
                                             onChange={e => setNewUser({...newUser, name: e.target.value})} 
                                             required 
-                                            className="w-full h-11 px-4 rounded-lg border border-white/10 bg-white/[0.02] text-sm text-white focus:border-primary/50 focus:outline-none transition-all placeholder:text-zinc-700 font-medium"
+                                            className="w-full h-11 px-4 rounded-lg border border-border bg-muted/50 text-sm text-foreground focus:border-primary/50 focus:outline-none transition-all placeholder:text-muted-foreground font-medium"
                                             placeholder="John Doe" 
                                         />
                                      </div>
                                      <div className="space-y-2">
-                                         <Label className="text-[10px] font-bold uppercase tracking-widest text-zinc-500 ml-1">Email Address</Label>
+                                         <Label className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground ml-1">Email Address</Label>
                                          <input 
                                             value={newUser.email} 
                                             onChange={e => setNewUser({...newUser, email: e.target.value})} 
                                             required 
-                                            className="w-full h-11 px-4 rounded-lg border border-white/10 bg-white/[0.02] text-sm text-white focus:border-primary/50 focus:outline-none transition-all placeholder:text-zinc-700 font-medium"
+                                            className="w-full h-11 px-4 rounded-lg border border-border bg-muted/50 text-sm text-foreground focus:border-primary/50 focus:outline-none transition-all placeholder:text-muted-foreground font-medium"
                                             type="email" 
                                             placeholder="example@email.com" 
                                         />
                                      </div>
                                      <div className="space-y-2">
-                                         <Label className="text-[10px] font-bold uppercase tracking-widest text-zinc-500 ml-1">Password</Label>
+                                         <Label className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground ml-1">Password</Label>
                                          <input 
                                             value={newUser.password} 
                                             onChange={e => setNewUser({...newUser, password: e.target.value})} 
                                             required 
-                                            className="w-full h-11 px-4 rounded-lg border border-white/10 bg-white/[0.02] text-sm text-white focus:border-primary/50 focus:outline-none transition-all placeholder:text-zinc-700 font-mono"
+                                            className="w-full h-11 px-4 rounded-lg border border-border bg-muted/50 text-sm text-foreground focus:border-primary/50 focus:outline-none transition-all placeholder:text-muted-foreground font-mono"
                                             type="text" 
                                             minLength={6} 
                                             placeholder="Enter password" 
                                         />
                                      </div>
                                      <div className="space-y-2">
-                                         <Label className="text-[10px] font-bold uppercase tracking-widest text-zinc-500 ml-1">WhatsApp Number</Label>
+                                         <Label className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground ml-1">WhatsApp Number</Label>
                                          <input 
                                             value={newUser.phoneNumber} 
                                             onChange={e => setNewUser({...newUser, phoneNumber: e.target.value})} 
                                             required 
-                                            className="w-full h-11 px-4 rounded-lg border border-white/10 bg-white/[0.02] text-sm text-white focus:border-primary/50 focus:outline-none transition-all placeholder:text-zinc-700 font-medium"
+                                            className="w-full h-11 px-4 rounded-lg border border-border bg-muted/50 text-sm text-foreground focus:border-primary/50 focus:outline-none transition-all placeholder:text-muted-foreground font-medium"
                                             type="tel" 
                                             placeholder="+91 00000 00000" 
                                         />
                                      </div>
                                      <div className="space-y-2">
-                                         <Label className="text-[10px] font-bold uppercase tracking-widest text-zinc-500 ml-1">Department</Label>
+                                         <Label className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground ml-1">Department</Label>
                                          <select 
-                                            className="w-full h-11 px-4 rounded-lg border border-white/10 bg-white/[0.02] text-sm text-white focus:border-primary/50 focus:outline-none transition-all appearance-none cursor-pointer font-medium" 
+                                            className="w-full h-11 px-4 rounded-lg border border-border bg-muted/50 text-sm text-foreground focus:border-primary/50 focus:outline-none transition-all appearance-none cursor-pointer font-medium" 
                                             value={newUser.role} 
                                             onChange={e => setNewUser({...newUser, role: e.target.value})}
                                         >
-                                             <option value="sales_executive" className="bg-[#0F1115]">Sales Executive</option>
-                                             <option value="project_manager" className="bg-[#0F1115]">Project Manager</option>
+                                             <option value="sales_executive" className="bg-background">Sales Executive</option>
+                                             <option value="project_manager" className="bg-background">Project Manager</option>
                                          </select>
                                      </div>
                                      <button 
                                         type="submit"
-                                        className="w-full h-12 bg-white text-black text-[11px] font-bold uppercase tracking-widest rounded-lg shadow-xl hover:bg-zinc-200 transition-all active:scale-[0.98] disabled:opacity-30 flex items-center justify-center gap-2"
+                                        className="w-full h-12 bg-primary  text-primary-foreground text-[11px] font-bold uppercase tracking-widest rounded-lg shadow-xl hover:bg-zinc-200 transition-all active:scale-[0.98] disabled:opacity-30 flex items-center justify-center gap-2"
                                         disabled={isCreatingUser}
                                      >
                                          {isCreatingUser ? <RefreshCw className="h-3.5 w-3.5 animate-spin" /> : <Plus className="h-3.5 w-3.5" />}
@@ -903,26 +978,26 @@ export function AdminDashboard() {
                              </div>
                              
                              <div className="lg:col-span-7 space-y-10">
-                                 <div className="bg-white/[0.01] border border-white/10 overflow-hidden rounded-2xl">
-                                    <div className="bg-white/[0.03] px-6 py-4 border-b border-white/10 flex items-center justify-between">
-                                        <span className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest">Department: Sales Executive</span>
+                                 <div className="bg-muted/50 border border-border overflow-hidden rounded-2xl">
+                                    <div className="bg-muted/50 px-6 py-4 border-b border-border flex items-center justify-between">
+                                        <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Department: Sales Executive</span>
                                         <span className="text-[9px] font-bold bg-emerald-500/10 text-emerald-500 border border-emerald-500/20 px-2 py-0.5 rounded">Active</span>
                                     </div>
-                                    <div className="divide-y divide-white/5">
+                                    <div className="divide-y divide-border">
                                         {users.filter(u => u.role === 'sales_executive').map(u => (
-                                            <div key={u.uid} className="px-6 py-4 flex justify-between items-center hover:bg-white/[0.02] transition-colors group">
+                                            <div key={u.uid} className="px-6 py-4 flex justify-between items-center hover:bg-muted/50 transition-colors group">
                                                  <div className="flex items-center gap-4">
                                                      <div className="h-10 w-10 rounded-lg bg-emerald-500/10 border border-emerald-500/20 shadow-[0_0_15px_rgba(16,185,129,0.1)] flex items-center justify-center text-emerald-500 font-bold text-xs uppercase group-hover:scale-110 transition-transform overflow-hidden">
                                                          {u.photoURL ? <Image src={u.photoURL} alt={u.displayName || "User"} width={40} height={40} className="w-full h-full object-cover" /> : u.displayName?.[0]}
                                                      </div>
                                                      <div>
-                                                         <div className="text-sm font-bold text-white tracking-tight leading-tight">{u.displayName}</div>
-                                                         <div className="text-xs text-zinc-300 font-semibold tracking-tight truncate max-w-[180px]">{u.email}</div>
+                                                         <div className="text-sm font-bold text-foreground tracking-tight leading-tight">{u.displayName}</div>
+                                                         <div className="text-xs text-foreground/80 font-semibold tracking-tight truncate max-w-[180px]">{u.email}</div>
                                                      </div>
                                                  </div>
                                                  <div className="flex items-center gap-3">
-                                                     {u.initialPassword && <span className="text-xs font-mono font-bold bg-white/10 text-white px-2.5 py-1 rounded border border-white/20 shadow-md">KEY: {u.initialPassword}</span>}
-                                                     <button className="h-8 w-8 flex items-center justify-center rounded-lg hover:bg-red-500/10 text-zinc-800 hover:text-red-500 transition-all opacity-0 group-hover:opacity-100" onClick={() => handleDeleteUser(u.uid)}>
+                                                     {u.initialPassword && <span className="text-xs font-mono font-bold bg-card text-foreground px-2.5 py-1 rounded border border-border shadow-md">KEY: {u.initialPassword}</span>}
+                                                     <button className="h-8 w-8 flex items-center justify-center rounded-lg hover:bg-red-500/10 text-muted-foreground hover:text-red-500 transition-all opacity-0 group-hover:opacity-100" onClick={() => handleDeleteUser(u.uid)}>
                                                         <Trash2 className="h-3.5 w-3.5" />
                                                     </button>
                                                  </div>
@@ -931,26 +1006,26 @@ export function AdminDashboard() {
                                     </div>
                                  </div>
 
-                                 <div className="bg-white/[0.01] border border-white/10 overflow-hidden rounded-2xl">
-                                    <div className="bg-white/[0.03] px-6 py-4 border-b border-white/10 flex items-center justify-between">
-                                        <span className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest">Department: Project Manager</span>
+                                 <div className="bg-muted/50 border border-border overflow-hidden rounded-2xl">
+                                    <div className="bg-muted/50 px-6 py-4 border-b border-border flex items-center justify-between">
+                                        <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Department: Project Manager</span>
                                         <span className="text-[9px] font-bold bg-blue-500/10 text-blue-500 border border-blue-500/20 px-2 py-0.5 rounded">Active</span>
                                     </div>
-                                    <div className="divide-y divide-white/5">
+                                    <div className="divide-y divide-border">
                                         {users.filter(u => u.role === 'project_manager').map(u => (
-                                            <div key={u.uid} className="px-6 py-4 flex justify-between items-center hover:bg-white/[0.02] transition-colors group">
+                                            <div key={u.uid} className="px-6 py-4 flex justify-between items-center hover:bg-muted/50 transition-colors group">
                                                  <div className="flex items-center gap-4">
                                                       <div className="h-10 w-10 rounded-lg bg-blue-500/10 border border-blue-500/20 shadow-[0_0_15px_rgba(59,130,246,0.1)] flex items-center justify-center text-blue-500 font-bold text-xs uppercase group-hover:scale-110 transition-transform overflow-hidden">
                                                           {u.photoURL ? <Image src={u.photoURL} alt={u.displayName || "User"} width={40} height={40} className="w-full h-full object-cover" /> : u.displayName?.[0]}
                                                       </div>
                                                      <div>
-                                                         <div className="text-sm font-bold text-white tracking-tight leading-tight">{u.displayName}</div>
-                                                         <div className="text-xs text-zinc-300 font-semibold tracking-tight truncate max-w-[180px]">{u.email}</div>
+                                                         <div className="text-sm font-bold text-foreground tracking-tight leading-tight">{u.displayName}</div>
+                                                         <div className="text-xs text-foreground/80 font-semibold tracking-tight truncate max-w-[180px]">{u.email}</div>
                                                      </div>
                                                  </div>
                                                  <div className="flex items-center gap-3">
-                                                     {u.initialPassword && <span className="text-xs font-mono font-bold bg-white/10 text-white px-2.5 py-1 rounded border border-white/20 shadow-md">KEY: {u.initialPassword}</span>}
-                                                     <button className="h-8 w-8 flex items-center justify-center rounded-lg hover:bg-red-500/10 text-zinc-800 hover:text-red-500 transition-all opacity-0 group-hover:opacity-100" onClick={() => handleDeleteUser(u.uid)}>
+                                                     {u.initialPassword && <span className="text-xs font-mono font-bold bg-card text-foreground px-2.5 py-1 rounded border border-border shadow-md">KEY: {u.initialPassword}</span>}
+                                                     <button className="h-8 w-8 flex items-center justify-center rounded-lg hover:bg-red-500/10 text-muted-foreground hover:text-red-500 transition-all opacity-0 group-hover:opacity-100" onClick={() => handleDeleteUser(u.uid)}>
                                                         <Trash2 className="h-3.5 w-3.5" />
                                                     </button>
                                                  </div>
@@ -1011,7 +1086,7 @@ export function AdminDashboard() {
                                         </div>
 
                                         <div className="space-y-1.5">
-                                            <div className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest">Requested On</div>
+                                            <div className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Requested On</div>
                                             <div className="text-xs font-mono text-foreground bg-background/50 p-2 rounded border border-border">
                                                 {(u as any).deletionRequestedAt ? new Date((u as any).deletionRequestedAt).toLocaleString() : 'AUTH_RECOVERY_REQUIRED'}
                                             </div>
@@ -1020,7 +1095,7 @@ export function AdminDashboard() {
                                         <div className="flex items-center gap-3 pt-2">
                                             <button 
                                                 onClick={() => handleDeleteUser(u.uid)}
-                                                className="flex-1 h-10 bg-red-500/10 hover:bg-red-500 text-red-500 hover:text-white border border-red-500/20 text-[10px] font-bold uppercase tracking-widest rounded-lg transition-all"
+                                                className="flex-1 h-10 bg-red-500/10 hover:bg-red-500 text-red-500 hover:text-foreground border border-red-500/20 text-[10px] font-bold uppercase tracking-widest rounded-lg transition-all"
                                             >
                                                 Confirm Deletion
                                             </button>
@@ -1059,7 +1134,7 @@ export function AdminDashboard() {
                             <div className="ml-auto">
                                 <button 
                                     onClick={() => setIsAddEditorModalOpen(true)}
-                                    className="flex items-center gap-2 h-10 px-4 bg-primary text-black text-[10px] font-bold uppercase tracking-widest rounded-xl hover:bg-primary/90 transition-all shadow-[0_0_20px_rgba(var(--primary),0.2)]"
+                                    className="flex items-center gap-2 h-10 px-4 bg-primary text-primary-foreground text-[10px] font-bold uppercase tracking-widest rounded-xl hover:bg-primary/90 transition-all shadow-[0_0_20px_rgba(var(--primary),0.2)]"
                                 >
                                     <Plus className="h-4 w-4" /> Add New Editor
                                 </button>
@@ -1093,25 +1168,25 @@ export function AdminDashboard() {
 
                                         <div className="space-y-4">
                                             <div className="space-y-1">
-                                                <div className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest">Contact Protocol</div>
+                                                <div className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Contact Protocol</div>
                                                 <div className="text-xs font-medium text-foreground">{u.email}</div>
                                                 <div className="text-xs font-mono text-primary">{u.whatsappNumber || 'NO_PH_DATA'}</div>
                                             </div>
 
                                             <div className="space-y-2">
-                                                <div className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest">Credentials & Portfolio</div>
+                                                <div className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Credentials & Portfolio</div>
                                                 {u.portfolio && u.portfolio.length > 0 ? (
                                                     <a 
                                                         href={u.portfolio[0].url} 
                                                         target="_blank" 
                                                         rel="noopener noreferrer"
-                                                        className="flex items-center justify-between p-3 rounded-xl bg-white/[0.03] border border-white/5 hover:border-primary/50 group/link transition-all"
+                                                        className="flex items-center justify-between p-3 rounded-xl bg-muted/50 border border-border hover:border-primary/50 group/link transition-all"
                                                     >
-                                                        <span className="text-[10px] font-bold text-zinc-300 uppercase truncate max-w-[150px]">{u.portfolio[0].name}</span>
-                                                        <ExternalLink className="h-3 w-3 text-zinc-500 group-hover/link:text-primary transition-colors" />
+                                                        <span className="text-[10px] font-bold text-foreground/80 uppercase truncate max-w-[150px]">{u.portfolio[0].name}</span>
+                                                        <ExternalLink className="h-3 w-3 text-muted-foreground group-hover/link:text-primary transition-colors" />
                                                     </a>
                                                 ) : (
-                                                    <div className="p-3 text-center border border-dashed border-white/5 rounded-xl text-[9px] font-bold text-zinc-600 uppercase">No Portfolio Data</div>
+                                                    <div className="p-3 text-center border border-dashed border-border rounded-xl text-[9px] font-bold text-muted-foreground uppercase">No Portfolio Data</div>
                                                 )}
                                             </div>
                                         </div>
@@ -1119,7 +1194,7 @@ export function AdminDashboard() {
                                         <div className="flex items-center gap-3 pt-2">
                                             <button 
                                                 onClick={() => handleVerifyEditor(u.uid)}
-                                                className="flex-1 h-11 bg-primary text-black text-[10px] font-bold uppercase tracking-widest rounded-xl hover:bg-primary/90 transition-all shadow-[0_0_20px_rgba(var(--primary),0.2)]"
+                                                className="flex-1 h-11 bg-primary text-primary-foreground text-[10px] font-bold uppercase tracking-widest rounded-xl hover:bg-primary/90 transition-all shadow-[0_0_20px_rgba(var(--primary),0.2)]"
                                             >
                                                 Authorize Entry
                                             </button>
@@ -1146,11 +1221,11 @@ export function AdminDashboard() {
                         className="p-8 space-y-6 max-w-4xl"
                     >
                         <div className="flex flex-col gap-2">
-                            <h2 className="text-xl font-bold tracking-tight text-white mb-1 flex items-center gap-2">
+                            <h2 className="text-xl font-bold tracking-tight text-foreground mb-1 flex items-center gap-2">
                                 <Monitor className="h-5 w-5 text-primary" />
                                 Notifications Configuration
                             </h2>
-                            <p className="text-xs font-medium text-zinc-400 leading-relaxed max-w-2xl">
+                            <p className="text-xs font-medium text-muted-foreground leading-relaxed max-w-2xl">
                                 Manage automated WhatsApp messages sent to users based on triggers. Customize the text here. Dynamic variables like <code className="text-[10px] text-primary bg-primary/10 px-1 py-0.5 rounded font-mono">{`{{reviewLink}}`}</code> will be automatically replaced with the actual link when sending 'First Draft Ready'.
                             </p>
                         </div>
@@ -1163,16 +1238,16 @@ export function AdminDashboard() {
                                 { key: 'PROPOSAL_UPLOADED', label: '4. First Draft Ready (To Client)' },
                                 { key: 'PROJECT_COMPLETED', label: '5. Project Finalized/Completed (To Client)' }
                             ].map((topic) => (
-                                <div key={topic.key} className="p-5 border border-white/5 bg-white/[0.01] rounded-2xl flex flex-col gap-3">
+                                <div key={topic.key} className="p-5 border border-border bg-muted/50 rounded-2xl flex flex-col gap-3">
                                     <div className="flex justify-between items-center">
-                                        <Label className="text-white text-[10px] font-bold uppercase tracking-widest">{topic.label}</Label>
-                                        <span className="text-[9px] font-mono text-zinc-600 bg-white/5 py-1 px-2 rounded flex items-center gap-2">
+                                        <Label className="text-foreground text-[10px] font-bold uppercase tracking-widest">{topic.label}</Label>
+                                        <span className="text-[9px] font-mono text-muted-foreground bg-card py-1 px-2 rounded flex items-center gap-2">
                                             <Terminal className="h-3 w-3" />
                                             {topic.key}
                                         </span>
                                     </div>
                                     <textarea
-                                      className="w-full bg-black/40 border border-white/10 rounded-xl p-4 text-sm text-zinc-300 font-medium placeholder:text-zinc-600 focus:outline-none focus:border-primary/50 transition-colors resize-none"
+                                      className="w-full bg-black/5 dark:bg-black/40 border border-border rounded-xl p-4 text-sm text-foreground/80 font-medium placeholder:text-muted-foreground focus:outline-none focus:border-primary/50 transition-colors resize-none"
                                       rows={2}
                                       value={whatsappTemplates[topic.key] || ''}
                                       onChange={(e) => setWhatsappTemplates({ ...whatsappTemplates, [topic.key]: e.target.value })}
@@ -1211,13 +1286,47 @@ export function AdminDashboard() {
                         className="p-8 space-y-6"
                     >
                         <div className="flex flex-col gap-2 mb-6">
-                            <h2 className="text-xl font-bold tracking-tight text-white mb-1 flex items-center gap-2">
+                            <h2 className="text-xl font-bold tracking-tight text-foreground mb-1 flex items-center gap-2">
                                 <IndianRupee className="h-5 w-5 text-primary" />
                                 Financial Settlement Hub
                             </h2>
-                            <p className="text-xs font-medium text-zinc-400 leading-relaxed max-w-2xl">
+                            <p className="text-xs font-medium text-muted-foreground leading-relaxed max-w-2xl">
                                 Centralized treasury for managing outstanding liabilities. Track and settle dues for both clients (receivables) and editors (payables).
                             </p>
+                        </div>
+
+                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4 mb-4">
+                            <IndicatorCard 
+                                label="Total Earned" 
+                                value={`₹${stats.revenue.toLocaleString()}`} 
+                                icon={<IndianRupee className="h-4 w-4" />}
+                                subtext="Total realized revenue"
+                            />
+                            <IndicatorCard 
+                                label="Total Pending" 
+                                value={`₹${(stats.clientPending + stats.editorPending).toLocaleString()}`} 
+                                alert={(stats.clientPending + stats.editorPending) > 0}
+                                icon={<Clock className="h-4 w-4 text-orange-500" />}
+                                subtext="Unsettled ledgers"
+                            />
+                            <IndicatorCard 
+                                label="Profit Contribution" 
+                                value={`₹${stats.profit.toLocaleString()}`} 
+                                icon={<TrendingUp className="h-4 w-4" />}
+                                subtext="Total realized margin"
+                            />
+                            <IndicatorCard 
+                                label="Avg Payout / Project" 
+                                value={`₹${Math.round(stats.avgPayout).toLocaleString()}`} 
+                                icon={<ArrowUpRight className="h-4 w-4" />}
+                                subtext="Average editor cost"
+                            />
+                            <IndicatorCard 
+                                label="Last Payment Date" 
+                                value={stats.lastPaymentDate ? new Date(stats.lastPaymentDate).toLocaleDateString('en-IN', { day: '2-digit', month: 'short' }) : 'N/A'} 
+                                icon={<Calendar className="h-4 w-4" />}
+                                subtext="Recent activity"
+                            />
                         </div>
                         
                         <div className="grid gap-8">
@@ -1225,7 +1334,7 @@ export function AdminDashboard() {
                             <div className="space-y-4">
                                 <div className="flex items-center gap-2 px-1">
                                     <div className="h-2 w-2 rounded-full bg-orange-500 shadow-[0_0_8px_rgba(249,115,22,0.5)]" />
-                                    <h3 className="text-[10px] font-black uppercase tracking-[0.2em] text-zinc-400">Client Receivables (Pay Later)</h3>
+                                    <h3 className="text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground">Client Receivables (Pay Later)</h3>
                                 </div>
                                 <div className="grid gap-6">
                                     {users.filter(u => u.role === 'client' && (u.payLater || projects.some(p => p.clientId === u.uid && (p as any).isPayLaterRequest))).map(client => {
@@ -1239,38 +1348,38 @@ export function AdminDashboard() {
                                                 key={client.uid}
                                                 initial={{ opacity: 0, y: 10 }}
                                                 animate={{ opacity: 1, y: 0 }}
-                                                className="enterprise-card bg-white/[0.02] border border-white/5 rounded-xl overflow-hidden"
+                                                className="enterprise-card bg-muted/50 border border-border rounded-xl overflow-hidden"
                                             >
-                                                <div className="p-6 border-b border-white/5 bg-white/[0.01] flex flex-col md:flex-row md:items-center justify-between gap-4">
+                                                <div className="p-6 border-b border-border bg-muted/50 flex flex-col md:flex-row md:items-center justify-between gap-4">
                                                     <div className="flex items-center gap-4">
                                                         <div className="h-12 w-12 rounded-xl bg-orange-500/10 border border-orange-500/20 flex items-center justify-center text-orange-500">
                                                             <IndianRupee className="h-6 w-6" />
                                                         </div>
                                                         <div>
-                                                            <h3 className="text-lg font-bold text-white tracking-tight">{client.displayName || 'Unknown Client'}</h3>
-                                                            <p className="text-xs text-zinc-500 font-bold uppercase tracking-widest mt-1">{client.companyName || client.email}</p>
+                                                            <h3 className="text-lg font-bold text-foreground tracking-tight">{client.displayName || 'Unknown Client'}</h3>
+                                                            <p className="text-xs text-muted-foreground font-bold uppercase tracking-widest mt-1">{client.companyName || client.email}</p>
                                                         </div>
                                                     </div>
                                                     <div className="flex flex-col md:items-end gap-1 border border-orange-500/20 bg-orange-500/5 px-6 py-3 rounded-xl">
-                                                        <span className="text-[10px] text-zinc-500 uppercase font-bold tracking-widest">Total Pending Dues</span>
+                                                        <span className="text-[10px] text-muted-foreground uppercase font-bold tracking-widest">Total Pending Dues</span>
                                                         <span className="text-2xl font-black text-orange-400 tabular-nums">₹{totalDues.toLocaleString()}</span>
                                                     </div>
                                                 </div>
                                                 
-                                                <div className="divide-y divide-white/5 bg-[#161920]/40">
+                                                <div className="divide-y divide-border bg-card/40">
                                                     {clientProjects.map(project => (
-                                                        <div key={project.id} className="p-4 px-6 flex flex-col sm:flex-row sm:items-center justify-between gap-4 hover:bg-white/[0.02] transition-colors">
+                                                        <div key={project.id} className="p-4 px-6 flex flex-col sm:flex-row sm:items-center justify-between gap-4 hover:bg-muted/50 transition-colors">
                                                             <div className="flex items-center gap-4 min-w-0">
-                                                                <div className="h-8 w-8 rounded bg-white/[0.03] border border-white/5 flex items-center justify-center shrink-0">
-                                                                    <FileText className="h-3.5 w-3.5 text-zinc-400" />
+                                                                <div className="h-8 w-8 rounded bg-muted/50 border border-border flex items-center justify-center shrink-0">
+                                                                    <FileText className="h-3.5 w-3.5 text-muted-foreground" />
                                                                 </div>
                                                                 <div className="min-w-0">
-                                                                    <Link href={`/dashboard/projects/${project.id}`} className="text-sm font-bold text-white tracking-tight truncate hover:text-primary transition-colors block">
+                                                                    <Link href={`/dashboard/projects/${project.id}`} className="text-sm font-bold text-foreground tracking-tight truncate hover:text-primary transition-colors block">
                                                                         {project.name}
                                                                     </Link>
                                                                     <div className="flex items-center gap-2 mt-1">
-                                                                        <span className="text-[9px] text-zinc-600 font-bold uppercase tracking-widest">ID: {project.id.slice(0,8)}</span>
-                                                                        <div className="h-1 w-1 rounded-full bg-zinc-700" />
+                                                                        <span className="text-[9px] text-muted-foreground font-bold uppercase tracking-widest">ID: {project.id.slice(0,8)}</span>
+                                                                        <div className="h-1 w-1 rounded-full bg-muted-foreground" />
                                                                         <span className={cn("text-[9px] font-bold uppercase tracking-widest", project.clientHasDownloaded ? "text-emerald-500" : "text-amber-500")}>
                                                                             {project.clientHasDownloaded ? "File Downloaded" : "File Not Downloaded"}
                                                                         </span>
@@ -1278,10 +1387,10 @@ export function AdminDashboard() {
                                                                 </div>
                                                             </div>
                                                             <div className="flex items-center justify-between sm:justify-end gap-6 w-full sm:w-auto shrink-0">
-                                                                <span className="text-sm font-black text-white tabular-nums">₹{project.totalCost?.toLocaleString() || 0}</span>
+                                                                <span className="text-sm font-black text-foreground tabular-nums">₹{project.totalCost?.toLocaleString() || 0}</span>
                                                                 <button 
                                                                     onClick={(e) => { e.preventDefault(); handleSettlePayment(project.id); }}
-                                                                    className="h-9 px-4 rounded-lg bg-emerald-500/10 border border-emerald-500/20 text-emerald-500 hover:bg-emerald-500 text-[10px] hover:text-white font-bold uppercase tracking-widest transition-all shadow-[0_0_15px_rgba(16,185,129,0.1)] hover:shadow-[0_0_20px_rgba(16,185,129,0.4)] active:scale-95 flex items-center gap-2"
+                                                                    className="h-9 px-4 rounded-lg bg-emerald-500/10 border border-emerald-500/20 text-emerald-500 hover:bg-emerald-500 text-[10px] hover:text-foreground font-bold uppercase tracking-widest transition-all shadow-[0_0_15px_rgba(16,185,129,0.1)] hover:shadow-[0_0_20px_rgba(16,185,129,0.4)] active:scale-95 flex items-center gap-2"
                                                                 >
                                                                     <CheckCircle2 className="h-3.5 w-3.5" />
                                                                     Mark Received
@@ -1297,8 +1406,8 @@ export function AdminDashboard() {
                                     {users.filter(u => u.role === 'client' && (u.payLater || projects.some(p => p.clientId === u.uid && (p as any).isPayLaterRequest))).every(client => {
                                         return projects.filter(p => p.clientId === client.uid && p.paymentStatus !== 'full_paid' && ((p as any).isPayLaterRequest || client.payLater)).reduce((sum, p) => sum + (p.totalCost || 0), 0) === 0;
                                     }) && (
-                                        <div className="enterprise-card p-8 text-center flex flex-col items-center justify-center border-dashed border-2 border-white/5 opacity-60">
-                                            <h3 className="text-sm font-bold text-zinc-500 uppercase tracking-widest">All client balances cleared</h3>
+                                        <div className="enterprise-card p-8 text-center flex flex-col items-center justify-center border-dashed border-2 border-border opacity-60">
+                                            <h3 className="text-sm font-bold text-muted-foreground uppercase tracking-widest">All client balances cleared</h3>
                                         </div>
                                     )}
                                 </div>
@@ -1308,7 +1417,7 @@ export function AdminDashboard() {
                             <div className="space-y-4">
                                 <div className="flex items-center gap-2 px-1">
                                     <div className="h-2 w-2 rounded-full bg-blue-500 shadow-[0_0_8px_rgba(59,130,246,0.5)]" />
-                                    <h3 className="text-[10px] font-black uppercase tracking-[0.2em] text-zinc-400">Editor Payables (Pending Payouts)</h3>
+                                    <h3 className="text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground">Editor Payables (Pending Payouts)</h3>
                                 </div>
                                 <div className="grid gap-6">
                                     {users.filter(u => u.role === 'editor' && projects.some(p => p.assignedEditorId === u.uid && p.status === 'completed' && !p.editorPaid)).map(editor => {
@@ -1322,51 +1431,51 @@ export function AdminDashboard() {
                                                 key={editor.uid}
                                                 initial={{ opacity: 0, y: 10 }}
                                                 animate={{ opacity: 1, y: 0 }}
-                                                className="enterprise-card bg-white/[0.02] border border-white/5 rounded-xl overflow-hidden"
+                                                className="enterprise-card bg-muted/50 border border-border rounded-xl overflow-hidden"
                                             >
-                                                <div className="p-6 border-b border-white/5 bg-white/[0.01] flex flex-col md:flex-row md:items-center justify-between gap-4">
+                                                <div className="p-6 border-b border-border bg-muted/50 flex flex-col md:flex-row md:items-center justify-between gap-4">
                                                     <div className="flex items-center gap-4">
-                                                        <Avatar className="h-12 w-12 border border-white/10 rounded-xl bg-white/[0.03]">
+                                                        <Avatar className="h-12 w-12 border border-border rounded-xl bg-muted/50">
                                                             <AvatarImage src={editor.photoURL || undefined} className="object-cover" />
                                                             <AvatarFallback className="text-primary font-bold text-sm uppercase">{editor.displayName?.[0]}</AvatarFallback>
                                                         </Avatar>
                                                         <div>
-                                                            <h3 className="text-lg font-bold text-white tracking-tight">{editor.displayName || 'Unknown Editor'}</h3>
-                                                            <p className="text-xs text-zinc-500 font-bold uppercase tracking-widest mt-1 text-blue-400/80">{editor.email}</p>
+                                                            <h3 className="text-lg font-bold text-foreground tracking-tight">{editor.displayName || 'Unknown Editor'}</h3>
+                                                            <p className="text-xs text-muted-foreground font-bold uppercase tracking-widest mt-1 text-blue-400/80">{editor.email}</p>
                                                         </div>
                                                     </div>
                                                     <div className="flex flex-col md:items-end gap-1 border border-blue-500/20 bg-blue-500/5 px-6 py-3 rounded-xl">
-                                                        <span className="text-[10px] text-zinc-500 uppercase font-bold tracking-widest">Total Payout Pending</span>
+                                                        <span className="text-[10px] text-muted-foreground uppercase font-bold tracking-widest">Total Payout Pending</span>
                                                         <span className="text-2xl font-black text-blue-400 tabular-nums">₹{totalEditorDues.toLocaleString()}</span>
                                                     </div>
                                                 </div>
                                                 
-                                                <div className="divide-y divide-white/5 bg-[#161920]/40">
+                                                <div className="divide-y divide-border bg-card/40">
                                                     {editorProjects.map(project => (
-                                                        <div key={project.id} className="p-4 px-6 flex flex-col sm:flex-row sm:items-center justify-between gap-4 hover:bg-white/[0.02] transition-colors">
+                                                        <div key={project.id} className="p-4 px-6 flex flex-col sm:flex-row sm:items-center justify-between gap-4 hover:bg-muted/50 transition-colors">
                                                             <div className="flex items-center gap-4 min-w-0">
-                                                                <div className="h-8 w-8 rounded bg-white/[0.03] border border-white/5 flex items-center justify-center shrink-0">
-                                                                    <FileText className="h-3.5 w-3.5 text-zinc-400" />
+                                                                <div className="h-8 w-8 rounded bg-muted/50 border border-border flex items-center justify-center shrink-0">
+                                                                    <FileText className="h-3.5 w-3.5 text-muted-foreground" />
                                                                 </div>
                                                                 <div className="min-w-0">
-                                                                    <Link href={`/dashboard/projects/${project.id}`} className="text-sm font-bold text-white tracking-tight truncate hover:text-primary transition-colors block">
+                                                                    <Link href={`/dashboard/projects/${project.id}`} className="text-sm font-bold text-foreground tracking-tight truncate hover:text-primary transition-colors block">
                                                                         {project.name}
                                                                     </Link>
                                                                     <div className="flex items-center gap-2 mt-1">
-                                                                        <span className="text-[9px] text-zinc-600 font-bold uppercase tracking-widest">ID: {project.id.slice(0,8)}</span>
-                                                                        <div className="h-1 w-1 rounded-full bg-zinc-700" />
+                                                                        <span className="text-[9px] text-muted-foreground font-bold uppercase tracking-widest">ID: {project.id.slice(0,8)}</span>
+                                                                        <div className="h-1 w-1 rounded-full bg-muted-foreground" />
                                                                         <span className="text-[9px] font-bold uppercase tracking-widest text-emerald-500">Project Completed</span>
                                                                     </div>
                                                                 </div>
                                                             </div>
                                                             <div className="flex items-center justify-between sm:justify-end gap-6 w-full sm:w-auto shrink-0">
                                                                 <div className="flex flex-col items-end mr-4">
-                                                                    <span className="text-[9px] text-zinc-500 font-bold uppercase tracking-tighter">Editor Share</span>
-                                                                    <span className="text-sm font-black text-white tabular-nums">₹{project.editorPrice?.toLocaleString() || 0}</span>
+                                                                    <span className="text-[9px] text-muted-foreground font-bold uppercase tracking-tighter">Editor Share</span>
+                                                                    <span className="text-sm font-black text-foreground tabular-nums">₹{project.editorPrice?.toLocaleString() || 0}</span>
                                                                 </div>
                                                                 <button 
                                                                     onClick={(e) => { e.preventDefault(); handleReimburseEditor(project.id); }}
-                                                                    className="h-9 px-4 rounded-lg bg-blue-500/10 border border-blue-500/20 text-blue-400 hover:bg-blue-500 hover:text-white text-[10px] font-bold uppercase tracking-widest transition-all active:scale-95 flex items-center gap-2 shadow-[0_0_15px_rgba(59,130,246,0.1)] hover:shadow-[0_0_20px_rgba(59,130,246,0.4)]"
+                                                                    className="h-9 px-4 rounded-lg bg-blue-500/10 border border-blue-500/20 text-blue-400 hover:bg-blue-500 hover:text-foreground text-[10px] font-bold uppercase tracking-widest transition-all active:scale-95 flex items-center gap-2 shadow-[0_0_15px_rgba(59,130,246,0.1)] hover:shadow-[0_0_20px_rgba(59,130,246,0.4)]"
                                                                 >
                                                                     <RefreshCw className="h-3.5 w-3.5" />
                                                                     Settle Payout
@@ -1380,14 +1489,18 @@ export function AdminDashboard() {
                                     })}
 
                                     {users.filter(u => u.role === 'editor' && projects.some(p => p.assignedEditorId === u.uid && p.status === 'completed' && !p.editorPaid)).length === 0 && (
-                                        <div className="enterprise-card p-8 text-center flex flex-col items-center justify-center border-dashed border-2 border-white/5 opacity-60">
-                                            <h3 className="text-sm font-bold text-zinc-500 uppercase tracking-widest">All editor payouts settled</h3>
+                                        <div className="enterprise-card p-8 text-center flex flex-col items-center justify-center border-dashed border-2 border-border opacity-60">
+                                            <h3 className="text-sm font-bold text-muted-foreground uppercase tracking-widest">All editor payouts settled</h3>
                                         </div>
                                     )}
                                 </div>
                             </div>
                         </div>
                     </motion.div>
+                )}
+
+                {activeTab === 'performance' && (
+                    <AdminPerformanceTab projects={projects} users={users} />
                 )}
 
                 </AnimatePresence>
@@ -1408,13 +1521,13 @@ export function AdminDashboard() {
        <Modal isOpen={isAssignModalOpen} onClose={() => setIsAssignModalOpen(false)} title="Assign an Editor">
              <div className="space-y-4 mb-4">
                  <div className="space-y-1.5">
-                     <label className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest ml-1">Editor Revenue Share (₹)</label>
+                     <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest ml-1">Editor Revenue Share (₹)</label>
                      <input 
                          type="number"
                          value={assignEditorPrice}
                          onChange={(e) => setAssignEditorPrice(e.target.value)}
                          placeholder="e.g. 5000"
-                         className="w-full h-11 bg-black/20 border border-white/10 rounded-lg px-4 text-sm text-white focus:outline-none focus:border-primary/50 transition-colors"
+                         className="w-full h-11 bg-black/5 dark:bg-black/40 border border-border rounded-lg px-4 text-sm text-foreground focus:outline-none focus:border-primary/50 transition-colors"
                      />
                  </div>
              </div>
@@ -1429,23 +1542,39 @@ export function AdminDashboard() {
                         disabled={isFull}
                         onClick={() => handleAssignEditor(ed.uid)} 
                         className={cn(
-                            "w-full flex items-center justify-between p-4 rounded-xl bg-white/[0.02] border border-white/10 hover:bg-white/[0.05] hover:border-primary/40 transition-all group/ed",
+                            "w-full flex items-center justify-between p-4 rounded-xl bg-muted/50 border border-border hover:bg-muted/50 hover:border-primary/40 transition-all group/ed",
                             isFull && "opacity-30 grayscale pointer-events-none"
                         )}
                     >
                          <div className="flex items-center gap-4 text-left">
-                             <Avatar className="h-10 w-10 border border-white/10 rounded-lg bg-white/[0.03]">
+                             <Avatar className="h-10 w-10 border border-border rounded-lg bg-muted/50">
                                  <AvatarImage src={ed.photoURL || undefined} className="object-cover" />
                                  <AvatarFallback className="text-primary font-bold text-xs uppercase">{ed.displayName?.[0]}</AvatarFallback>
                              </Avatar>
                              <div>
-                                 <div className="text-sm font-bold text-white group-hover/ed:text-primary transition-colors">{ed.displayName}</div>
-                                 <div className="text-xs text-zinc-300 font-semibold mt-0.5 truncate max-w-[180px]">{ed.email}</div>
+                                 <div className="text-sm font-bold text-foreground group-hover/ed:text-primary transition-colors">{ed.displayName}</div>
+                                 <div className="text-xs text-foreground/80 font-semibold mt-0.5 truncate max-w-[180px]">{ed.email}</div>
+                                 {((ed as any).skills?.length > 0 || (ed as any).skillPrices) && (
+                                     <div className="flex flex-col gap-1.5 mt-2">
+                                        <div className="flex flex-wrap items-center gap-1">
+                                            {(ed as any).skills?.map((s: string, idx: number) => (
+                                                <div key={idx} className="flex items-center bg-card border border-border rounded pl-1 pr-1.5 py-0.5 group/skill">
+                                                    <span className="text-[8px] font-bold text-muted-foreground uppercase tracking-tighter mr-1.5">{s}</span>
+                                                    {((ed as any).skillPrices && (ed as any).skillPrices[s]) && (
+                                                        <span className="text-[8px] font-bold text-emerald-400 bg-emerald-400/10 px-1 rounded flex items-center whitespace-nowrap">
+                                                            <IndianRupee className="h-2 w-2 inline" /> {(ed as any).skillPrices[s]}
+                                                        </span>
+                                                    )}
+                                                </div>
+                                            ))}
+                                        </div>
+                                     </div>
+                                 )}
                                  <div className="flex items-center gap-2 mt-2">
-                                     <div className="h-1 w-16 bg-white/5 rounded-full overflow-hidden">
+                                     <div className="h-1 w-16 bg-card rounded-full overflow-hidden">
                                         <div className="h-full bg-primary" style={{ width: `${(currentActiveCount/5)*100}%` }} />
                                      </div>
-                                     <span className="text-[8px] font-bold uppercase tracking-widest text-zinc-500">{currentActiveCount} / 5 Active Projects</span>
+                                     <span className="text-[8px] font-bold uppercase tracking-widest text-muted-foreground">{currentActiveCount} / 5 Active Projects</span>
                                  </div>
                              </div>
                          </div>
@@ -1453,8 +1582,8 @@ export function AdminDashboard() {
                              {isFull ? (
                                  <span className="text-[8px] font-bold uppercase tracking-widest bg-red-500/10 text-red-500 border border-red-500/20 px-1.5 py-0.5 rounded">Fully Booked</span>
                              ) : (
-                                <div className="h-8 w-8 rounded-lg bg-white/[0.03] border border-white/10 flex items-center justify-center group-hover/ed:bg-primary/20 group-hover/ed:border-primary/50 transition-all">
-                                    <ArrowUpRight className="h-3.5 w-3.5 text-zinc-600 group-hover/ed:text-primary" />
+                                <div className="h-8 w-8 rounded-lg bg-muted/50 border border-border flex items-center justify-center group-hover/ed:bg-primary/20 group-hover/ed:border-primary/50 transition-all">
+                                    <ArrowUpRight className="h-3.5 w-3.5 text-muted-foreground group-hover/ed:text-primary" />
                                 </div>
                              )}
                          </div>
@@ -1467,38 +1596,38 @@ export function AdminDashboard() {
        <Modal isOpen={isEditModalOpen} onClose={() => setIsEditModalOpen(false)} title="Edit Project Details">
              <div className="space-y-6 mt-8">
                  <div className="space-y-2">
-                     <Label className="text-[10px] font-bold uppercase tracking-widest text-zinc-500 ml-1">Project Price (₹)</Label>
+                     <Label className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground ml-1">Project Price (₹)</Label>
                      <input 
-                        className="w-full h-12 bg-white/[0.02] border border-white/10 rounded-lg px-4 text-white focus:outline-none focus:border-primary/50 transition-all font-bold text-lg tabular-nums"
+                        className="w-full h-12 bg-muted/50 border border-border rounded-lg px-4 text-foreground focus:outline-none focus:border-primary/50 transition-all font-bold text-lg tabular-nums"
                         type="number"
                         value={editForm.totalCost}
                         onChange={e => setEditForm({...editForm, totalCost: Number(e.target.value)})}
                     />
                  </div>
                  <div className="space-y-2">
-                     <Label className="text-[10px] font-bold uppercase tracking-widest text-zinc-500 ml-1">Project Status</Label>
+                     <Label className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground ml-1">Project Status</Label>
                      <select 
-                        className="w-full h-12 bg-white/[0.02] border border-white/10 rounded-lg px-4 text-white focus:outline-none focus:border-primary/50 transition-all appearance-none cursor-pointer font-bold uppercase text-xs tracking-widest"
+                        className="w-full h-12 bg-muted/50 border border-border rounded-lg px-4 text-foreground focus:outline-none focus:border-primary/50 transition-all appearance-none cursor-pointer font-bold uppercase text-xs tracking-widest"
                         value={editForm.status}
                         onChange={e => setEditForm({...editForm, status: e.target.value})}
                     >
-                         <option value="pending_assignment" className="bg-[#0F1115]">QUEUE: AWAITING_EDITOR</option>
-                         <option value="active" className="bg-[#0F1115]">STATE: PRODUCTION_IN_PROGRESS</option>
-                         <option value="in_review" className="bg-[#0F1115]">STATE: QA_REVIEW_CYCLE</option>
-                         <option value="approved" className="bg-[#0F1115]">STATE: DELIVERABLE_AUTHORIZED</option>
-                         <option value="completed" className="bg-[#0F1115]">STATE: COMPLETED</option>
+                         <option value="pending_assignment" className="bg-background">QUEUE: AWAITING_EDITOR</option>
+                         <option value="active" className="bg-background">STATE: PRODUCTION_IN_PROGRESS</option>
+                         <option value="in_review" className="bg-background">STATE: QA_REVIEW_CYCLE</option>
+                         <option value="approved" className="bg-background">STATE: DELIVERABLE_AUTHORIZED</option>
+                         <option value="completed" className="bg-background">STATE: COMPLETED</option>
                      </select>
                  </div>
                  
                  <div className="pt-4 flex gap-3">
                      <button 
-                        className="flex-1 h-12 bg-white text-black font-bold uppercase text-[11px] tracking-widest rounded-lg hover:bg-zinc-200 transition-all active:scale-[0.98]"
+                        className="flex-1 h-12 bg-primary  text-primary-foreground font-bold uppercase text-[11px] tracking-widest rounded-lg hover:bg-zinc-200 transition-all active:scale-[0.98]"
                         onClick={handleUpdateProject}
                     >
                          Save Changes
                      </button>
                      <button 
-                        className="h-12 px-6 bg-white/[0.03] border border-white/10 text-zinc-500 hover:text-white transition-all rounded-lg text-[11px] font-bold uppercase tracking-widest"
+                        className="h-12 px-6 bg-muted/50 border border-border text-muted-foreground hover:text-foreground transition-all rounded-lg text-[11px] font-bold uppercase tracking-widest"
                         onClick={() => setIsEditModalOpen(false)}
                     >
                          Abort
@@ -1519,7 +1648,7 @@ export function AdminDashboard() {
                     {/* Profile Header */}
                     <div className="flex flex-col md:flex-row items-center md:items-start gap-8">
                          <div className="relative">
-                            <div className="h-32 w-32 relative rounded-[2rem] overflow-hidden border-4 border-white/5 bg-white/[0.02] shadow-2xl">
+                            <div className="h-32 w-32 relative rounded-[2rem] overflow-hidden border-4 border-border bg-muted/50 shadow-2xl">
                                 {selectedUserDetail.photoURL ? (
                                     <Image 
                                         src={selectedUserDetail.photoURL} 
@@ -1537,8 +1666,8 @@ export function AdminDashboard() {
 
                          <div className="flex-1 text-center md:text-left space-y-3">
                             <div>
-                                <h2 className="text-3xl font-heading font-black tracking-tight text-white">{selectedUserDetail.displayName}</h2>
-                                <p className="text-zinc-500 font-mono text-[10px] uppercase tracking-[0.2em] mt-1">User ID: {selectedUserDetail.uid}</p>
+                                <h2 className="text-3xl font-heading font-black tracking-tight text-foreground">{selectedUserDetail.displayName}</h2>
+                                <p className="text-muted-foreground font-mono text-[10px] uppercase tracking-[0.2em] mt-1">User ID: {selectedUserDetail.uid}</p>
                             </div>
 
                             <div className="flex flex-wrap items-center justify-center md:justify-start gap-3">
@@ -1546,6 +1675,7 @@ export function AdminDashboard() {
                                     "px-3 py-1 rounded-full text-[9px] font-bold uppercase tracking-widest border transition-all",
                                     selectedUserDetail.role === 'admin' ? "bg-red-500/10 text-red-500 border-red-500/20" :
                                     selectedUserDetail.role === 'client' ? "bg-blue-500/10 text-blue-500 border-blue-500/20" :
+                                    selectedUserDetail.role === 'editor' ? "bg-primary/10 text-primary border-primary/20" :
                                     "bg-emerald-500/10 text-emerald-500 border-emerald-500/20"
                                 )}>
                                     {selectedUserDetail.role?.replace('_', ' ')}
@@ -1558,38 +1688,71 @@ export function AdminDashboard() {
                                 )}>
                                     Status: {(selectedUserDetail as any).status?.toUpperCase() || 'ACTIVE'}
                                 </span>
+                                <span className="px-3 py-1 rounded-full text-[9px] font-bold uppercase tracking-widest border border-border bg-card text-muted-foreground">
+                                    Joined: {new Date(selectedUserDetail.createdAt).toLocaleDateString()}
+                                </span>
                             </div>
+
+                            {(selectedUserDetail as any).skills && (selectedUserDetail as any).skills.length > 0 && (
+                                <div className="flex flex-wrap gap-2 pt-2">
+                                    {(selectedUserDetail as any).skills.map((skill: string, idx: number) => (
+                                        <span key={idx} className="bg-primary/5 text-primary border border-primary/10 px-2 py-0.5 rounded-full text-[8px] font-bold uppercase tracking-widest">
+                                            {skill}
+                                        </span>
+                                    ))}
+                                </div>
+                            )}
+
+                            {(selectedUserDetail as any).location && (
+                                <div className="flex items-center gap-2 text-muted-foreground mt-2">
+                                    <Globe className="h-3 w-3" />
+                                    <span className="text-[10px] font-bold uppercase tracking-widest">{(selectedUserDetail as any).location}</span>
+                                </div>
+                            )}
+                            {(selectedUserDetail as any).skillPrices && Object.keys((selectedUserDetail as any).skillPrices).length > 0 && (
+                                <div className="flex flex-col gap-1.5 mt-3 pt-3 border-t border-border">
+                                    <span className="text-[9px] font-bold text-muted-foreground uppercase tracking-widest">Standard Deliverable Rates</span>
+                                    <div className="grid grid-cols-2 gap-2 mt-1">
+                                        {Object.entries((selectedUserDetail as any).skillPrices).map(([skill, price]) => (
+                                            <div key={skill} className="flex justify-between items-center bg-muted/50 border border-border p-2 rounded-lg">
+                                                <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-tight">{skill}</span>
+                                                <span className="text-[10px] font-bold text-primary flex items-center bg-primary/10 px-1.5 py-0.5 rounded"><IndianRupee className="h-2.5 w-2.5 mr-0.5" /> {price as string}</span>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+                            )}
                          </div>
                     </div>
 
                     {/* Contact & Auth Grid */}
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                         <div className="space-y-4">
-                            <h4 className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest flex items-center gap-2 px-1">
+                            <h4 className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest flex items-center gap-2 px-1">
                                 <Mail className="h-3 w-3 text-primary" /> Contact Details
                             </h4>
-                            <div className="enterprise-card p-6 bg-white/[0.01] border-white/5 space-y-4">
+                            <div className="enterprise-card p-6 bg-muted/50 border-border space-y-4">
                                 <div className="space-y-1.5">
-                                    <Label className="text-[9px] font-bold text-zinc-600 uppercase tracking-widest ml-1">Email</Label>
-                                    <div className="p-3 bg-white/[0.03] border border-white/10 rounded-lg text-sm font-medium text-white flex items-center justify-between group/email">
+                                    <Label className="text-[9px] font-bold text-muted-foreground uppercase tracking-widest ml-1">Email</Label>
+                                    <div className="p-3 bg-muted/50 border border-border rounded-lg text-sm font-medium text-foreground flex items-center justify-between group/email">
                                         <span className="truncate">{selectedUserDetail.email}</span>
                                         <button onClick={() => { navigator.clipboard.writeText(selectedUserDetail.email!); toast.success("Copied"); }} className="opacity-0 group-hover/email:opacity-100 transition-opacity">
-                                            <Copy className="h-3 w-3 text-zinc-600 hover:text-white" />
+                                            <Copy className="h-3 w-3 text-muted-foreground hover:text-foreground" />
                                         </button>
                                     </div>
                                 </div>
                                 {selectedUserDetail.phoneNumber && (
                                     <div className="space-y-1.5">
-                                        <Label className="text-[9px] font-bold text-zinc-600 uppercase tracking-widest ml-1">Phone</Label>
-                                        <div className="p-3 bg-white/[0.03] border border-white/10 rounded-lg text-sm text-white">
+                                        <Label className="text-[9px] font-bold text-muted-foreground uppercase tracking-widest ml-1">Phone</Label>
+                                        <div className="p-3 bg-muted/50 border border-border rounded-lg text-sm text-foreground">
                                             {selectedUserDetail.phoneNumber}
                                         </div>
                                     </div>
                                 )}
                                 {selectedUserDetail.whatsappNumber && (
-                                    <div className="space-y-1.5 pt-2 border-t border-white/5">
-                                        <Label className="text-[9px] font-bold text-zinc-600 uppercase tracking-widest ml-1 flex items-center gap-1.5"><MessageSquare className="h-3 w-3 text-emerald-500" /> WhatsApp</Label>
-                                        <div className="p-3 bg-white/[0.03] border border-white/10 rounded-lg text-sm font-medium text-white flex items-center justify-between group/wa">
+                                    <div className="space-y-1.5 pt-2 border-t border-border">
+                                        <Label className="text-[9px] font-bold text-muted-foreground uppercase tracking-widest ml-1 flex items-center gap-1.5"><MessageSquare className="h-3 w-3 text-emerald-500" /> WhatsApp</Label>
+                                        <div className="p-3 bg-muted/50 border border-border rounded-lg text-sm font-medium text-foreground flex items-center justify-between group/wa">
                                             <span className="truncate">{selectedUserDetail.whatsappNumber}</span>
                                             <a href={`https://wa.me/${selectedUserDetail.whatsappNumber.replace(/[^0-9]/g, '')}`} target="_blank" rel="noopener noreferrer" className="opacity-0 group-hover/wa:opacity-100 transition-opacity">
                                                 <ExternalLink className="h-4 w-4 text-emerald-400 hover:text-emerald-300" />
@@ -1598,11 +1761,11 @@ export function AdminDashboard() {
                                     </div>
                                 )}
                                 {selectedUserDetail.portfolio && Array.isArray(selectedUserDetail.portfolio) && selectedUserDetail.portfolio.length > 0 ? (
-                                    <div className="space-y-2 pt-2 border-t border-white/5">
-                                        <Label className="text-[9px] font-bold text-zinc-600 uppercase tracking-widest ml-1">Portfolio Links</Label>
+                                    <div className="space-y-2 pt-2 border-t border-border">
+                                        <Label className="text-[9px] font-bold text-muted-foreground uppercase tracking-widest ml-1">Portfolio Links</Label>
                                         <div className="space-y-2">
                                             {selectedUserDetail.portfolio.map((port: any, idx: number) => (
-                                                <a key={idx} href={port.url || port} target="_blank" rel="noopener noreferrer" className="flex items-center gap-3 p-3 bg-white/[0.03] border border-white/10 rounded-lg text-sm text-blue-400 hover:text-blue-300 hover:bg-white/[0.05] transition-all truncate">
+                                                <a key={idx} href={port.url || port} target="_blank" rel="noopener noreferrer" className="flex items-center gap-3 p-3 bg-muted/50 border border-border rounded-lg text-sm text-blue-400 hover:text-blue-300 hover:bg-muted/50 transition-all truncate">
                                                     <Globe className="h-3.5 w-3.5 flex-shrink-0 text-blue-500/70" />
                                                     <span className="truncate">{port.name || port.url || port}</span>
                                                 </a>
@@ -1610,9 +1773,9 @@ export function AdminDashboard() {
                                         </div>
                                     </div>
                                 ) : selectedUserDetail.portfolio && typeof selectedUserDetail.portfolio === 'string' ? (
-                                    <div className="space-y-1.5 pt-2 border-t border-white/5">
-                                        <Label className="text-[9px] font-bold text-zinc-600 uppercase tracking-widest ml-1">Portfolio Link</Label>
-                                        <a href={selectedUserDetail.portfolio as string} target="_blank" rel="noopener noreferrer" className="flex items-center gap-3 p-3 bg-white/[0.03] border border-white/10 rounded-lg text-sm text-blue-400 hover:text-blue-300 hover:bg-white/[0.05] transition-all truncate">
+                                    <div className="space-y-1.5 pt-2 border-t border-border">
+                                        <Label className="text-[9px] font-bold text-muted-foreground uppercase tracking-widest ml-1">Portfolio Link</Label>
+                                        <a href={selectedUserDetail.portfolio as string} target="_blank" rel="noopener noreferrer" className="flex items-center gap-3 p-3 bg-muted/50 border border-border rounded-lg text-sm text-blue-400 hover:text-blue-300 hover:bg-muted/50 transition-all truncate">
                                             <Globe className="h-3.5 w-3.5 flex-shrink-0 text-blue-500/70" />
                                             <span className="truncate">{selectedUserDetail.portfolio}</span>
                                         </a>
@@ -1623,15 +1786,15 @@ export function AdminDashboard() {
 
                         {selectedUserDetail.initialPassword && (
                             <div className="space-y-4">
-                                <h4 className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest flex items-center gap-2 px-1">
+                                <h4 className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest flex items-center gap-2 px-1">
                                     <Shield className="h-3 w-3 text-primary" /> System Access
                                 </h4>
-                                <div className="enterprise-card p-6 bg-white/[0.01] border-white/5">
-                                    <Label className="text-[9px] font-bold text-zinc-600 uppercase tracking-widest ml-1">Default Key</Label>
-                                    <div className="p-3 bg-white/[0.03] border border-white/10 rounded-lg text-sm font-mono text-primary flex items-center justify-between group/key mt-1.5">
+                                <div className="enterprise-card p-6 bg-muted/50 border-border">
+                                    <Label className="text-[9px] font-bold text-muted-foreground uppercase tracking-widest ml-1">Default Key</Label>
+                                    <div className="p-3 bg-muted/50 border border-border rounded-lg text-sm font-mono text-primary flex items-center justify-between group/key mt-1.5">
                                         <span>{selectedUserDetail.initialPassword}</span>
                                         <button onClick={() => { navigator.clipboard.writeText(selectedUserDetail!.initialPassword!); toast.success("Copied"); }} className="opacity-0 group-hover/key:opacity-100 transition-opacity">
-                                            <Copy className="h-3 w-3 text-zinc-600 hover:text-white" />
+                                            <Copy className="h-3 w-3 text-muted-foreground hover:text-foreground" />
                                         </button>
                                     </div>
                                 </div>
@@ -1640,10 +1803,10 @@ export function AdminDashboard() {
                     </div>
 
                     {/* Role Metrics */}
-                    <div className="pt-6 border-t border-white/5">
+                    <div className="pt-6 border-t border-border">
                         {selectedUserDetail.role === 'editor' && (
                             <div className="space-y-8">
-                                <h4 className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest flex items-center gap-2 px-1">
+                                <h4 className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest flex items-center gap-2 px-1">
                                     <Star className="h-3 w-3 text-primary" /> Performance metrics
                                 </h4>
                                 {(() => {
@@ -1656,25 +1819,25 @@ export function AdminDashboard() {
                                     return (
                                         <>
                                             <div className="grid grid-cols-2 sm:grid-cols-5 gap-4">
-                                                <div className="enterprise-card p-4 bg-white/[0.01] border-white/5 text-center">
-                                                    <div className="text-xl font-black text-white">{completedEditorProjects.length}</div>
-                                                    <div className="text-[8px] font-bold text-zinc-600 uppercase tracking-widest mt-1">Completed</div>
+                                                <div className="enterprise-card p-4 bg-muted/50 border-border text-center">
+                                                    <div className="text-xl font-black text-foreground">{completedEditorProjects.length}</div>
+                                                    <div className="text-[8px] font-bold text-muted-foreground uppercase tracking-widest mt-1">Completed</div>
                                                 </div>
-                                                <div className="enterprise-card p-4 bg-white/[0.01] border-white/5 text-center">
-                                                    <div className="text-xl font-black text-white">₹{totalEarnings.toLocaleString()}</div>
-                                                    <div className="text-[8px] font-bold text-zinc-600 uppercase tracking-widest mt-1">Total Earned</div>
+                                                <div className="enterprise-card p-4 bg-muted/50 border-border text-center">
+                                                    <div className="text-xl font-black text-foreground">₹{totalEarnings.toLocaleString()}</div>
+                                                    <div className="text-[8px] font-bold text-muted-foreground uppercase tracking-widest mt-1">Total Earned</div>
                                                 </div>
-                                                <div className="enterprise-card p-4 bg-white/[0.01] border-white/5 text-center">
+                                                <div className="enterprise-card p-4 bg-muted/50 border-border text-center">
                                                     <div className="text-xl font-black text-red-400">₹{pendingDues.toLocaleString()}</div>
                                                     <div className="text-[8px] font-bold text-red-500/50 uppercase tracking-widest mt-1">Pending Dues</div>
                                                 </div>
-                                                <div className="enterprise-card p-4 bg-white/[0.01] border-white/5 text-center">
-                                                    <div className="text-xl font-black text-white">{editorProjects.filter(p => !['completed', 'approved', 'archived'].includes(p.status)).length}</div>
-                                                    <div className="text-[8px] font-bold text-zinc-600 uppercase tracking-widest mt-1">Active</div>
+                                                <div className="enterprise-card p-4 bg-muted/50 border-border text-center">
+                                                    <div className="text-xl font-black text-foreground">{editorProjects.filter(p => !['completed', 'approved', 'archived'].includes(p.status)).length}</div>
+                                                    <div className="text-[8px] font-bold text-muted-foreground uppercase tracking-widest mt-1">Active</div>
                                                 </div>
-                                                <div className="enterprise-card p-4 bg-white/[0.01] border-white/5 text-center">
+                                                <div className="enterprise-card p-4 bg-muted/50 border-border text-center">
                                                     <div className="text-xl font-black text-amber-500">{selectedUserDetail.rating || 'N/A'}</div>
-                                                    <div className="text-[8px] font-bold text-zinc-600 uppercase tracking-widest mt-1">Rating</div>
+                                                    <div className="text-[8px] font-bold text-muted-foreground uppercase tracking-widest mt-1">Rating</div>
                                                 </div>
                                             </div>
                                             <div className="space-y-6 pt-4">
@@ -1685,7 +1848,7 @@ export function AdminDashboard() {
                                                     </Label>
                                                     <div className="bg-red-500/[0.02] border border-red-500/10 rounded-2xl divide-y divide-red-500/10 overflow-hidden">
                                                         {completedEditorProjects.filter(p => !p.editorPaid && (p.editorPrice || 0) > 0).length === 0 ? (
-                                                            <div className="p-8 text-center text-zinc-600 text-[10px] font-bold uppercase tracking-widest">No pending dues</div>
+                                                            <div className="p-8 text-center text-muted-foreground text-[10px] font-bold uppercase tracking-widest">No pending dues</div>
                                                         ) : (
                                                             completedEditorProjects.filter(p => !p.editorPaid && (p.editorPrice || 0) > 0).map(p => {
                                                                 const pm = users.find(u => u.uid === p.assignedPMId);
@@ -1693,13 +1856,13 @@ export function AdminDashboard() {
                                                                 return (
                                                                     <div key={p.id} className="p-4 flex flex-col md:flex-row md:items-center justify-between gap-4 group hover:bg-red-500/[0.02] transition-colors">
                                                                         <div>
-                                                                            <div className="text-sm font-bold text-white tracking-tight flex items-center gap-2">
+                                                                            <div className="text-sm font-bold text-foreground tracking-tight flex items-center gap-2">
                                                                                 {p.name}
-                                                                                <span className="text-[9px] bg-white/5 px-2 py-0.5 rounded text-zinc-400 border border-white/5">
+                                                                                <span className="text-[9px] bg-card px-2 py-0.5 rounded text-muted-foreground border border-border">
                                                                                     PM: {pm ? pm.displayName : 'Unassigned'}
                                                                                 </span>
                                                                             </div>
-                                                                            <div className="text-[10px] text-zinc-500 font-bold uppercase tracking-widest mt-1 flex items-center gap-2">
+                                                                            <div className="text-[10px] text-muted-foreground font-bold uppercase tracking-widest mt-1 flex items-center gap-2">
                                                                                 <span>{p.status.replace('_', ' ')}</span>
                                                                                 <span>&bull;</span>
                                                                                 <span>Due: ₹{(p.editorPrice || 0).toLocaleString()}</span>
@@ -1713,7 +1876,7 @@ export function AdminDashboard() {
                                                                             {isCompleted && (
                                                                                 <button 
                                                                                     onClick={() => handleReimburseEditor(p.id)}
-                                                                                    className="h-8 text-[9px] font-bold bg-primary hover:bg-white hover:text-black text-primary-foreground px-4 rounded transition-all uppercase tracking-widest whitespace-nowrap"
+                                                                                    className="h-8 text-[9px] font-bold bg-primary hover:bg-primary  hover:text-primary-foreground text-primary-foreground px-4 rounded transition-all uppercase tracking-widest whitespace-nowrap"
                                                                                 >
                                                                                     Reimburse
                                                                                 </button>
@@ -1727,13 +1890,13 @@ export function AdminDashboard() {
                                                 </div>
 
                                                 {/* Associated Projects Section */}
-                                                <div className="space-y-4 pt-4 border-t border-white/5">
-                                                    <Label className="text-[9px] font-bold text-zinc-600 uppercase tracking-widest ml-1 flex items-center gap-2">
+                                                <div className="space-y-4 pt-4 border-t border-border">
+                                                    <Label className="text-[9px] font-bold text-muted-foreground uppercase tracking-widest ml-1 flex items-center gap-2">
                                                         <FolderOpen className="h-3 w-3 text-primary" /> Associated Projects
                                                     </Label>
-                                                    <div className="bg-white/[0.01] border border-white/10 rounded-2xl divide-y divide-white/5 overflow-hidden">
+                                                    <div className="bg-muted/50 border border-border rounded-2xl divide-y divide-border overflow-hidden">
                                                         {editorProjects.length === 0 ? (
-                                                            <div className="p-8 text-center text-zinc-600 text-[10px] font-bold uppercase tracking-widest">No projects found</div>
+                                                            <div className="p-8 text-center text-muted-foreground text-[10px] font-bold uppercase tracking-widest">No projects found</div>
                                                         ) : (
                                                             editorProjects.map(p => {
                                                                 const pm = users.find(u => u.uid === p.assignedPMId);
@@ -1741,18 +1904,18 @@ export function AdminDashboard() {
                                                                 return (
                                                                     <div key={p.id} className="p-4 flex flex-col md:flex-row md:items-center justify-between gap-4">
                                                                         <div>
-                                                                            <div className="text-sm font-bold text-white tracking-tight flex items-center gap-2">
+                                                                            <div className="text-sm font-bold text-foreground tracking-tight flex items-center gap-2">
                                                                                 {p.name}
-                                                                                <span className="text-[9px] bg-white/5 px-2 py-0.5 rounded text-zinc-400 border border-white/5">
+                                                                                <span className="text-[9px] bg-card px-2 py-0.5 rounded text-muted-foreground border border-border">
                                                                                     PM: {pm ? pm.displayName : 'Unassigned'}
                                                                                 </span>
                                                                             </div>
-                                                                            <div className="text-[10px] text-zinc-500 font-bold uppercase tracking-widest mt-1">{p.status.replace('_', ' ')}</div>
+                                                                            <div className="text-[10px] text-muted-foreground font-bold uppercase tracking-widest mt-1">{p.status.replace('_', ' ')}</div>
                                                                         </div>
                                                                         <div className="flex items-center gap-4 align-middle">
                                                                             <div className="text-right flex flex-col items-end">
-                                                                                <div className="text-xs font-black text-white">₹{(p.editorPrice || 0).toLocaleString()}</div>
-                                                                                <div className="text-[8px] font-bold text-zinc-500 uppercase tracking-widest leading-none mt-1">Revenue Assigned</div>
+                                                                                <div className="text-xs font-black text-foreground">₹{(p.editorPrice || 0).toLocaleString()}</div>
+                                                                                <div className="text-[8px] font-bold text-muted-foreground uppercase tracking-widest leading-none mt-1">Revenue Assigned</div>
                                                                             </div>
                                                                             {isCompleted && p.editorPaid && (
                                                                                 <span className="h-8 flex items-center text-[9px] font-bold text-emerald-400 border border-emerald-500/20 bg-emerald-500/10 px-4 rounded uppercase tracking-widest whitespace-nowrap">
@@ -1775,25 +1938,25 @@ export function AdminDashboard() {
 
                         {selectedUserDetail.role === 'project_manager' && (
                             <div className="space-y-8">
-                                <h4 className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest flex items-center gap-2 px-1">
+                                <h4 className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest flex items-center gap-2 px-1">
                                     <LayoutGrid className="h-3 w-3 text-primary" /> Operations Managed
                                 </h4>
                                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-                                    <div className="enterprise-card p-4 bg-white/[0.01] border-white/5 text-center">
-                                        <div className="text-xl font-black text-white">{projects.filter(p => p.assignedPMId === selectedUserDetail.uid).length}</div>
-                                        <div className="text-[8px] font-bold text-zinc-600 uppercase tracking-widest mt-1">Projects</div>
+                                    <div className="enterprise-card p-4 bg-muted/50 border-border text-center">
+                                        <div className="text-xl font-black text-foreground">{projects.filter(p => p.assignedPMId === selectedUserDetail.uid).length}</div>
+                                        <div className="text-[8px] font-bold text-muted-foreground uppercase tracking-widest mt-1">Projects</div>
                                     </div>
-                                    <div className="enterprise-card p-4 bg-white/[0.01] border-white/5 text-center col-span-2">
+                                    <div className="enterprise-card p-4 bg-muted/50 border-border text-center col-span-2">
                                         <div className="text-xl font-black text-emerald-500">₹{projects.filter(p => p.assignedPMId === selectedUserDetail.uid).reduce((acc, p) => acc + (p.totalCost || 0), 0).toLocaleString()}</div>
-                                        <div className="text-[8px] font-bold text-zinc-600 uppercase tracking-widest mt-1">Volume Managed</div>
+                                        <div className="text-[8px] font-bold text-muted-foreground uppercase tracking-widest mt-1">Volume Managed</div>
                                     </div>
                                 </div>
-                                <div className="space-y-3 pt-6 border-t border-white/5">
-                                    <Label className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest ml-1">Auto-Assign Cap (Max Projects)</Label>
+                                <div className="space-y-3 pt-6 border-t border-border">
+                                    <Label className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest ml-1">Auto-Assign Cap (Max Projects)</Label>
                                     <div className="flex items-center gap-4">
                                         <input 
                                             type="number" 
-                                            className="w-32 h-10 px-4 rounded-lg bg-white/[0.02] border border-white/10 text-white focus:border-primary/50 focus:outline-none transition-all font-medium text-sm" 
+                                            className="w-32 h-10 px-4 rounded-lg bg-muted/50 border border-border text-foreground focus:border-primary/50 focus:outline-none transition-all font-medium text-sm" 
                                             value={selectedUserDetail.maxProjectLimit || 10}
                                             onChange={async (e) => {
                                                 const val = parseInt(e.target.value) || 10;
@@ -1808,7 +1971,7 @@ export function AdminDashboard() {
                                                 }
                                             }}
                                         />
-                                        <span className="text-[11px] font-medium text-zinc-500">Max active requests handler</span>
+                                        <span className="text-[11px] font-medium text-muted-foreground">Max active requests handler</span>
                                     </div>
                                 </div>
                             </div>
@@ -1816,19 +1979,19 @@ export function AdminDashboard() {
 
                         {selectedUserDetail.role === 'sales_executive' && (
                             <div className="space-y-8">
-                                <h4 className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest flex items-center gap-2 px-1">
+                                <h4 className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest flex items-center gap-2 px-1">
                                     <TrendingUp className="h-3 w-3 text-primary" /> Acquisition Metrics
                                 </h4>
                                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                                    <div className="enterprise-card p-4 bg-white/[0.01] border-white/5 text-center">
-                                        <div className="text-2xl font-black text-white">{users.filter(u => u.role === 'client' && (u.managedBy === selectedUserDetail.uid || u.createdBy === selectedUserDetail.uid)).length}</div>
-                                        <div className="text-[8px] font-bold text-zinc-600 uppercase tracking-widest mt-1">Clients Generated</div>
+                                    <div className="enterprise-card p-4 bg-muted/50 border-border text-center">
+                                        <div className="text-2xl font-black text-foreground">{users.filter(u => u.role === 'client' && (u.managedBy === selectedUserDetail.uid || u.createdBy === selectedUserDetail.uid)).length}</div>
+                                        <div className="text-[8px] font-bold text-muted-foreground uppercase tracking-widest mt-1">Clients Generated</div>
                                     </div>
-                                    <div className="enterprise-card p-4 bg-white/[0.01] border-white/5 text-center">
+                                    <div className="enterprise-card p-4 bg-muted/50 border-border text-center">
                                         <div className="text-2xl font-black text-emerald-500">
                                             ₹{projects.filter(p => users.some(u => u.uid === p.clientId && (u.managedBy === selectedUserDetail.uid || u.createdBy === selectedUserDetail.uid))).reduce((acc, p) => acc + (p.amountPaid || 0), 0).toLocaleString()}
                                         </div>
-                                        <div className="text-[8px] font-bold text-zinc-600 uppercase tracking-widest mt-1">Attributed Revenue</div>
+                                        <div className="text-[8px] font-bold text-muted-foreground uppercase tracking-widest mt-1">Attributed Revenue</div>
                                     </div>
                                 </div>
                             </div>
@@ -1843,7 +2006,7 @@ export function AdminDashboard() {
                                 "flex-1 h-12 rounded-xl text-[10px] font-bold uppercase tracking-widest transition-all border flex items-center justify-center gap-2",
                                 (selectedUserDetail as any).status === 'inactive' 
                                     ? "bg-emerald-500/10 text-emerald-500 border-emerald-500/20" 
-                                    : "bg-white/[0.02] text-zinc-400 border-white/10 hover:text-white"
+                                    : "bg-muted/50 text-muted-foreground border-border hover:text-foreground"
                             )}
                         >
                             <Shield className="h-4 w-4" />
@@ -1851,7 +2014,7 @@ export function AdminDashboard() {
                         </button>
                         <button 
                             onClick={() => { handleDeleteUser(selectedUserDetail.uid); setIsUserDetailModalOpen(false); }}
-                            className="flex-1 h-12 bg-red-500 text-white font-bold uppercase text-[10px] tracking-widest rounded-xl hover:bg-red-600 transition-all flex items-center justify-center gap-2"
+                            className="flex-1 h-12 bg-red-500 text-foreground font-bold uppercase text-[10px] tracking-widest rounded-xl hover:bg-red-600 transition-all flex items-center justify-center gap-2"
                         >
                             <Trash2 className="h-4 w-4" /> Delete Account
                         </button>
@@ -1871,14 +2034,14 @@ export function AdminDashboard() {
                 <div className="mt-8 space-y-10 max-h-[75vh] overflow-y-auto pr-4 custom-scrollbar">
                     {/* Header Spec */}
                     <div className="flex flex-col gap-6">
-                        <div className="flex flex-col gap-4 border-b border-white/5 pb-6">
+                        <div className="flex flex-col gap-4 border-b border-border pb-6">
                             <div className="flex items-center gap-4">
                                 <div className="h-12 w-12 rounded-xl bg-primary/10 border border-primary/20 flex items-center justify-center text-primary">
                                     <MonitorPlay className="h-6 w-6" />
                                 </div>
                                 <div>
-                                    <h4 className="text-xl font-bold text-white tracking-tight">{inspectProject.name}</h4>
-                                    <p className="text-[10px] text-zinc-500 font-bold uppercase tracking-widest mt-1">Management Overview // Ref: {inspectProject.id}</p>
+                                    <h4 className="text-xl font-bold text-foreground tracking-tight">{inspectProject.name}</h4>
+                                    <p className="text-[10px] text-muted-foreground font-bold uppercase tracking-widest mt-1">Management Overview // Ref: {inspectProject.id}</p>
                                 </div>
                             </div>
                             <div className="mt-2">
@@ -1887,23 +2050,23 @@ export function AdminDashboard() {
                         </div>
 
                         <div className="grid grid-cols-2 lg:grid-cols-4 gap-6">
-                            <div className="p-6 rounded-2xl bg-white/[0.02] border border-white/5 space-y-2.5 group hover:border-primary/20 transition-all">
-                                <span className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest">Total Price</span>
-                                <div className="text-2xl font-black text-white tabular-nums tracking-tight">₹{inspectProject.totalCost?.toLocaleString()}</div>
+                            <div className="p-6 rounded-2xl bg-muted/50 border border-border space-y-2.5 group hover:border-primary/20 transition-all">
+                                <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Total Price</span>
+                                <div className="text-2xl font-black text-foreground tabular-nums tracking-tight">₹{inspectProject.totalCost?.toLocaleString()}</div>
                             </div>
-                            <div className="p-6 rounded-2xl bg-white/[0.02] border border-white/5 space-y-2.5 group hover:border-emerald-500/20 transition-all">
-                                <span className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest">Editor Share</span>
+                            <div className="p-6 rounded-2xl bg-muted/50 border border-border space-y-2.5 group hover:border-emerald-500/20 transition-all">
+                                <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Editor Share</span>
                                 <div className="text-2xl font-black text-emerald-500 tabular-nums tracking-tight">₹{inspectProject.editorPrice?.toLocaleString() || '0'}</div>
                             </div>
-                            <div className="p-6 rounded-2xl bg-white/[0.02] border border-white/5 space-y-2.5 group transition-all">
-                                <span className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest">AutoPay</span>
-                                <div className={cn("text-sm font-black uppercase tracking-widest", inspectProject.autoPay ? "text-primary drop-shadow-[0_0_8px_rgba(99,102,241,0.4)]" : "text-zinc-600")}>
+                            <div className="p-6 rounded-2xl bg-muted/50 border border-border space-y-2.5 group transition-all">
+                                <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">AutoPay</span>
+                                <div className={cn("text-sm font-black uppercase tracking-widest", inspectProject.autoPay ? "text-primary drop-shadow-[0_0_8px_rgba(99,102,241,0.4)]" : "text-muted-foreground")}>
                                     {inspectProject.autoPay ? 'Authorized' : 'Disabled'}
                                 </div>
                             </div>
-                            <div className="p-6 rounded-2xl bg-white/[0.02] border border-white/5 space-y-2.5 group transition-all">
-                                <span className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest">Assigned PM</span>
-                                <div className="text-[13px] font-bold text-zinc-300 truncate tracking-tight group-hover:text-white transition-colors">
+                            <div className="p-6 rounded-2xl bg-muted/50 border border-border space-y-2.5 group transition-all">
+                                <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Assigned PM</span>
+                                <div className="text-[13px] font-bold text-foreground/80 truncate tracking-tight group-hover:text-foreground transition-colors">
                                     {users.find(u => u.uid === inspectProject.assignedPMId)?.displayName || 'Unassigned'}
                                 </div>
                             </div>
@@ -1923,29 +2086,29 @@ export function AdminDashboard() {
                     <div className="space-y-6">
                         <div className="flex items-center gap-2.5">
                             <Activity className="h-4 w-4 text-primary" />
-                            <h5 className="text-[11px] font-bold text-zinc-400 uppercase tracking-widest">Project Event History</h5>
+                            <h5 className="text-[11px] font-bold text-muted-foreground uppercase tracking-widest">Project Event History</h5>
                         </div>
 
-                        <div className="relative space-y-8 pl-8 before:absolute before:left-3 before:top-2 before:bottom-2 before:w-px before:bg-white/5">
+                        <div className="relative space-y-8 pl-8 before:absolute before:left-3 before:top-2 before:bottom-2 before:w-px before:bg-card">
                             {inspectProject.logs && inspectProject.logs.length > 0 ? (
                                 [...inspectProject.logs].reverse().map((log, i) => (
                                     <div key={i} className="relative group">
-                                        <div className="absolute -left-[25px] top-1.5 h-2.5 w-2.5 rounded-full bg-zinc-800 border border-zinc-700 group-hover:bg-primary group-hover:border-primary transition-all z-10" />
+                                        <div className="absolute -left-[25px] top-1.5 h-2.5 w-2.5 rounded-full bg-muted-foreground border border-zinc-700 group-hover:bg-primary group-hover:border-primary transition-all z-10" />
                                         <div className="space-y-1">
                                             <div className="flex items-center justify-between">
-                                                <span className="text-[10px] font-black text-white uppercase tracking-widest">{log.event.replace('_', ' ')}</span>
-                                                <span className="text-[9px] font-bold text-zinc-600 tabular-nums">{new Date(log.timestamp).toLocaleString()}</span>
+                                                <span className="text-[10px] font-black text-foreground uppercase tracking-widest">{log.event.replace('_', ' ')}</span>
+                                                <span className="text-[9px] font-bold text-muted-foreground tabular-nums">{new Date(log.timestamp).toLocaleString()}</span>
                                             </div>
-                                            <p className="text-xs text-zinc-400 font-medium leading-relaxed">{log.details}</p>
-                                            <div className="flex flex-col gap-1 text-[9px] font-bold text-zinc-600 uppercase tracking-widest pt-1">
+                                            <p className="text-xs text-muted-foreground font-medium leading-relaxed">{log.details}</p>
+                                            <div className="flex flex-col gap-1 text-[9px] font-bold text-muted-foreground uppercase tracking-widest pt-1">
                                                 <div className="flex items-center gap-2">
                                                     <span>Performed By:</span>
-                                                    <span className="text-zinc-500">{log.userName}</span>
+                                                    <span className="text-muted-foreground">{log.userName}</span>
                                                 </div>
                                                 {(log as any).designation && (
                                                     <div className="flex items-center gap-2">
                                                         <span>Designation:</span>
-                                                        <span className="text-zinc-500">{(log as any).designation}</span>
+                                                        <span className="text-muted-foreground">{(log as any).designation}</span>
                                                     </div>
                                                 )}
                                             </div>
@@ -1953,9 +2116,9 @@ export function AdminDashboard() {
                                     </div>
                                 ))
                             ) : (
-                                <div className="py-12 flex flex-col items-center justify-center border border-dashed border-white/5 rounded-2xl opacity-30 gap-4">
-                                    <Database className="h-8 w-8 text-zinc-600" />
-                                    <p className="text-[10px] font-bold uppercase tracking-widest text-zinc-600">No activity history available</p>
+                                <div className="py-12 flex flex-col items-center justify-center border border-dashed border-border rounded-2xl opacity-30 gap-4">
+                                    <Database className="h-8 w-8 text-muted-foreground" />
+                                    <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">No activity history available</p>
                                 </div>
                             )}
                         </div>
@@ -1973,59 +2136,113 @@ export function AdminDashboard() {
         >
             <form onSubmit={handleAddEditor} className="space-y-4 mt-6">
                  <div className="space-y-1.5">
-                     <label className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest ml-1">Full Name</label>
+                     <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest ml-1">Full Name</label>
                      <input 
                          required
                          type="text"
                          value={newEditor.name}
                          onChange={(e) => setNewEditor({...newEditor, name: e.target.value})}
-                         className="w-full h-11 bg-black/20 border border-white/10 rounded-lg px-4 text-sm text-white focus:outline-none focus:border-primary/50 transition-colors"
+                         className="w-full h-11 bg-black/5 dark:bg-black/40 border border-border rounded-lg px-4 text-sm text-foreground focus:outline-none focus:border-primary/50 transition-colors"
                      />
                  </div>
                  <div className="space-y-1.5">
-                     <label className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest ml-1">Email Address</label>
+                     <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest ml-1">Email Address</label>
                      <input 
                          required
                          type="email"
                          value={newEditor.email}
                          onChange={(e) => setNewEditor({...newEditor, email: e.target.value})}
-                         className="w-full h-11 bg-black/20 border border-white/10 rounded-lg px-4 text-sm text-white focus:outline-none focus:border-primary/50 transition-colors"
+                         className="w-full h-11 bg-black/5 dark:bg-black/40 border border-border rounded-lg px-4 text-sm text-foreground focus:outline-none focus:border-primary/50 transition-colors"
                      />
                  </div>
                  <div className="space-y-1.5">
-                     <label className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest ml-1">Password</label>
+                     <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest ml-1">Password</label>
                      <input 
                          required
                          type="text"
                          value={newEditor.password}
                          onChange={(e) => setNewEditor({...newEditor, password: e.target.value})}
-                         className="w-full h-11 bg-black/20 border border-white/10 rounded-lg px-4 text-sm text-white focus:outline-none focus:border-primary/50 transition-colors"
+                         className="w-full h-11 bg-black/5 dark:bg-black/40 border border-border rounded-lg px-4 text-sm text-foreground focus:outline-none focus:border-primary/50 transition-colors"
                      />
                  </div>
                  <div className="space-y-1.5">
-                     <label className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest ml-1">WhatsApp Number (+91...)</label>
+                     <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest ml-1">WhatsApp Number (+91...)</label>
                      <input 
                          required
                          type="text"
                          value={newEditor.whatsapp}
                          onChange={(e) => setNewEditor({...newEditor, whatsapp: e.target.value})}
-                         className="w-full h-11 bg-black/20 border border-white/10 rounded-lg px-4 text-sm text-white focus:outline-none focus:border-primary/50 transition-colors"
+                         className="w-full h-11 bg-black/5 dark:bg-black/40 border border-border rounded-lg px-4 text-sm text-foreground focus:outline-none focus:border-primary/50 transition-colors"
                      />
                  </div>
-                 <div className="space-y-1.5">
-                     <label className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest ml-1">Portfolio URL</label>
-                     <input 
-                         required
-                         type="url"
-                         value={newEditor.portfolio}
-                         onChange={(e) => setNewEditor({...newEditor, portfolio: e.target.value})}
-                         className="w-full h-11 bg-black/20 border border-white/10 rounded-lg px-4 text-sm text-white focus:outline-none focus:border-primary/50 transition-colors"
-                     />
-                 </div>
+                  <div className="space-y-1.5">
+                      <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest ml-1">Portfolio URL</label>
+                      <input 
+                          required
+                          type="url"
+                          value={newEditor.portfolio}
+                          onChange={(e) => setNewEditor({...newEditor, portfolio: e.target.value})}
+                          className="w-full h-11 bg-black/5 dark:bg-black/40 border border-border rounded-lg px-4 text-sm text-foreground focus:outline-none focus:border-primary/50 transition-colors"
+                      />
+                  </div>
+                  <div className="grid grid-cols-2 gap-4">
+                      <div className="space-y-1.5">
+                          <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest ml-1">Location (Optional)</label>
+                          <input 
+                              type="text"
+                              value={newEditor.location}
+                              onChange={(e) => setNewEditor({...newEditor, location: e.target.value})}
+                              placeholder="e.g. Mumbai, IN"
+                              className="w-full h-11 bg-black/5 dark:bg-black/40 border border-border rounded-lg px-4 text-sm text-foreground focus:outline-none focus:border-primary/50 transition-colors"
+                          />
+                      </div>
+                      <div className="space-y-4 col-span-2">
+                          <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest ml-1">Specialization & Assigned Pricing</label>
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-1">
+                              {['YouTube', 'Reels', 'Ads', 'Color Grading', 'Motion Graphics', 'Subtitles'].map((skill) => {
+                                  const isSelected = newEditor.skills.includes(skill);
+                                  return (
+                                  <div key={skill} className={cn("flex flex-col gap-2 p-3 rounded-lg border transition-colors", isSelected ? "bg-primary/5 border-primary/30" : "bg-muted/50 border-border")}>
+                                      <label className="flex items-center gap-2 text-sm text-foreground/80 font-medium cursor-pointer">
+                                          <input 
+                                              type="checkbox" 
+                                              className="accent-primary w-4 h-4 cursor-pointer"
+                                              checked={isSelected}
+                                              onChange={(e) => {
+                                                  if (e.target.checked) {
+                                                      setNewEditor({...newEditor, skills: [...newEditor.skills, skill]});
+                                                  } else {
+                                                      const updatedPrices = { ...newEditor.skillPrices };
+                                                      delete updatedPrices[skill];
+                                                      setNewEditor({...newEditor, skills: newEditor.skills.filter(s => s !== skill), skillPrices: updatedPrices });
+                                                  }
+                                              }}
+                                          />
+                                          {skill}
+                                      </label>
+                                      {isSelected && (
+                                          <div className="pl-6">
+                                              <input 
+                                                  type="text"
+                                                  placeholder="Price (e.g. ₹500 - ₹1000)"
+                                                  value={newEditor.skillPrices[skill] || ''}
+                                                  onChange={(e) => setNewEditor({
+                                                      ...newEditor, 
+                                                      skillPrices: { ...newEditor.skillPrices, [skill]: e.target.value }
+                                                  })}
+                                                  className="w-full h-8 bg-black/5 dark:bg-black/40 border border-border rounded px-3 text-xs text-foreground focus:outline-none focus:border-primary/50"
+                                              />
+                                          </div>
+                                      )}
+                                  </div>
+                              )})}
+                          </div>
+                      </div>
+                  </div>
                  <button 
                      type="submit"
                      disabled={isCreatingEditor}
-                     className="w-full h-12 mt-4 bg-primary text-black font-black uppercase text-[10px] tracking-widest rounded-xl hover:bg-primary/90 transition-all flex items-center justify-center gap-2 shadow-[0_0_20px_rgba(var(--primary),0.2)] disabled:opacity-50"
+                     className="w-full h-12 mt-4 bg-primary text-primary-foreground font-black uppercase text-[10px] tracking-widest rounded-xl hover:bg-primary/90 transition-all flex items-center justify-center gap-2 shadow-[0_0_20px_rgba(var(--primary),0.2)] disabled:opacity-50"
                  >
                      {isCreatingEditor ? (
                          <><RefreshCw className="h-4 w-4 animate-spin" /> Creating Account...</>
@@ -2049,28 +2266,28 @@ function IndicatorCard({ label, value, subtext, trend, trendUp, alert, icon }: a
             )}
         >
             <div className="flex justify-between items-start mb-6">
-                <div className="h-10 w-10 bg-white/[0.03] border border-white/10 rounded-lg flex items-center justify-center text-zinc-400 group-hover:text-primary group-hover:border-primary/30 transition-all duration-300">
+                <div className="h-10 w-10 bg-muted/50 border border-border rounded-lg flex items-center justify-center text-muted-foreground group-hover:text-primary group-hover:border-primary/30 transition-all duration-300">
                     {icon}
                 </div>
                 {alert && <div className="h-2 w-2 rounded-full bg-primary animate-pulse shadow-[0_0_10px_rgba(var(--primary),0.8)]" />}
             </div>
             
             <div className="space-y-1.5">
-                <span className="text-[11px] uppercase font-bold tracking-widest text-zinc-500 group-hover:text-zinc-400 transition-colors">{label}</span>
+                <span className="text-[11px] uppercase font-bold tracking-widest text-muted-foreground group-hover:text-muted-foreground transition-colors">{label}</span>
                 <div className="flex items-end gap-3">
-                    <span className="text-3xl font-black tracking-tight text-white font-heading tabular-nums">{value}</span>
+                    <span className="text-3xl font-black tracking-tight text-foreground font-heading tabular-nums">{value}</span>
                 </div>
                 
-                <div className="flex items-center gap-3 pt-4 border-t border-white/5 mt-4">
+                <div className="flex items-center gap-3 pt-4 border-t border-border mt-4">
                     {trend && (
                         <span className={cn(
                             "flex items-center gap-1.5 px-1.5 py-0.5 rounded text-[9px] font-bold uppercase tracking-widest", 
-                            trendUp ? "bg-emerald-500/10 text-emerald-500 border border-emerald-500/20" : "bg-white/5 text-zinc-500 border border-white/5"
+                            trendUp ? "bg-emerald-500/10 text-emerald-500 border border-emerald-500/20" : "bg-card text-muted-foreground border border-border"
                         )}>
                             {trend}
                         </span>
                     )}
-                    <span className="text-zinc-600 text-[10px] font-bold uppercase tracking-wider">{subtext}</span>
+                    <span className="text-muted-foreground text-[10px] font-bold uppercase tracking-wider">{subtext}</span>
                 </div>
             </div>
         </motion.div>
@@ -2083,7 +2300,7 @@ function StatusIndicator({ status }: { status: string }) {
         in_review: { label: "Review", color: "text-purple-400", bg: "bg-purple-400/5", border: "border-purple-400/20" },
         pending_assignment: { label: "Waiting", color: "text-amber-400", bg: "bg-amber-400/5", border: "border-amber-400/20" },
         approved: { label: "Approved", color: "text-emerald-400", bg: "bg-emerald-400/5", border: "border-emerald-400/20" },
-        completed: { label: "Completed", color: "text-zinc-500", bg: "bg-zinc-500/5", border: "border-zinc-500/20" },
+        completed: { label: "Completed", color: "text-muted-foreground", bg: "bg-zinc-500/5", border: "border-zinc-500/20" },
     };
     const s = config[status] || config.completed;
     return (
@@ -2102,7 +2319,7 @@ function ProjectStatusBadges({ project }: { project: any }) {
 
     // Overall Status
     if (project.status === 'completed' || project.status === 'archived') {
-        badges.push({ label: "Completed", color: "text-zinc-500", bg: "bg-zinc-500/10", border: "border-zinc-500/20" });
+        badges.push({ label: "Completed", color: "text-muted-foreground", bg: "bg-zinc-500/10", border: "border-zinc-500/20" });
     } else if (project.status === 'in_review') {
         badges.push({ label: "In Review", color: "text-purple-400", bg: "bg-purple-400/10", border: "border-purple-400/20" });
     } else if (project.status === 'active') {
@@ -2116,7 +2333,7 @@ function ProjectStatusBadges({ project }: { project: any }) {
             badges.push({ label: "Editor Assigned", color: "text-blue-400", bg: "bg-blue-400/10", border: "border-blue-400/20" });
         }
     } else {
-        badges.push({ label: project.status, color: "text-zinc-400", bg: "bg-zinc-400/10", border: "border-zinc-400/20" });
+        badges.push({ label: project.status, color: "text-muted-foreground", bg: "bg-zinc-400/10", border: "border-zinc-400/20" });
     }
 
     // Client Payment

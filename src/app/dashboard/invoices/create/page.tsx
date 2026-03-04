@@ -157,13 +157,13 @@ export default function CreateInvoicePage() {
     };
 
     return (
-        <div className="flex h-screen bg-zinc-950 text-white overflow-hidden">
+        <div className="flex h-screen bg-zinc-950 text-foreground overflow-hidden">
             {/* Editor Sidebar */}
-            <div className="w-1/3 min-w-[400px] border-r border-white/10 flex flex-col bg-zinc-900 overflow-y-auto">
-                <div className="p-6 border-b border-white/10 sticky top-0 bg-zinc-900 z-10">
+            <div className="w-1/3 min-w-[400px] border-r border-border flex flex-col bg-zinc-900 overflow-y-auto">
+                <div className="p-6 border-b border-border sticky top-0 bg-zinc-900 z-10">
                     <div className="flex items-center gap-4 mb-4">
-                        <Link href="/dashboard/invoices" className="p-2 hover:bg-white/5 rounded-full transition-colors">
-                            <ArrowLeft className="h-5 w-5 text-zinc-400" />
+                        <Link href="/dashboard/invoices" className="p-2 hover:bg-card rounded-full transition-colors">
+                            <ArrowLeft className="h-5 w-5 text-muted-foreground" />
                         </Link>
                         <h1 className="text-xl font-bold">New Invoice</h1>
                     </div>
@@ -179,11 +179,11 @@ export default function CreateInvoicePage() {
                 <div className="p-6 space-y-8">
                     {/* Client Details */}
                     <div className="space-y-4">
-                        <h3 className="text-sm font-semibold text-zinc-400 uppercase tracking-wider">Client Details</h3>
+                        <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">Client Details</h3>
                         <div className="space-y-2">
                             <Label>Select Client</Label>
                             <select 
-                                className="w-full bg-zinc-950 border border-white/10 rounded-md p-2 text-sm focus:ring-1 focus:ring-primary outline-none"
+                                className="w-full bg-zinc-950 border border-border rounded-md p-2 text-sm focus:ring-1 focus:ring-primary outline-none"
                                 value={clientId}
                                 onChange={handleClientSelect}
                             >
@@ -195,51 +195,51 @@ export default function CreateInvoicePage() {
                         </div>
                         <div className="space-y-2">
                             <Label>Client Name</Label>
-                            <Input value={clientName} onChange={e => setClientName(e.target.value)} className="bg-zinc-950 border-white/10" placeholder="Or type manually" />
+                            <Input value={clientName} onChange={e => setClientName(e.target.value)} className="bg-zinc-950 border-border" placeholder="Or type manually" />
                         </div>
                         <div className="space-y-2">
                             <Label>Email</Label>
-                            <Input value={clientEmail} onChange={e => setClientEmail(e.target.value)} className="bg-zinc-950 border-white/10" />
+                            <Input value={clientEmail} onChange={e => setClientEmail(e.target.value)} className="bg-zinc-950 border-border" />
                         </div>
                         <div className="space-y-2">
                             <Label>Address</Label>
-                            <Textarea value={clientAddress} onChange={e => setClientAddress(e.target.value)} className="bg-zinc-950 border-white/10" rows={3} />
+                            <Textarea value={clientAddress} onChange={e => setClientAddress(e.target.value)} className="bg-zinc-950 border-border" rows={3} />
                         </div>
                     </div>
 
-                    <div className="h-px bg-white/5" />
+                    <div className="h-px bg-card" />
 
                     {/* Invoice Meta */}
                     <div className="space-y-4">
-                        <h3 className="text-sm font-semibold text-zinc-400 uppercase tracking-wider">Invoice Details</h3>
+                        <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">Invoice Details</h3>
                         <div className="grid grid-cols-2 gap-4">
                             <div className="space-y-2">
                                 <Label>Invoice #</Label>
-                                <Input value={invoiceNumber} onChange={e => setInvoiceNumber(e.target.value)} className="bg-zinc-950 border-white/10" />
+                                <Input value={invoiceNumber} onChange={e => setInvoiceNumber(e.target.value)} className="bg-zinc-950 border-border" />
                             </div>
                             <div className="space-y-2">
                                 <Label>Tax Rate (%)</Label>
-                                <Input type="number" value={taxRate} onChange={e => setTaxRate(Number(e.target.value))} className="bg-zinc-950 border-white/10" />
+                                <Input type="number" value={taxRate} onChange={e => setTaxRate(Number(e.target.value))} className="bg-zinc-950 border-border" />
                             </div>
                         </div>
                         <div className="grid grid-cols-2 gap-4">
                              <div className="space-y-2">
                                 <Label>Issue Date</Label>
-                                <Input type="date" value={issueDate} onChange={e => setIssueDate(e.target.value)} className="bg-zinc-950 border-white/10" />
+                                <Input type="date" value={issueDate} onChange={e => setIssueDate(e.target.value)} className="bg-zinc-950 border-border" />
                             </div>
                             <div className="space-y-2">
                                 <Label>Due Date</Label>
-                                <Input type="date" value={dueDate} onChange={e => setDueDate(e.target.value)} className="bg-zinc-950 border-white/10" />
+                                <Input type="date" value={dueDate} onChange={e => setDueDate(e.target.value)} className="bg-zinc-950 border-border" />
                             </div>
                         </div>
                     </div>
 
-                    <div className="h-px bg-white/5" />
+                    <div className="h-px bg-card" />
 
                     {/* Items */}
                     <div className="space-y-4">
                         <div className="flex justify-between items-center">
-                            <h3 className="text-sm font-semibold text-zinc-400 uppercase tracking-wider">Line Items</h3>
+                            <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">Line Items</h3>
                             <Button size="sm" variant="ghost" onClick={addItem} className="h-8 text-primary hover:text-primary hover:bg-primary/10">
                                 <Plus className="h-4 w-4 mr-1" /> Add Item
                             </Button>
@@ -247,38 +247,38 @@ export default function CreateInvoicePage() {
                         
                         <div className="space-y-3">
                             {items.map((item, idx) => (
-                                <div key={idx} className="p-3 bg-zinc-950/50 rounded-lg border border-white/5 group relative">
+                                <div key={idx} className="p-3 bg-zinc-950/50 rounded-lg border border-border group relative">
                                     <div className="grid grid-cols-12 gap-2 mb-2">
                                         <div className="col-span-12">
                                             <Input 
                                                 placeholder="Description" 
                                                 value={item.description} 
                                                 onChange={e => updateItem(idx, 'description', e.target.value)}
-                                                className="bg-transparent border-none p-0 h-auto focus-visible:ring-0 font-medium placeholder:text-zinc-600"
+                                                className="bg-transparent border-none p-0 h-auto focus-visible:ring-0 font-medium placeholder:text-muted-foreground"
                                             />
                                         </div>
                                     </div>
                                     <div className="grid grid-cols-12 gap-2 items-center">
                                         <div className="col-span-3">
-                                            <div className="text-[10px] text-zinc-500 uppercase">Qty</div>
+                                            <div className="text-[10px] text-muted-foreground uppercase">Qty</div>
                                             <Input 
                                                 type="number" 
                                                 value={item.quantity} 
                                                 onChange={e => updateItem(idx, 'quantity', e.target.value)}
-                                                className="bg-zinc-900 border-white/10 h-8 text-xs"
+                                                className="bg-zinc-900 border-border h-8 text-xs"
                                             />
                                         </div>
                                         <div className="col-span-4">
-                                            <div className="text-[10px] text-zinc-500 uppercase">Rate</div>
+                                            <div className="text-[10px] text-muted-foreground uppercase">Rate</div>
                                             <Input 
                                                 type="number" 
                                                 value={item.rate} 
                                                 onChange={e => updateItem(idx, 'rate', e.target.value)}
-                                                className="bg-zinc-900 border-white/10 h-8 text-xs"
+                                                className="bg-zinc-900 border-border h-8 text-xs"
                                             />
                                         </div>
                                         <div className="col-span-4 text-right">
-                                            <div className="text-[10px] text-zinc-500 uppercase">Amount</div>
+                                            <div className="text-[10px] text-muted-foreground uppercase">Amount</div>
                                             <div className="font-mono text-sm pt-1">₹{item.amount.toLocaleString()}</div>
                                         </div>
                                         <div className="col-span-1 text-right">
@@ -286,7 +286,7 @@ export default function CreateInvoicePage() {
                                                 size="icon" 
                                                 variant="ghost" 
                                                 onClick={() => removeItem(idx)}
-                                                className="h-6 w-6 text-zinc-600 hover:text-red-400 hover:bg-red-500/10"
+                                                className="h-6 w-6 text-muted-foreground hover:text-red-400 hover:bg-red-500/10"
                                             >
                                                 <Trash2 className="h-3 w-3" />
                                             </Button>
@@ -297,14 +297,14 @@ export default function CreateInvoicePage() {
                         </div>
                     </div>
 
-                    <div className="h-px bg-white/5" />
+                    <div className="h-px bg-card" />
                     
                     <div className="space-y-2">
                         <Label>Notes / Payment Instructions</Label>
                         <Textarea 
                             value={notes} 
                             onChange={e => setNotes(e.target.value)} 
-                            className="bg-zinc-950 border-white/10 min-h-[100px]" 
+                            className="bg-zinc-950 border-border min-h-[100px]" 
                             placeholder="Bank details, terms, etc."
                         />
                     </div>
@@ -315,8 +315,8 @@ export default function CreateInvoicePage() {
             <div className="flex-1 bg-zinc-950 p-8 overflow-y-auto flex items-start justify-center">
                 <div className="w-full max-w-[210mm] shadow-2xl origin-top sm:scale-75 md:scale-90 lg:scale-100 transition-transform">
                      {/* Print Overlay for quick action */}
-                     <div className="mb-4 flex justify-between items-center bg-zinc-900/50 p-4 rounded-lg border border-white/10 backdrop-blur">
-                         <span className="text-sm text-zinc-400 font-medium">Live Preview (A4)</span>
+                     <div className="mb-4 flex justify-between items-center bg-zinc-900/50 p-4 rounded-lg border border-border backdrop-blur">
+                         <span className="text-sm text-muted-foreground font-medium">Live Preview (A4)</span>
                          <Button variant="outline" size="sm" className="gap-2" onClick={() => window.print()}>
                              <Printer className="h-4 w-4" /> Print / Save PDF
                          </Button>

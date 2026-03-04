@@ -115,9 +115,9 @@ export function AdminOverviewGraphs({ projects, users }: AdminOverviewGraphsProp
     const CustomTooltip = ({ active, payload, label }: any) => {
         if (active && payload && payload.length) {
             return (
-                <div className="bg-[#0f1115]/95 backdrop-blur-xl border border-white/10 p-5 rounded-2xl shadow-[0_20px_50px_rgba(0,0,0,0.5)] space-y-4 min-w-[200px]">
-                    <div className="flex items-center justify-between border-b border-white/10 pb-3">
-                        <p className="text-[12px] font-black text-white uppercase tracking-widest">{label}</p>
+                <div className="bg-[#0f1115]/95 backdrop-blur-xl border border-border p-5 rounded-2xl shadow-[0_20px_50px_rgba(0,0,0,0.5)] space-y-4 min-w-[200px]">
+                    <div className="flex items-center justify-between border-b border-border pb-3">
+                        <p className="text-[12px] font-black text-foreground uppercase tracking-widest">{label}</p>
                         <div className="h-1.5 w-1.5 rounded-full bg-primary animate-pulse" />
                     </div>
                     <div className="space-y-2.5">
@@ -125,11 +125,11 @@ export function AdminOverviewGraphs({ projects, users }: AdminOverviewGraphsProp
                             <div key={index} className="flex items-center justify-between group">
                                 <div className="flex items-center gap-2.5">
                                     <div className="w-1.5 h-1.5 rounded-full shadow-[0_0_8px_currentColor]" style={{ backgroundColor: entry.color, color: entry.color }} />
-                                    <span className="text-[10px] uppercase font-bold text-zinc-400 tracking-wider group-hover:text-zinc-200 transition-colors">
+                                    <span className="text-[10px] uppercase font-bold text-muted-foreground tracking-wider group-hover:text-foreground/90 transition-colors">
                                         {entry.name}
                                     </span>
                                 </div>
-                                <span className="text-[13px] font-black tabular-nums text-white">
+                                <span className="text-[13px] font-black tabular-nums text-foreground">
                                     {(entry.name === 'Revenue' || entry.name === 'Net Profit') ? `₹${entry.value.toLocaleString()}` : entry.value}
                                 </span>
                             </div>
@@ -162,8 +162,8 @@ export function AdminOverviewGraphs({ projects, users }: AdminOverviewGraphsProp
                             className={cn(
                                 "px-4 py-1.5 text-[9px] font-bold uppercase tracking-widest rounded transition-all flex items-center gap-1.5",
                                 timeRange === r 
-                                    ? "bg-primary text-primary-foreground shadow-[0_0_15px_rgba(255,255,255,0.1)]" 
-                                    : "text-muted-foreground hover:text-foreground hover:bg-white/[0.02]"
+                                    ? "bg-primary text-primary-foreground shadow-md shadow-primary/10" 
+                                    : "text-muted-foreground hover:text-foreground hover:bg-muted/50"
                             )}
                         >
                             <Calendar className="h-3 w-3" />
@@ -177,17 +177,17 @@ export function AdminOverviewGraphs({ projects, users }: AdminOverviewGraphsProp
                 <motion.div 
                     initial={{ opacity: 0, y: 10 }}
                     animate={{ opacity: 1, y: 0 }}
-                    className="lg:col-span-2 enterprise-card bg-[#161920]/60 p-6 flex flex-col h-[500px] relative overflow-hidden group"
+                    className="lg:col-span-2 enterprise-card bg-card/60 p-6 flex flex-col h-[500px] relative overflow-hidden group"
                 >
                     <div className="absolute top-0 right-0 w-64 h-64 bg-primary/5 blur-[80px] rounded-full pointer-events-none group-hover:bg-primary/10 transition-colors" />
                     
                     <div className="flex justify-between items-start mb-6 shrink-0 relative z-10">
                         <div>
-                            <div className="text-[10px] text-zinc-500 font-bold uppercase tracking-widest mb-1 flex items-center gap-1.5">
+                            <div className="text-[10px] text-muted-foreground font-bold uppercase tracking-widest mb-1 flex items-center gap-1.5">
                                 <Activity className="h-3 w-3 text-primary" />
                                 Revenue Trajectory
                             </div>
-                            <div className="text-3xl font-heading font-black tracking-tighter text-white tabular-nums">
+                            <div className="text-3xl font-heading font-black tracking-tighter text-foreground tabular-nums">
                                 ₹{totalRevenue.toLocaleString()}
                             </div>
                         </div>
@@ -255,16 +255,16 @@ export function AdminOverviewGraphs({ projects, users }: AdminOverviewGraphsProp
                         initial={{ opacity: 0, y: 10 }}
                         animate={{ opacity: 1, y: 0 }}
                         transition={{ delay: 0.1 }}
-                        className="flex-1 enterprise-card bg-[#161920]/60 p-6 flex flex-col relative overflow-hidden group"
+                        className="flex-1 enterprise-card bg-card/60 p-6 flex flex-col relative overflow-hidden group"
                     >
                         <div className="absolute top-0 right-0 w-32 h-32 bg-emerald-500/5 blur-[40px] rounded-full pointer-events-none group-hover:bg-emerald-500/10 transition-colors" />
                         <div className="flex justify-between items-start mb-6 shrink-0 relative z-10">
                             <div>
-                                <div className="text-[10px] text-zinc-500 font-bold uppercase tracking-widest mb-1 flex items-center gap-1.5">
+                                <div className="text-[10px] text-muted-foreground font-bold uppercase tracking-widest mb-1 flex items-center gap-1.5">
                                     <FolderOpen className="h-3 w-3 text-emerald-500" />
                                     Completed Projects
                                 </div>
-                                <div className="text-2xl font-heading font-black tracking-tighter text-white tabular-nums">
+                                <div className="text-2xl font-heading font-black tracking-tighter text-foreground tabular-nums">
                                     {totalCompleted}
                                 </div>
                             </div>
@@ -298,16 +298,16 @@ export function AdminOverviewGraphs({ projects, users }: AdminOverviewGraphsProp
                         initial={{ opacity: 0, y: 10 }}
                         animate={{ opacity: 1, y: 0 }}
                         transition={{ delay: 0.2 }}
-                        className="flex-1 enterprise-card bg-[#161920]/60 p-6 flex flex-col relative overflow-hidden group"
+                        className="flex-1 enterprise-card bg-card/60 p-6 flex flex-col relative overflow-hidden group"
                     >
                         <div className="absolute top-0 right-0 w-32 h-32 bg-blue-500/5 blur-[40px] rounded-full pointer-events-none group-hover:bg-blue-500/10 transition-colors" />
                         <div className="flex justify-between items-start mb-6 shrink-0 relative z-10">
                             <div>
-                                <div className="text-[10px] text-zinc-500 font-bold uppercase tracking-widest mb-1 flex items-center gap-1.5">
+                                <div className="text-[10px] text-muted-foreground font-bold uppercase tracking-widest mb-1 flex items-center gap-1.5">
                                     <Users className="h-3 w-3 text-blue-500" />
                                     New Clients
                                 </div>
-                                <div className="text-2xl font-heading font-black tracking-tighter text-white tabular-nums">
+                                <div className="text-2xl font-heading font-black tracking-tighter text-foreground tabular-nums">
                                     {totalClients}
                                 </div>
                             </div>
@@ -343,16 +343,16 @@ export function AdminOverviewGraphs({ projects, users }: AdminOverviewGraphsProp
                         initial={{ opacity: 0, y: 10 }}
                         animate={{ opacity: 1, y: 0 }}
                         transition={{ delay: 0.3 }}
-                        className="flex-1 enterprise-card bg-[#161920]/60 p-6 flex flex-col relative overflow-hidden group"
+                        className="flex-1 enterprise-card bg-card/60 p-6 flex flex-col relative overflow-hidden group"
                     >
                         <div className="absolute top-0 right-0 w-32 h-32 bg-purple-500/5 blur-[40px] rounded-full pointer-events-none group-hover:bg-purple-500/10 transition-colors" />
                         <div className="flex justify-between items-start mb-6 shrink-0 relative z-10">
                             <div>
-                                <div className="text-[10px] text-zinc-500 font-bold uppercase tracking-widest mb-1 flex items-center gap-1.5">
+                                <div className="text-[10px] text-muted-foreground font-bold uppercase tracking-widest mb-1 flex items-center gap-1.5">
                                     <Shield className="h-3 w-3 text-purple-500" />
                                     Team & Editors
                                 </div>
-                                <div className="text-2xl font-heading font-black tracking-tighter text-white tabular-nums">
+                                <div className="text-2xl font-heading font-black tracking-tighter text-foreground tabular-nums">
                                     {totalTeam}
                                 </div>
                             </div>

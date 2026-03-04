@@ -5,35 +5,33 @@
 
 :root {
     --background: #ffffff;
-    --foreground: #0F1115;
+    --foreground: #09090b;
     --card: #ffffff;
-    --card-foreground: #0F1115;
+    --card-foreground: #09090b;
     --popover: #ffffff;
-    --popover-foreground: #0F1115;
+    --popover-foreground: #09090b;
     --primary: #4F46E5;
-    /* Electric Indigo */
     --primary-foreground: #ffffff;
-    --secondary: #F3F4F6;
-    --secondary-foreground: #111827;
-    --muted: #F3F4F6;
-    --muted-foreground: #6B7280;
-    --accent: #F3F4F6;
-    --accent-foreground: #111827;
+    --secondary: #f4f4f5;
+    --secondary-foreground: #18181b;
+    --muted: #f4f4f5;
+    --muted-foreground: #52525b;
+    --accent: #f4f4f5;
+    --accent-foreground: #18181b;
     --destructive: #EF4444;
     --destructive-foreground: #ffffff;
-    --border: #E5E7EB;
-    --input: #E5E7EB;
+    --border: #e4e4e7;
+    --input: #e4e4e7;
     --ring: #4F46E5;
     --radius: 0.5rem;
-    /* More enterprise-grade (smaller radius) */
 
     --sidebar: #ffffff;
-    --sidebar-foreground: #374151;
+    --sidebar-foreground: #52525b;
     --sidebar-primary: #4F46E5;
     --sidebar-primary-foreground: #ffffff;
-    --sidebar-accent: #F3F4F6;
-    --sidebar-accent-foreground: #111827;
-    --sidebar-border: #E5E7EB;
+    --sidebar-accent: #f4f4f5;
+    --sidebar-accent-foreground: #18181b;
+    --sidebar-border: #e4e4e7;
     --sidebar-ring: #4F46E5;
 }
 
