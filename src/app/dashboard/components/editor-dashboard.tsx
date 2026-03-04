@@ -47,11 +47,13 @@ import {
 import { toast } from "sonner";
 import { respondToAssignment } from "@/app/actions/admin-actions";
 import { motion, AnimatePresence } from "framer-motion";
+import { EditorPerformance } from "./editor-performance";
 
 export function EditorDashboard() {
   const { user } = useAuth();
   const [projects, setProjects] = useState<Project[]>([]);
   const [loading, setLoading] = useState(true);
+  const [mainTab, setMainTab] = useState<'tasks' | 'performance'>('tasks');
   const [activeTab, setActiveTab] = useState<'all' | 'todo' | 'review' | 'completed'>('all');
   const [searchQuery, setSearchQuery] = useState("");
 
@@ -153,14 +155,36 @@ export function EditorDashboard() {
                animate={{ opacity: 1, x: 0 }}
                className="flex flex-wrap items-center gap-3"
             >
-                 <button className="h-10 px-5 rounded-lg bg-muted border border-border flex items-center gap-2.5 text-muted-foreground hover:text-foreground hover:bg-muted/80 transition-all active:scale-95 text-[11px] font-bold uppercase tracking-widest">
+                 <div className="flex bg-muted/50 border border-border rounded-lg p-1">
+                     <button
+                         onClick={() => setMainTab('tasks')}
+                         className={cn(
+                             "px-5 py-1.5 text-[10px] font-bold uppercase tracking-widest rounded-md transition-all",
+                             mainTab === 'tasks' ? "bg-background text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"
+                         )}
+                     >
+                         Tasks
+                     </button>
+                     <button
+                         onClick={() => setMainTab('performance')}
+                         className={cn(
+                             "px-5 py-1.5 text-[10px] font-bold uppercase tracking-widest rounded-md transition-all",
+                             mainTab === 'performance' ? "bg-background text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"
+                         )}
+                     >
+                         Performance & Profile
+                     </button>
+                 </div>
+                 <button className="h-10 px-5 rounded-lg bg-muted border border-border flex items-center gap-2.5 text-muted-foreground hover:text-foreground hover:bg-muted/80 transition-all active:scale-95 text-[11px] font-bold uppercase tracking-widest ml-2">
                     <FileText className="h-3.5 w-3.5" />
                     Guidelines
                 </button>
             </motion.div>
        </div>
 
-       {/* Statistics Grid */}
+       {mainTab === 'tasks' ? (
+        <>
+            {/* Statistics Grid */}
        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
             <IndicatorCard 
                 label="Project Invitations" 
@@ -427,6 +451,10 @@ export function EditorDashboard() {
                 </div>
             </div>
        </motion.div>
+       </>
+       ) : (
+           user && <EditorPerformance user={user} projects={completedProjects} />
+       )}
     </div>
   );
 }
