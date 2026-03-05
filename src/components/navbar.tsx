@@ -48,19 +48,19 @@ export function Navbar() {
           href="/"
           className="hover:opacity-80 transition-opacity"
         >
-          <div className="relative h-12 w-40 flex items-center rounded-xl overflow-hidden">
+          <div className="relative h-14 w-48 flex items-center">
              {logoUrl ? (
                <Image 
                   src={logoUrl} 
                   alt="EditoHub Logo" 
                   fill 
-                  className="object-contain object-left"
+                  className="object-contain object-left scale-110"
                   priority
                />
              ) : (
-                <div className="flex items-center gap-2">
-                    <div className="w-8 h-8 rounded bg-primary flex items-center justify-center font-bold text-black italic">E</div>
-                    <span className="text-xl font-heading font-black tracking-tighter">EDITO_HUB</span>
+                <div className="flex items-center gap-3">
+                    <div className="w-12 h-12 rounded-[1rem] bg-primary flex items-center justify-center font-black text-black italic text-xl shadow-[0_0_20px_rgba(99,102,241,0.3)]">EH</div>
+                    <span className="text-2xl font-black tracking-tighter hidden sm:block">EDITO_HUB</span>
                 </div>
              )}
           </div>

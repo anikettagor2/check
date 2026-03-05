@@ -1,46 +1,52 @@
-import Link from "next/link";
+"use client";
+
 import { Navbar } from "@/components/navbar";
-import { Hero } from "@/components/hero";
-import { Services } from "@/components/services";
+import { FuturisticBackground } from "@/components/futuristic-background";
+import { FuturisticHero } from "@/components/futuristic-hero";
+import { FuturisticFeatures } from "@/components/futuristic-features";
+import { FuturisticCTA } from "@/components/futuristic-cta";
+import { FuturisticProcess } from "@/components/futuristic-process";
+import { motion } from "framer-motion";
 import { Work } from "@/components/work";
-import { WhyChooseUs } from "@/components/why-choose-us";
 import { Footer } from "@/components/footer";
-import { Button } from "@/components/ui/button";
-import { SnowBackground } from "@/components/snow-background";
+import { SmoothScroll } from "@/components/smooth-scroll";
 
 export default function Home() {
   return (
     <main className="bg-background text-foreground overflow-x-hidden relative">
-      {/* Background Effects */}
-      <SnowBackground />
-      <div className="fixed inset-0 pointer-events-none animate-breathe z-0" />
+      <SmoothScroll />
+      <FuturisticBackground />
       
       <div className="relative z-10">
         <Navbar />
-        <Hero />
-        <Services />
-        <Work />
-        <WhyChooseUs />
-        
-        {/* Simple CTA Section */}
-        <section className="py-32 bg-gradient-to-t from-primary/20 via-background to-black text-center relative overflow-hidden text-balance">
-          <div className="absolute inset-0 bg-[linear-gradient(to_right,#80808012_1px,transparent_1px),linear-gradient(to_bottom,#80808012_1px,transparent_1px)] bg-[size:24px_24px] z-0 opacity-20" />
-          
-          <div className="container relative z-10 px-6 mx-auto flex flex-col items-center justify-center">
-             <h2 className="text-4xl md:text-7xl font-bold mb-8 font-heading tracking-tight text-center">Ready to <span className="text-primary">Create Magic?</span></h2>
-             <p className="text-xl md:text-2xl text-muted-foreground max-w-3xl mx-auto mb-12 text-center">
-               Join the elite creators using EditoHub to dominate their niche. Your content deserves the best.
-             </p>
-             <Link href="/login">
-               <Button size="lg" className="text-lg px-10 py-6 h-auto shadow-[0_0_40px_rgba(99,102,241,0.4)] hover:shadow-[0_0_60px_rgba(99,102,241,0.6)]">
-                 Start Your Project Now
-               </Button>
-             </Link>
-          </div>
-        </section>
+        <FuturisticHero />
+        <FuturisticFeatures />
+        <FuturisticProcess />
+        <WorkWrapper />
 
+        <FuturisticCTA />
         <Footer />
       </div>
     </main>
   );
+}
+
+function WorkWrapper() {
+    return (
+        <section id="work" className="relative z-20 py-24 bg-transparent">
+            <div className="max-w-7xl mx-auto px-6 mb-12 flex flex-col items-center">
+                 <motion.div
+                    initial={{ opacity: 0, y: 10 }}
+                    whileInView={{ opacity: 1, y: 0 }}
+                    className="text-primary font-black tracking-[0.4em] uppercase text-xs mb-4"
+                 >
+                    Portfolio
+                 </motion.div>
+                 <h2 className="text-4xl md:text-7xl font-black tracking-tighter uppercase text-center text-white">
+                    Our <span className="text-primary italic">Reels</span>
+                 </h2>
+            </div>
+            <Work />
+        </section>
+    )
 }

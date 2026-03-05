@@ -66,6 +66,13 @@
     --sidebar-accent-foreground: #ffffff;
     --sidebar-border: rgba(255, 255, 255, 0.08);
     --sidebar-ring: #6366F1;
+
+    --neon-blue: #00f2ff;
+    --neon-purple: #bc13fe;
+    --neon-pink: #ff00ea;
+    --neon-green: #39ff14;
+
+    --grid-color: rgba(99, 102, 241, 0.1);
 }
 
 @theme inline {
@@ -231,6 +238,50 @@ body {
 /* Page Transitions */
 .page-fade-in {
     animation: fadeIn 0.4s ease-out forwards;
+}
+
+.futuristic-card {
+    background: rgba(255, 255, 255, 0.03);
+    backdrop-filter: blur(10px);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
+    transition: all 0.3s ease;
+}
+
+.futuristic-card:hover {
+    border-color: var(--primary);
+    box-shadow: 0 0 20px rgba(99, 102, 241, 0.2);
+    transform: translateY(-5px);
+}
+
+.glow-text-primary {
+    text-shadow: 0 0 10px var(--primary), 0 0 20px var(--primary);
+}
+
+.glow-text-blue {
+    text-shadow: 0 0 10px var(--neon-blue), 0 0 20px var(--neon-blue);
+}
+
+.animate-grid-drift {
+    background-size: 40px 40px;
+    background-image:
+        linear-gradient(to right, var(--grid-color) 1px, transparent 1px),
+        linear-gradient(to bottom, var(--grid-color) 1px, transparent 1px);
+    animation: grid-drift 20s linear infinite;
+}
+
+@keyframes grid-drift {
+    from {
+        background-position: 0 0;
+    }
+
+    to {
+        background-position: 40px 40px;
+    }
+}
+
+.mask-fade-out {
+    mask-image: linear-gradient(to bottom, black 80%, transparent 100%);
 }
 
 @keyframes fadeIn {
