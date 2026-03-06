@@ -203,7 +203,7 @@ export async function handleProjectCreated(projectId: string) {
 /**
  * Assigns an editor to a project with a 10-minute validity
  */
-export async function assignEditor(projectId: string, editorId: string, editorPrice: number) {
+export async function assignEditor(projectId: string, editorId: string, editorPrice: number, deadline?: string) {
     try {
         const projectRef = adminDb.collection('projects').doc(projectId);
         const projectSnap = await projectRef.get();
@@ -220,7 +220,7 @@ export async function assignEditor(projectId: string, editorId: string, editorPr
         const now = Date.now();
         const tenMinutes = 10 * 60 * 1000;
 
-        await projectRef.update({
+        const updateData: any = {
             assignedEditorId: editorId,
             assignmentStatus: 'pending',
             assignmentAt: now,
@@ -229,7 +229,13 @@ export async function assignEditor(projectId: string, editorId: string, editorPr
             members: members,
             editorPrice: editorPrice,
             updatedAt: now
-        });
+        };
+
+        if (deadline) {
+            updateData.deadline = deadline;
+        }
+
+        await projectRef.update(updateData);
 
         // Add Log
         const pmSnap = await adminDb.collection('users').doc(projectData?.assignedPMId || 'unknown').get();

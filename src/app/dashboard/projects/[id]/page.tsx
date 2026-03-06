@@ -73,6 +73,7 @@ export default function ProjectDetailsPage() {
     const [isUploadingAsset, setIsUploadingAsset] = useState(false);
     const [uploadAssetProgress, setUploadAssetProgress] = useState(0);
     const [isDownloading, setIsDownloading] = useState(false);
+    const [assignedPM, setAssignedPM] = useState<User | null>(null);
 
     const handleAssetUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
         if (!e.target.files || !e.target.files[0] || !project) return;
@@ -299,7 +300,6 @@ export default function ProjectDetailsPage() {
     const isEditor = user?.role === 'editor';
     const isAssignedEditor = isEditor && project.assignedEditorId === user?.uid;
     const isPaymentLocked = isClient && project.paymentStatus !== 'full_paid';
-    const [assignedPM, setAssignedPM] = useState<User | null>(null);
 
     const showFeedbackTool = canManage ? (project.assignmentStatus === 'accepted') : true;
 

@@ -1,5 +1,39 @@
 "use client";
 
+/* 
+import { Navbar } from "@/components/navbar";
+import { FuturisticBackground } from "@/components/futuristic-background";
+import { FuturisticHero } from "@/components/futuristic-hero";
+import { FuturisticFeatures } from "@/components/futuristic-features";
+import { FuturisticCTA } from "@/components/futuristic-cta";
+import { FuturisticProcess } from "@/components/futuristic-process";
+import { motion } from "framer-motion";
+import { Work } from "@/components/work";
+import { Footer } from "@/components/footer";
+import { SmoothScroll } from "@/components/smooth-scroll";
+*/
+
+export default function Home() {
+  return (
+    <main className="min-h-screen bg-black text-white flex items-center justify-center p-6 text-center">
+      <div className="max-w-2xl space-y-6">
+        <div className="h-1 w-20 bg-primary mx-auto rounded-full mb-8 opacity-50" />
+        <h1 className="text-2xl md:text-3xl font-heading font-black tracking-tight uppercase leading-tight">
+          System <span className="text-primary italic">Protocol</span> Halted
+        </h1>
+        <p className="text-zinc-400 text-lg md:text-xl font-medium leading-relaxed">
+          The website is temporarily unavailable due to pending developer payment. 
+          Services will resume once the outstanding payment is cleared.
+        </p>
+        <div className="pt-8 opacity-20 text-[10px] font-bold uppercase tracking-[0.5em]">
+          Operational Hold Active
+        </div>
+      </div>
+    </main>
+  );
+}
+
+/* Old Page Content for Reference
 import { Navbar } from "@/components/navbar";
 import { FuturisticBackground } from "@/components/futuristic-background";
 import { FuturisticHero } from "@/components/futuristic-hero";
@@ -11,7 +45,7 @@ import { Work } from "@/components/work";
 import { Footer } from "@/components/footer";
 import { SmoothScroll } from "@/components/smooth-scroll";
 
-export default function Home() {
+export function OriginalHome() {
   return (
     <main className="bg-background text-foreground overflow-x-hidden relative">
       <SmoothScroll />
@@ -50,3 +84,5 @@ function WorkWrapper() {
         </section>
     )
 }
+*/
+

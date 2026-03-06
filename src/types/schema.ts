@@ -39,6 +39,17 @@ export interface User {
     availabilityStatus?: 'online' | 'offline' | 'sleep'; // Presence status
     maxProjectLimit?: number; // Admin defined max active units limit for PM
 
+    // Financial & Performance Metrics (Dynamic)
+    lifetimeTotal?: number;
+    pendingOutstanding?: number;
+    totalEarned?: number;
+    pendingDues?: number;
+    accuracy?: string;
+    verified?: boolean;
+    lastSignInTime?: number;
+    bio?: string;
+    contact?: string;
+
     // Client Documents
     documents?: {
         agreement?: { url: string; name: string; uploadedAt: number };

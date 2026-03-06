@@ -31,6 +31,7 @@ import {
     Calendar,
     Briefcase,
     Shield,
+    HardDrive,
     IndianRupee,
     Copy,
     User as UserIcon,
@@ -52,7 +53,9 @@ import {
     FolderOpen,
     Save,
     MessageSquare,
-    FileText
+    FileText,
+    ShieldCheck,
+    MapPin
 } from "lucide-react";
 
 import { cn } from "@/lib/utils";
@@ -80,6 +83,120 @@ import { AdminOverviewGraphs } from "./admin-overview-graphs";
 import { AdminPerformanceTab } from "./admin-performance";
 import { ClientDocuments } from "./client-documents";
 
+
+function IndicatorCard({ label, value, subtext, trend, trendUp, alert, icon }: any) {
+    return (
+        <motion.div 
+            initial={{ opacity: 0, y: 15 }}
+            animate={{ opacity: 1, y: 0 }}
+            whileHover={{ y: -4, transition: { duration: 0.2 } }}
+            className={cn(
+                "group relative enterprise-card p-6 md:p-8 transition-all duration-300",
+                alert && "after:absolute after:inset-0 after:rounded-xl after:ring-1 after:ring-primary/40 after:animate-pulse"
+            )}
+        >
+            <div className="flex justify-between items-start mb-6">
+                <div className="h-10 w-10 bg-muted/50 border border-border rounded-lg flex items-center justify-center text-muted-foreground group-hover:text-primary group-hover:border-primary/30 transition-all duration-300">
+                    {icon}
+                </div>
+                {alert && <div className="h-2 w-2 rounded-full bg-primary animate-pulse shadow-[0_0_10px_rgba(var(--primary),0.8)]" />}
+            </div>
+            
+            <div className="space-y-1.5">
+                <span className="text-[11px] uppercase font-bold tracking-widest text-muted-foreground group-hover:text-muted-foreground transition-colors">{label}</span>
+                <div className="flex items-end gap-3">
+                    <span className="text-3xl font-black tracking-tight text-foreground font-heading tabular-nums">{value}</span>
+                </div>
+                
+                <div className="flex items-center gap-3 pt-4 border-t border-border mt-4">
+                    {trend && (
+                        <span className={cn(
+                            "flex items-center gap-1.5 px-1.5 py-0.5 rounded text-[9px] font-bold uppercase tracking-widest", 
+                            trendUp ? "bg-emerald-500/10 text-emerald-500 border border-emerald-500/20" : "bg-card text-muted-foreground border border-border"
+                        )}>
+                            {trend}
+                        </span>
+                    )}
+                    <span className="text-muted-foreground text-[10px] font-bold uppercase tracking-wider">{subtext}</span>
+                </div>
+            </div>
+        </motion.div>
+    );
+}
+
+function StatusIndicator({ status }: { status: string }) {
+    const config: any = {
+        active: { label: "Editing", color: "text-blue-400", bg: "bg-blue-400/5", border: "border-blue-400/20" },
+        in_review: { label: "Review", color: "text-purple-400", bg: "bg-purple-400/5", border: "border-purple-400/20" },
+        pending_assignment: { label: "Waiting", color: "text-amber-400", bg: "bg-amber-400/5", border: "border-amber-400/20" },
+        approved: { label: "Approved", color: "text-emerald-400", bg: "bg-emerald-400/5", border: "border-emerald-400/20" },
+        completed: { label: "Completed", color: "text-muted-foreground", bg: "bg-zinc-500/5", border: "border-zinc-500/20" },
+    };
+    const s = config[status] || config.completed;
+    return (
+        <span className={cn(
+            "inline-flex items-center gap-2 px-2 py-0.5 rounded text-[9px] font-bold uppercase tracking-widest border transition-all", 
+            s.bg, s.color, s.border
+        )}>
+            <div className={cn("w-1 h-1 rounded-full bg-current", status === 'active' && "animate-pulse shadow-[0_0_5px_currentColor]")} />
+            {s.label}
+        </span>
+    );
+}
+
+function ProjectStatusBadges({ project }: { project: any }) {
+    const badges = [];
+
+    // Overall Status
+    if (project.status === 'completed' || project.status === 'archived') {
+        badges.push({ label: "Completed", color: "text-muted-foreground", bg: "bg-zinc-500/10", border: "border-zinc-500/20" });
+    } else if (project.status === 'in_review') {
+        badges.push({ label: "In Review", color: "text-purple-400", bg: "bg-purple-400/10", border: "border-purple-400/20" });
+    } else if (project.status === 'active') {
+        badges.push({ label: "Editing", color: "text-blue-400", bg: "bg-blue-400/10", border: "border-blue-400/20", pulse: true });
+    } else if (project.status === 'approved') {
+        badges.push({ label: "Approved", color: "text-emerald-400", bg: "bg-emerald-400/10", border: "border-emerald-400/20" });
+    } else if (project.status === 'pending_assignment') {
+        if (!project.assignedEditorId) {
+            badges.push({ label: "Editor Not Assigned", color: "text-amber-400", bg: "bg-amber-400/10", border: "border-amber-400/20" });
+        } else {
+            badges.push({ label: "Editor Assigned", color: "text-blue-400", bg: "bg-blue-400/10", border: "border-blue-400/20" });
+        }
+    } else {
+        badges.push({ label: project.status, color: "text-muted-foreground", bg: "bg-zinc-400/10", border: "border-zinc-400/20" });
+    }
+
+    // Client Payment
+    if (project.paymentStatus === 'full_paid') {
+        badges.push({ label: "Client Payment Done", color: "text-emerald-500", bg: "bg-emerald-500/10", border: "border-emerald-500/20" });
+    } else if (project.paymentOption === 'pay_later' && project.paymentStatus !== 'full_paid') {
+        badges.push({ label: "Client Payment Left", color: "text-red-400", bg: "bg-red-400/10", border: "border-red-400/20" });
+    }
+
+    // Editor Payment
+    if (project.assignedEditorId && (project.editorPrice || 0) > 0) {
+        if (project.editorPaid) {
+            badges.push({ label: "Editor Payment Done", color: "text-emerald-500", bg: "bg-emerald-500/10", border: "border-emerald-500/20" });
+        } else {
+             badges.push({ label: "Editor Payment Left", color: "text-amber-500", bg: "bg-amber-500/10", border: "border-amber-500/20" });
+        }
+    }
+
+    return (
+        <div className="flex flex-wrap items-center gap-1.5">
+            {badges.map((b, i) => (
+                <span key={i} className={cn(
+                    "inline-flex items-center gap-1.5 px-2 py-0.5 rounded text-[9px] font-bold uppercase tracking-widest border transition-all whitespace-nowrap", 
+                    b.bg, b.color, b.border
+                )}>
+                    {b.pulse && <div className="w-1 h-1 rounded-full bg-current animate-pulse shadow-[0_0_5px_currentColor]" />}
+                    {b.label}
+                </span>
+            ))}
+        </div>
+    );
+}
+
 export function AdminDashboard() {
   const { user: currentUser } = useAuth();
   const searchParams = useSearchParams();
@@ -92,6 +209,7 @@ export function AdminDashboard() {
   
   const [isAssignModalOpen, setIsAssignModalOpen] = useState(false);
   const [assignEditorPrice, setAssignEditorPrice] = useState<string>("");
+  const [assignDeadline, setAssignDeadline] = useState<string>("");
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [selectedProject, setSelectedProject] = useState<Project | null>(null);
 
@@ -326,11 +444,12 @@ export function AdminDashboard() {
     }
 
     try {
-        const res = await assignEditor(selectedProject.id, editorId, price);
+        const res = await assignEditor(selectedProject.id, editorId, price, assignDeadline);
         if (res.success) {
             toast.success("Editor assigned successfully. Pending their acceptance.");
             setIsAssignModalOpen(false);
             setAssignEditorPrice("");
+            setAssignDeadline("");
         } else {
             toast.error(res.error || "Assignment failed.");
         }
@@ -1582,14 +1701,23 @@ export function AdminDashboard() {
 
        {/* Modals */}
        <Modal isOpen={isAssignModalOpen} onClose={() => setIsAssignModalOpen(false)} title="Assign an Editor">
-             <div className="space-y-4 mb-4">
+             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
                  <div className="space-y-1.5">
-                     <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest ml-1">Editor Revenue Share (₹)</label>
+                     <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest ml-1">Editor Revenue (₹)</label>
                      <input 
                          type="number"
                          value={assignEditorPrice}
                          onChange={(e) => setAssignEditorPrice(e.target.value)}
                          placeholder="e.g. 5000"
+                         className="w-full h-11 bg-black/5 dark:bg-black/40 border border-border rounded-lg px-4 text-sm text-foreground focus:outline-none focus:border-primary/50 transition-colors"
+                     />
+                 </div>
+                 <div className="space-y-1.5">
+                     <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest ml-1">Optional Deadline</label>
+                     <input 
+                         type="datetime-local"
+                         value={assignDeadline}
+                         onChange={(e) => setAssignDeadline(e.target.value)}
                          className="w-full h-11 bg-black/5 dark:bg-black/40 border border-border rounded-lg px-4 text-sm text-foreground focus:outline-none focus:border-primary/50 transition-colors"
                      />
                  </div>
@@ -1699,645 +1827,595 @@ export function AdminDashboard() {
              </div>
        </Modal>
 
-        {/* User Details Modal */}
         <Modal 
             isOpen={isUserDetailModalOpen} 
             onClose={() => setIsUserDetailModalOpen(false)} 
-            title="User Profile Details"
-            maxWidth="max-w-3xl"
+            title={`Infrastructure Node // ${selectedUserDetail?.displayName}`}
+            maxWidth="max-w-7xl"
         >
             {selectedUserDetail && (
-                <div className="mt-8 space-y-8 max-h-[70vh] overflow-y-auto pr-4 custom-scrollbar">
-                    {/* Profile Header */}
-                    <div className="flex flex-col md:flex-row items-center md:items-start gap-8">
-                         <div className="relative">
-                            <div className="h-32 w-32 relative rounded-[2rem] overflow-hidden border-4 border-border bg-muted/50 shadow-2xl">
+                <div className="mt-6 space-y-6 max-h-[85vh] overflow-y-auto pr-2 custom-scrollbar pb-6 text-left">
+                    {/* Header Identity Box */}
+                    <div className="bg-muted/30 border border-border rounded-2xl p-6 flex flex-col md:flex-row md:items-center justify-between gap-6 relative overflow-hidden group">
+                        <div className="absolute top-0 right-0 p-8 opacity-5 pointer-events-none group-hover:opacity-10 transition-opacity">
+                            <Cpu className="h-24 w-24 text-primary" />
+                        </div>
+                        <div className="absolute -left-12 -top-12 h-40 w-40 bg-primary/10 blur-[100px] pointer-events-none" />
+                        <div className="flex items-center gap-5 relative z-10 text-left">
+                            <div className="h-20 w-20 rounded-2xl bg-primary/10 border border-primary/20 p-1 relative">
                                 {selectedUserDetail.photoURL ? (
-                                    <Image 
-                                        src={selectedUserDetail.photoURL} 
-                                        alt={selectedUserDetail.displayName || ""} 
-                                        fill 
-                                        className="object-cover"
-                                    />
+                                    <Image src={selectedUserDetail.photoURL} alt="" fill className="object-cover rounded-xl" />
                                 ) : (
-                                    <div className="h-full w-full flex items-center justify-center bg-primary/10 text-primary text-4xl font-heading font-black">
-                                        {selectedUserDetail.displayName?.[0] || "U"}
+                                    <div className="h-full w-full rounded-xl bg-muted flex items-center justify-center text-muted-foreground text-2xl font-black">
+                                        {selectedUserDetail.displayName?.[0]}
                                     </div>
                                 )}
                             </div>
-                         </div>
-
-                         <div className="flex-1 text-center md:text-left space-y-3">
-                            <div>
-                                <h2 className="text-3xl font-heading font-black tracking-tight text-foreground">{selectedUserDetail.displayName}</h2>
-                                <p className="text-muted-foreground font-mono text-[10px] uppercase tracking-[0.2em] mt-1">User ID: {selectedUserDetail.uid}</p>
-                            </div>
-
-                            <div className="flex flex-wrap items-center justify-center md:justify-start gap-3">
-                                <span className={cn(
-                                    "px-3 py-1 rounded-full text-[9px] font-bold uppercase tracking-widest border transition-all",
-                                    selectedUserDetail.role === 'admin' ? "bg-red-500/10 text-red-500 border-red-500/20" :
-                                    selectedUserDetail.role === 'client' ? "bg-blue-500/10 text-blue-500 border-blue-500/20" :
-                                    selectedUserDetail.role === 'editor' ? "bg-primary/10 text-primary border-primary/20" :
-                                    "bg-emerald-500/10 text-emerald-500 border-emerald-500/20"
-                                )}>
-                                    {selectedUserDetail.role?.replace('_', ' ')}
-                                </span>
-                                <span className={cn(
-                                    "px-3 py-1 rounded-full text-[9px] font-bold uppercase tracking-widest border transition-all",
-                                    (selectedUserDetail as any).status !== 'inactive' 
-                                        ? "bg-emerald-500/10 text-emerald-500 border-emerald-500/20" 
-                                        : "bg-red-500/10 text-red-500 border-red-500/20"
-                                )}>
-                                    Status: {(selectedUserDetail as any).status?.toUpperCase() || 'ACTIVE'}
-                                </span>
-                                <span className="px-3 py-1 rounded-full text-[9px] font-bold uppercase tracking-widest border border-border bg-card text-muted-foreground">
-                                    Joined: {new Date(selectedUserDetail.createdAt).toLocaleDateString()}
-                                </span>
-                            </div>
-
-                            {(selectedUserDetail as any).skills && (selectedUserDetail as any).skills.length > 0 && (
-                                <div className="flex flex-wrap gap-2 pt-2">
-                                    {(selectedUserDetail as any).skills.map((skill: string, idx: number) => (
-                                        <span key={idx} className="bg-primary/5 text-primary border border-primary/10 px-2 py-0.5 rounded-full text-[8px] font-bold uppercase tracking-widest">
-                                            {skill}
-                                        </span>
-                                    ))}
+                            <div className="space-y-1">
+                                <div className="flex items-center gap-2">
+                                    <h4 className="text-2xl font-black text-foreground tracking-tight">{selectedUserDetail.displayName}</h4>
+                                    <span className={cn(
+                                        "text-[9px] border px-2 py-0.5 rounded-full font-black uppercase tracking-widest",
+                                        (selectedUserDetail as any).status === 'inactive' ? "bg-red-500/10 text-red-500 border-red-500/20" : "bg-emerald-500/10 text-emerald-500 border-emerald-500/20"
+                                    )}>
+                                        {(selectedUserDetail as any).status === 'inactive' ? "DEACTIVATED" : "ACTIVE_OPERATIVE"}
+                                    </span>
                                 </div>
-                            )}
-
-                            {(selectedUserDetail as any).location && (
-                                <div className="flex items-center gap-2 text-muted-foreground mt-2">
-                                    <Globe className="h-3 w-3" />
-                                    <span className="text-[10px] font-bold uppercase tracking-widest">{(selectedUserDetail as any).location}</span>
+                                <div className="flex flex-wrap items-center gap-3 text-muted-foreground">
+                                    <span className="text-[10px] font-bold uppercase tracking-[0.2em] flex items-center gap-1.5 text-primary">
+                                        <Shield className="h-3 w-3" /> {selectedUserDetail.role?.replace('_', ' ')} 
+                                    </span>
+                                    <span className="h-1 w-1 rounded-full bg-border" />
+                                    <span className="text-[10px] font-bold uppercase tracking-[0.2em]">{selectedUserDetail.email}</span>
+                                    {selectedUserDetail.contact && (
+                                        <>
+                                            <span className="h-1 w-1 rounded-full bg-border" />
+                                            <span className="text-[10px] font-bold uppercase tracking-[0.2em]">{selectedUserDetail.contact}</span>
+                                        </>
+                                    )}
                                 </div>
-                            )}
-                            {(selectedUserDetail as any).skillPrices && Object.keys((selectedUserDetail as any).skillPrices).length > 0 && (
-                                <div className="flex flex-col gap-1.5 mt-3 pt-3 border-t border-border">
-                                    <span className="text-[9px] font-bold text-muted-foreground uppercase tracking-widest">Standard Deliverable Rates</span>
-                                    <div className="grid grid-cols-2 gap-2 mt-1">
-                                        {Object.entries((selectedUserDetail as any).skillPrices).map(([skill, price]) => (
-                                            <div key={skill} className="flex justify-between items-center bg-muted/50 border border-border p-2 rounded-lg">
-                                                <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-tight">{skill}</span>
-                                                <span className="text-[10px] font-bold text-primary flex items-center bg-primary/10 px-1.5 py-0.5 rounded"><IndianRupee className="h-2.5 w-2.5 mr-0.5" /> {price as string}</span>
-                                            </div>
-                                        ))}
-                                    </div>
-                                </div>
-                            )}
-                         </div>
-                    </div>
-
-                    {/* Contact & Auth Grid */}
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                        <div className="space-y-4">
-                            <h4 className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest flex items-center gap-2 px-1">
-                                <Mail className="h-3 w-3 text-primary" /> Contact Details
-                            </h4>
-                            <div className="enterprise-card p-6 bg-muted/50 border-border space-y-4">
-                                <div className="space-y-1.5">
-                                    <Label className="text-[9px] font-bold text-muted-foreground uppercase tracking-widest ml-1">Email</Label>
-                                    <div className="p-3 bg-muted/50 border border-border rounded-lg text-sm font-medium text-foreground flex items-center justify-between group/email">
-                                        <span className="truncate">{selectedUserDetail.email}</span>
-                                        <button onClick={() => { navigator.clipboard.writeText(selectedUserDetail.email!); toast.success("Copied"); }} className="opacity-0 group-hover/email:opacity-100 transition-opacity">
-                                            <Copy className="h-3 w-3 text-muted-foreground hover:text-foreground" />
-                                        </button>
-                                    </div>
-                                </div>
-                                {selectedUserDetail.phoneNumber && (
-                                    <div className="space-y-1.5">
-                                        <Label className="text-[9px] font-bold text-muted-foreground uppercase tracking-widest ml-1">Phone</Label>
-                                        <div className="p-3 bg-muted/50 border border-border rounded-lg text-sm text-foreground">
-                                            {selectedUserDetail.phoneNumber}
-                                        </div>
-                                    </div>
-                                )}
-                                {selectedUserDetail.whatsappNumber && (
-                                    <div className="space-y-1.5 pt-2 border-t border-border">
-                                        <Label className="text-[9px] font-bold text-muted-foreground uppercase tracking-widest ml-1 flex items-center gap-1.5"><MessageSquare className="h-3 w-3 text-emerald-500" /> WhatsApp</Label>
-                                        <div className="p-3 bg-muted/50 border border-border rounded-lg text-sm font-medium text-foreground flex items-center justify-between group/wa">
-                                            <span className="truncate">{selectedUserDetail.whatsappNumber}</span>
-                                            <a href={`https://wa.me/${selectedUserDetail.whatsappNumber.replace(/[^0-9]/g, '')}`} target="_blank" rel="noopener noreferrer" className="opacity-0 group-hover/wa:opacity-100 transition-opacity">
-                                                <ExternalLink className="h-4 w-4 text-emerald-400 hover:text-emerald-300" />
-                                            </a>
-                                        </div>
-                                    </div>
-                                )}
-                                
                             </div>
                         </div>
-
-                        {selectedUserDetail.initialPassword && (
-                            <div className="space-y-4">
-                                <h4 className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest flex items-center gap-2 px-1">
-                                    <Shield className="h-3 w-3 text-primary" /> System Access
-                                </h4>
-                                <div className="enterprise-card p-6 bg-muted/50 border-border">
-                                    <Label className="text-[9px] font-bold text-muted-foreground uppercase tracking-widest ml-1">Default Key</Label>
-                                    <div className="p-3 bg-muted/50 border border-border rounded-lg text-sm font-mono text-primary flex items-center justify-between group/key mt-1.5">
-                                        <span>{selectedUserDetail.initialPassword}</span>
-                                        <button onClick={() => { navigator.clipboard.writeText(selectedUserDetail!.initialPassword!); toast.success("Copied"); }} className="opacity-0 group-hover/key:opacity-100 transition-opacity">
-                                            <Copy className="h-3 w-3 text-muted-foreground hover:text-foreground" />
-                                        </button>
-                                    </div>
-                                </div>
+                        <div className="relative z-10 flex flex-col items-end gap-3 text-right">
+                             <div className="flex items-center gap-2">
+                                <Button 
+                                    variant="outline" 
+                                    size="sm" 
+                                    className={cn(
+                                        "h-8 text-[10px] font-black uppercase tracking-widest border-2",
+                                        (selectedUserDetail as any).status === 'inactive' ? "border-emerald-500/40 hover:bg-emerald-500/10 text-emerald-500" : "border-red-500/40 hover:bg-red-500/10 text-red-500"
+                                    )}
+                                    onClick={() => { handleToggleUserStatus(selectedUserDetail.uid, (selectedUserDetail as any).status !== 'inactive'); setIsUserDetailModalOpen(false); }}
+                                >
+                                    {(selectedUserDetail as any).status === 'inactive' ? "Restore Protocol" : "Suspend Citizen"}
+                                </Button>
+                                <Button 
+                                    variant="destructive" 
+                                    size="sm" 
+                                    className="h-8 text-[10px] font-black uppercase tracking-widest"
+                                    onClick={() => { handleDeleteUser(selectedUserDetail.uid); setIsUserDetailModalOpen(false); }}
+                                >
+                                    Erase Node
+                                </Button>
+                             </div>
+                             <div className="text-[9px] font-bold text-muted-foreground uppercase tracking-widest bg-card px-3 py-1 rounded-md border border-border">
+                                Joined: {new Date(selectedUserDetail.createdAt || Date.now()).toLocaleDateString()}
                             </div>
-                        )}
+                        </div>
                     </div>
 
-                    {/* Client Specific Details */}
-                    {selectedUserDetail.role === 'client' && (
-                        <div className="pt-6 border-t border-border mt-6 space-y-4">
-                            <h4 className="text-[10px] font-bold text-emerald-500 uppercase tracking-widest flex items-center gap-2 px-1">
-                                <Layers className="h-3 w-3" /> Client Profile Details
-                            </h4>
-                            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                                <div className="enterprise-card p-4 bg-muted/50 border-border space-y-1">
-                                    <Label className="text-[9px] font-bold text-muted-foreground uppercase tracking-widest">Company Name</Label>
-                                    <div className="text-sm font-semibold text-foreground">
-                                        {selectedUserDetail.companyName || <span className="text-muted-foreground opacity-50">Not Provided</span>}
+                    {/* Bento Grid */}
+                    <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+                        {/* LEFT COLUMN: Role Specific Intelligence (8 Units) */}
+                        <div className="lg:col-span-8 space-y-6">
+                            {/* Role-Specific Boxes */}
+                            {selectedUserDetail.role === 'client' && (
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                    <div className="bg-muted/30 border border-border rounded-2xl p-6 space-y-6 relative overflow-hidden group/card">
+                                        <div className="absolute top-0 right-0 p-4 opacity-[0.03] group-hover/card:opacity-[0.08] transition-opacity">
+                                            <Layers className="h-12 w-12" />
+                                        </div>
+                                        <h5 className="text-[11px] font-black uppercase tracking-widest text-primary flex items-center gap-2">
+                                            <IndianRupee className="h-4 w-4" /> Financial Credibility
+                                        </h5>
+                                        <div className="space-y-4 relative z-10">
+                                            <div className="p-4 bg-card border border-border rounded-xl flex items-center justify-between hover:border-primary/30 transition-colors">
+                                                <div className="flex flex-col">
+                                                    <span className="text-[9px] font-black text-muted-foreground uppercase tracking-widest">Lifetime Investment</span>
+                                                    <span className="text-2xl font-black text-foreground tracking-tighter">₹{(selectedUserDetail.lifetimeTotal || 0).toLocaleString()}</span>
+                                                </div>
+                                                <div className="h-10 w-10 rounded-xl bg-emerald-500/10 flex items-center justify-center text-emerald-500">
+                                                    <TrendingUp className="h-5 w-5" />
+                                                </div>
+                                            </div>
+                                            <div className="p-4 bg-card border border-border rounded-xl flex items-center justify-between hover:border-red-500/30 transition-colors">
+                                                <div className="flex flex-col">
+                                                    <span className="text-[9px] font-black text-muted-foreground uppercase tracking-widest">Outstanding Liability</span>
+                                                    <span className="text-2xl font-black text-red-500 tracking-tighter">₹{(selectedUserDetail.pendingOutstanding || 0).toLocaleString()}</span>
+                                                </div>
+                                                <div className="h-10 w-10 rounded-xl bg-red-500/10 flex items-center justify-center text-red-500">
+                                                    <AlertCircle className="h-5 w-5" />
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div className="bg-muted/30 border border-border rounded-2xl p-6 space-y-6">
+                                        <h5 className="text-[11px] font-black uppercase tracking-widest text-emerald-500 flex items-center gap-2">
+                                            <Zap className="h-4 w-4" /> Credit Parameters
+                                        </h5>
+                                        <div className="space-y-4">
+                                            <div className="p-4 bg-card border border-border rounded-xl space-y-2">
+                                                <div className="flex items-center justify-between">
+                                                    <span className="text-[9px] font-bold text-muted-foreground uppercase">Credit Ceiling</span>
+                                                    <span className="text-[10px] font-black text-primary">₹{(selectedUserDetail.creditLimit || 5000).toLocaleString()}</span>
+                                                </div>
+                                                <input 
+                                                    type="number" 
+                                                    defaultValue={selectedUserDetail.creditLimit || 5000}
+                                                    onBlur={async (e) => {
+                                                        const val = parseInt(e.target.value) || 0;
+                                                        try {
+                                                            await updateDoc(doc(db, "users", selectedUserDetail.uid), { payLater: selectedUserDetail.payLater, creditLimit: val, updatedAt: Date.now() });
+                                                            toast.success("Limit Updated");
+                                                        } catch (err) { toast.error("Failed"); }
+                                                    }}
+                                                    className="w-full h-10 bg-muted border border-border rounded-xl px-4 text-xs font-bold focus:outline-none focus:border-primary/50 transition-colors"
+                                                />
+                                            </div>
+                                            <div className="flex items-center justify-between p-4 bg-card border border-border rounded-xl">
+                                                <div className="flex flex-col">
+                                                    <span className="text-[9px] font-black text-muted-foreground uppercase tracking-widest">Post-Payment Rights</span>
+                                                    <span className="text-[10px] font-black text-primary uppercase mt-1">
+                                                        {selectedUserDetail.payLater ? "Authorized" : "Revoked"}
+                                                    </span>
+                                                </div>
+                                                <button 
+                                                    onClick={async () => {
+                                                        const newVal = !selectedUserDetail.payLater;
+                                                        setSelectedUserDetail({ ...selectedUserDetail, payLater: newVal });
+                                                        try {
+                                                            await updateDoc(doc(db, "users", selectedUserDetail.uid), { payLater: newVal, updatedAt: Date.now() });
+                                                            toast.success(`Pay Later ${newVal ? 'Enabled' : 'Disabled'}`);
+                                                        } catch (err) { toast.error("Update Failed"); }
+                                                    }}
+                                                    className={cn("h-6 w-12 rounded-full border transition-all relative p-1", selectedUserDetail.payLater ? "bg-primary border-primary/50" : "bg-muted border-border")}
+                                                >
+                                                    <div className={cn("h-3.5 w-3.5 rounded-full bg-white transition-all shadow-sm", selectedUserDetail.payLater ? "translate-x-6" : "translate-x-0")} />
+                                                </button>
+                                            </div>
+                                        </div>
                                     </div>
                                 </div>
-                                <div className="enterprise-card p-4 bg-muted/50 border-border space-y-1">
-                                    <Label className="text-[9px] font-bold text-muted-foreground uppercase tracking-widest">Client Category</Label>
-                                    <div className="text-sm font-bold text-emerald-500">
-                                        {selectedUserDetail.clientCategory || 'Retainer'}
-                                    </div>
-                                </div>
-                                <div className="enterprise-card p-4 bg-muted/50 border-border space-y-1">
-                                    <Label className="text-[9px] font-bold text-muted-foreground uppercase tracking-widest">Website / Social Links</Label>
-                                    <div className="text-sm font-medium text-foreground truncate">
-                                        {selectedUserDetail.websiteUrl ? (
-                                            <a href={selectedUserDetail.websiteUrl.startsWith('http') ? selectedUserDetail.websiteUrl : `https://${selectedUserDetail.websiteUrl}`} target="_blank" rel="noopener noreferrer" className="text-blue-400 hover:text-blue-300 flex items-center gap-1.5 transition-colors">
-                                                {selectedUserDetail.websiteUrl} <ExternalLink className="h-3 w-3 shrink-0" />
-                                            </a>
-                                        ) : (
-                                            <span className="text-muted-foreground opacity-50">Not Provided</span>
+                            )}
+
+                            {selectedUserDetail.role === 'editor' && (
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                    <div className="bg-muted/30 border border-border rounded-2xl p-6 space-y-6">
+                                        <h5 className="text-[11px] font-black uppercase tracking-widest text-primary flex items-center gap-2">
+                                            <Activity className="h-4 w-4" /> Performance Metrics
+                                        </h5>
+                                        <div className="grid grid-cols-3 gap-4">
+                                            <div className="p-4 bg-card border border-border rounded-xl text-center">
+                                                <div className="text-xl font-black text-foreground">{(selectedUserDetail as any).accuracy || "98%"}</div>
+                                                <div className="text-[8px] font-black text-muted-foreground uppercase tracking-widest">Accuracy</div>
+                                            </div>
+                                            <div className="p-4 bg-card border border-border rounded-xl text-center">
+                                                <div className="text-xl font-black text-emerald-500">₹{((selectedUserDetail as any).totalEarned || 0).toLocaleString()}</div>
+                                                <div className="text-[8px] font-black text-muted-foreground uppercase tracking-widest">Earned</div>
+                                            </div>
+                                            <div className="p-4 bg-card border border-border rounded-xl text-center">
+                                                <div className="text-xl font-black text-red-500">₹{((selectedUserDetail as any).pendingDues || 0).toLocaleString()}</div>
+                                                <div className="text-[8px] font-black text-muted-foreground uppercase tracking-widest">Pending</div>
+                                            </div>
+                                        </div>
+                                        {(selectedUserDetail as any).onboardingStatus === 'pending' && (
+                                            <Button 
+                                                className="w-full bg-primary/20 text-primary border border-primary/30 hover:bg-primary hover:text-white transition-all text-xs font-black uppercase"
+                                                onClick={async () => {
+                                                    try {
+                                                        await verifyEditor(selectedUserDetail.uid);
+                                                        toast.success("Editor Verified");
+                                                        setIsUserDetailModalOpen(false);
+                                                    } catch (err) { toast.error("Failed"); }
+                                                }}
+                                            >
+                                                Verifiy Account Node
+                                            </Button>
                                         )}
                                     </div>
-                                </div>
-                                <div className="enterprise-card p-4 bg-muted/50 border-border space-y-3 col-span-1 md:col-span-2">
-                                    <div className="flex items-center justify-between">
-                                        <div className="space-y-1">
-                                            <Label className="text-[9px] font-bold text-muted-foreground uppercase tracking-widest">Pay Later Authority</Label>
-                                            <p className="text-[10px] text-muted-foreground">Allow projects without up-front payment</p>
-                                        </div>
-                                        <button 
-                                            onClick={async () => {
-                                                const newVal = !selectedUserDetail.payLater;
-                                                setSelectedUserDetail({ ...selectedUserDetail, payLater: newVal });
-                                                try {
-                                                    await updateDoc(doc(db, "users", selectedUserDetail.uid), {
-                                                        payLater: newVal,
-                                                        updatedAt: Date.now()
-                                                    });
-                                                    toast.success(`Pay Later ${newVal ? 'Enabled' : 'Disabled'}`);
-                                                } catch (err) {
-                                                    console.error(err);
-                                                    toast.error("Failed to update status");
-                                                }
-                                            }}
-                                            className={cn(
-                                                "h-8 px-4 rounded-lg text-[9px] font-bold uppercase tracking-widest transition-all",
-                                                selectedUserDetail.payLater ? "bg-emerald-500/10 text-emerald-500 border border-emerald-500/20" : "bg-muted text-muted-foreground border border-border"
+                                    <div className="bg-muted/30 border border-border rounded-2xl p-6 space-y-6">
+                                        <h5 className="text-[11px] font-black uppercase tracking-widest text-amber-500 flex items-center gap-2">
+                                            <Star className="h-4 w-4" /> Skillset & Pricing
+                                        </h5>
+                                        <div className="grid grid-cols-2 gap-3">
+                                            {selectedUserDetail.skills?.map((skill: string, i: number) => (
+                                                <div key={i} className="p-3 bg-card border border-border rounded-xl flex flex-col hover:border-primary/20 transition-all">
+                                                    <span className="text-[8px] font-black text-muted-foreground uppercase tracking-widest mb-1">{skill}</span>
+                                                    <span className="text-xs font-black text-foreground">₹{((selectedUserDetail as any).skillPrices?.[skill] || 0).toLocaleString()}</span>
+                                                </div>
+                                            )) || (
+                                                <div className="col-span-full py-8 text-center text-muted-foreground text-[10px] uppercase font-bold tracking-widest bg-card border border-dashed border-border rounded-xl">NO_SKILLS_CATALOGED</div>
                                             )}
-                                        >
-                                            {selectedUserDetail.payLater ? "Authorized" : "Disabled"}
-                                        </button>
-                                    </div>
-                                </div>
-                                <div className="enterprise-card p-4 bg-muted/50 border-border space-y-2">
-                                    <Label className="text-[9px] font-bold text-muted-foreground uppercase tracking-widest">Credit Limit (₹)</Label>
-                                    <div className="flex items-center gap-3">
-                                        <input 
-                                            type="number" 
-                                            defaultValue={selectedUserDetail.creditLimit || 5000}
-                                            onBlur={async (e) => {
-                                                const val = parseInt(e.target.value) || 0;
-                                                setSelectedUserDetail({ ...selectedUserDetail, creditLimit: val });
-                                                try {
-                                                    await updateDoc(doc(db, "users", selectedUserDetail.uid), {
-                                                        creditLimit: val,
-                                                        updatedAt: Date.now()
-                                                    });
-                                                    toast.success("Credit limit updated");
-                                                } catch (err) {
-                                                    console.error(err);
-                                                    toast.error("Failed to update limit");
-                                                }
-                                            }}
-                                            className="w-full h-8 bg-black/20 border border-border rounded px-3 text-xs font-bold text-foreground focus:outline-none focus:border-primary/50"
-                                        />
-                                        <Shield className="h-4 w-4 text-muted-foreground opacity-30" />
-                                    </div>
-                                </div>
-                            </div>
-                            
-                            <div className="pt-4 border-t border-border">
-                                <ClientDocuments userProfile={selectedUserDetail} isClient={false} />
-                            </div>
-                        </div>
-                    )}
-
-                    {/* Pinned Portfolio Works */}
-                    {selectedUserDetail.portfolio && Array.isArray(selectedUserDetail.portfolio) && selectedUserDetail.portfolio.length > 0 ? (
-                        <div className="space-y-4 pt-6 border-t border-border mt-6">
-                            <h4 className="text-[10px] font-bold text-primary uppercase tracking-[0.2em] flex items-center gap-2 px-1">
-                                <MonitorPlay className="h-3 w-3 text-primary" /> Best 3-5 works pinned
-                            </h4>
-                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                                {selectedUserDetail.portfolio.slice(0, 5).map((port: any, idx: number) => (
-                                    <div key={idx} className="bg-muted/30 border border-border rounded-xl p-4 flex flex-col gap-4 relative overflow-hidden group hover:bg-muted/50 hover:border-primary/40 transition-all hover:shadow-lg">
-                                        <div className="absolute top-0 right-0 p-4 opacity-5 pointer-events-none transition-opacity group-hover:opacity-10">
-                                            {port.url?.includes('youtube.com') || port.url?.includes('youtu.be') ? <MonitorPlay className="h-16 w-16 text-red-500" /> : <Globe className="h-16 w-16 text-blue-500" />}
-                                        </div>
-                                        
-                                        <div className="flex items-start gap-4 z-10">
-                                            <div className="h-12 w-12 rounded-lg bg-card border border-border flex items-center justify-center shrink-0 shadow-inner group-hover:border-primary/50 transition-colors">
-                                                {port.url?.includes('drive.google.com') ? <FolderOpen className="h-5 w-5 text-emerald-500" /> :
-                                                 port.url?.includes('youtube.com') || port.url?.includes('youtu.be') ? <MonitorPlay className="h-5 w-5 text-red-500" /> :
-                                                 <Globe className="h-5 w-5 text-blue-400" />}
-                                            </div>
-                                            <div className="flex flex-col min-w-0 mt-0.5">
-                                                <span className="text-sm font-bold text-foreground truncate group-hover:text-primary transition-colors tracking-tight">{port.name || 'Showcase Project'}</span>
-                                                <span className="text-[10px] font-black uppercase tracking-widest text-muted-foreground truncate flex items-center gap-1.5 mt-1">
-                                                    <UserIcon className="h-3 w-3" /> {port.clientName || 'General Portfolio'}
-                                                </span>
-                                            </div>
-                                        </div>
-                                        
-                                        <div className="flex items-center justify-between border-t border-border pt-4 mt-1 z-10">
-                                            <span className="bg-primary/10 text-primary border border-primary/20 text-[9px] font-black uppercase tracking-widest px-2.5 py-1 rounded-md">
-                                                {port.category || 'Editing'}
-                                            </span>
-                                            <a href={port.url || port} target="_blank" rel="noopener noreferrer" className="text-[10px] font-bold text-blue-400 hover:text-blue-300 flex items-center gap-1.5 bg-card px-3 py-1.5 rounded-md border border-border hover:border-blue-500/40 transition-all uppercase tracking-widest shadow-sm">
-                                                <ExternalLink className="h-3 w-3" /> Drive Link / Preview
-                                            </a>
                                         </div>
                                     </div>
-                                ))}
-                            </div>
-                        </div>
-                    ) : selectedUserDetail.portfolio && typeof selectedUserDetail.portfolio === 'string' ? (
-                        <div className="space-y-4 pt-6 border-t border-border mt-6">
-                            <h4 className="text-[10px] font-bold text-primary uppercase tracking-[0.2em] flex items-center gap-2 px-1">
-                                <MonitorPlay className="h-3 w-3 text-primary" /> Highlighted Work Pinned
-                            </h4>
-                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                                <div className="bg-muted/30 border border-border rounded-xl p-4 flex flex-col gap-4 relative overflow-hidden group hover:bg-muted/50 hover:border-primary/40 transition-all hover:shadow-lg">
-                                    <div className="absolute top-0 right-0 p-4 opacity-5 pointer-events-none transition-opacity group-hover:opacity-10">
-                                        <Globe className="h-16 w-16 text-blue-500" />
-                                    </div>
-                                    
-                                    <div className="flex items-start gap-4 z-10">
-                                        <div className="h-12 w-12 rounded-lg bg-card border border-border flex items-center justify-center shrink-0 shadow-inner group-hover:border-primary/50 transition-colors">
-                                            <Globe className="h-5 w-5 text-blue-400" />
-                                        </div>
-                                        <div className="flex flex-col min-w-0 mt-0.5">
-                                            <span className="text-sm font-bold text-foreground truncate group-hover:text-primary transition-colors tracking-tight">Main Portfolio Link</span>
-                                            <span className="text-[10px] font-black uppercase tracking-widest text-muted-foreground truncate flex items-center gap-1.5 mt-1">
-                                                <UserIcon className="h-3 w-3" /> General Masterpiece
-                                            </span>
-                                        </div>
-                                    </div>
-                                    
-                                    <div className="flex items-center justify-between border-t border-border pt-4 mt-1 z-10">
-                                        <span className="bg-primary/10 text-primary border border-primary/20 text-[9px] font-black uppercase tracking-widest px-2.5 py-1 rounded-md">
-                                            Editing
-                                        </span>
-                                        <a href={selectedUserDetail.portfolio as string} target="_blank" rel="noopener noreferrer" className="text-[10px] font-bold text-blue-400 hover:text-blue-300 flex items-center gap-1.5 bg-card px-3 py-1.5 rounded-md border border-border hover:border-blue-500/40 transition-all uppercase tracking-widest shadow-sm">
-                                            <ExternalLink className="h-3 w-3" /> Drive Link / Preview
-                                        </a>
-                                    </div>
                                 </div>
-                            </div>
-                        </div>
-                    ) : null}
-
-                    {/* Role Metrics */}
-                    <div className="pt-6 border-t border-border">
-                        {selectedUserDetail.role === 'editor' && (
-                            <div className="space-y-8">
-                                <h4 className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest flex items-center gap-2 px-1">
-                                    <Star className="h-3 w-3 text-primary" /> Performance metrics
-                                </h4>
-                                {(() => {
-                                    const editorProjects = projects.filter(p => p.assignedEditorId === selectedUserDetail.uid);
-                                    const completedEditorProjects = editorProjects.filter(p => p.status === 'completed' || p.status === 'approved');
-                                    const totalEarnings = completedEditorProjects.reduce((acc, p) => acc + (p.editorPrice || 0), 0);
-                                    const totalPaid = completedEditorProjects.filter(p => p.editorPaid).reduce((acc, p) => acc + (p.editorPrice || 0), 0);
-                                    const pendingDues = totalEarnings - totalPaid;
-
-                                    return (
-                                        <>
-                                            <div className="grid grid-cols-2 sm:grid-cols-5 gap-4">
-                                                <div className="enterprise-card p-4 bg-muted/50 border-border text-center">
-                                                    <div className="text-xl font-black text-foreground">{completedEditorProjects.length}</div>
-                                                    <div className="text-[8px] font-bold text-muted-foreground uppercase tracking-widest mt-1">Completed</div>
-                                                </div>
-                                                <div className="enterprise-card p-4 bg-muted/50 border-border text-center">
-                                                    <div className="text-xl font-black text-foreground">₹{totalEarnings.toLocaleString()}</div>
-                                                    <div className="text-[8px] font-bold text-muted-foreground uppercase tracking-widest mt-1">Total Earned</div>
-                                                </div>
-                                                <div className="enterprise-card p-4 bg-muted/50 border-border text-center">
-                                                    <div className="text-xl font-black text-red-400">₹{pendingDues.toLocaleString()}</div>
-                                                    <div className="text-[8px] font-bold text-red-500/50 uppercase tracking-widest mt-1">Pending Dues</div>
-                                                </div>
-                                                <div className="enterprise-card p-4 bg-muted/50 border-border text-center">
-                                                    <div className="text-xl font-black text-foreground">{editorProjects.filter(p => !['completed', 'approved', 'archived'].includes(p.status)).length}</div>
-                                                    <div className="text-[8px] font-bold text-muted-foreground uppercase tracking-widest mt-1">Active</div>
-                                                </div>
-                                                <div className="enterprise-card p-4 bg-muted/50 border-border text-center">
-                                                    <div className="text-xl font-black text-amber-500">{selectedUserDetail.rating || 'N/A'}</div>
-                                                    <div className="text-[8px] font-bold text-muted-foreground uppercase tracking-widest mt-1">Rating</div>
-                                                </div>
-                                            </div>
-                                            <div className="space-y-6 pt-4">
-                                                {/* Pending Dues Section */}
-                                                <div className="space-y-4">
-                                                    <Label className="text-[9px] font-bold text-red-500/80 uppercase tracking-widest ml-1 flex items-center gap-2">
-                                                        <AlertCircle className="h-3 w-3 text-red-500" /> Pending Dues History
-                                                    </Label>
-                                                    <div className="bg-red-500/[0.02] border border-red-500/10 rounded-2xl divide-y divide-red-500/10 overflow-hidden">
-                                                        {completedEditorProjects.filter(p => !p.editorPaid && (p.editorPrice || 0) > 0).length === 0 ? (
-                                                            <div className="p-8 text-center text-muted-foreground text-[10px] font-bold uppercase tracking-widest">No pending dues</div>
-                                                        ) : (
-                                                            completedEditorProjects.filter(p => !p.editorPaid && (p.editorPrice || 0) > 0).map(p => {
-                                                                const pm = users.find(u => u.uid === p.assignedPMId);
-                                                                const isCompleted = p.status === 'completed' || p.status === 'approved';
-                                                                return (
-                                                                    <div key={p.id} className="p-4 flex flex-col md:flex-row md:items-center justify-between gap-4 group hover:bg-red-500/[0.02] transition-colors">
-                                                                        <div>
-                                                                            <div className="text-sm font-bold text-foreground tracking-tight flex items-center gap-2">
-                                                                                {p.name}
-                                                                                <span className="text-[9px] bg-card px-2 py-0.5 rounded text-muted-foreground border border-border">
-                                                                                    PM: {pm ? pm.displayName : 'Unassigned'}
-                                                                                </span>
-                                                                            </div>
-                                                                            <div className="text-[10px] text-muted-foreground font-bold uppercase tracking-widest mt-1 flex items-center gap-2">
-                                                                                <span>{p.status.replace('_', ' ')}</span>
-                                                                                <span>&bull;</span>
-                                                                                <span>Due: ₹{(p.editorPrice || 0).toLocaleString()}</span>
-                                                                            </div>
-                                                                        </div>
-                                                                        <div className="flex items-center gap-4 align-middle">
-                                                                            <div className="text-right flex flex-col items-end">
-                                                                                <div className="text-xs font-black text-red-400">₹{(p.editorPrice || 0).toLocaleString()}</div>
-                                                                                <div className="text-[8px] font-bold text-red-500/50 uppercase tracking-widest leading-none mt-1">Unpaid Balance</div>
-                                                                            </div>
-                                                                            {isCompleted && (
-                                                                                <button 
-                                                                                    onClick={() => handleReimburseEditor(p.id)}
-                                                                                    className="h-8 text-[9px] font-bold bg-primary hover:bg-primary  hover:text-primary-foreground text-primary-foreground px-4 rounded transition-all uppercase tracking-widest whitespace-nowrap"
-                                                                                >
-                                                                                    Reimburse
-                                                                                </button>
-                                                                            )}
-                                                                        </div>
-                                                                    </div>
-                                                                );
-                                                            })
-                                                        )}
-                                                    </div>
-                                                </div>
-
-                                                {/* Associated Projects Section */}
-                                                <div className="space-y-4 pt-4 border-t border-border">
-                                                    <Label className="text-[9px] font-bold text-muted-foreground uppercase tracking-widest ml-1 flex items-center gap-2">
-                                                        <FolderOpen className="h-3 w-3 text-primary" /> Associated Projects
-                                                    </Label>
-                                                    <div className="bg-muted/50 border border-border rounded-2xl divide-y divide-border overflow-hidden">
-                                                        {editorProjects.length === 0 ? (
-                                                            <div className="p-8 text-center text-muted-foreground text-[10px] font-bold uppercase tracking-widest">No projects found</div>
-                                                        ) : (
-                                                            editorProjects.map(p => {
-                                                                const pm = users.find(u => u.uid === p.assignedPMId);
-                                                                const isCompleted = p.status === 'completed' || p.status === 'approved';
-                                                                return (
-                                                                    <div key={p.id} className="p-4 flex flex-col md:flex-row md:items-center justify-between gap-4">
-                                                                        <div>
-                                                                            <div className="text-sm font-bold text-foreground tracking-tight flex items-center gap-2">
-                                                                                {p.name}
-                                                                                <span className="text-[9px] bg-card px-2 py-0.5 rounded text-muted-foreground border border-border">
-                                                                                    PM: {pm ? pm.displayName : 'Unassigned'}
-                                                                                </span>
-                                                                            </div>
-                                                                            <div className="text-[10px] text-muted-foreground font-bold uppercase tracking-widest mt-1">{p.status.replace('_', ' ')}</div>
-                                                                        </div>
-                                                                        <div className="flex items-center gap-4 align-middle">
-                                                                            <div className="text-right flex flex-col items-end">
-                                                                                <div className="text-xs font-black text-foreground">₹{(p.editorPrice || 0).toLocaleString()}</div>
-                                                                                <div className="text-[8px] font-bold text-muted-foreground uppercase tracking-widest leading-none mt-1">Revenue Assigned</div>
-                                                                            </div>
-                                                                            {isCompleted && p.editorPaid && (
-                                                                                <span className="h-8 flex items-center text-[9px] font-bold text-emerald-400 border border-emerald-500/20 bg-emerald-500/10 px-4 rounded uppercase tracking-widest whitespace-nowrap">
-                                                                                    Reimbursed
-                                                                                </span>
-                                                                            )}
-                                                                        </div>
-                                                                    </div>
-                                                                );
-                                                            })
-                                                        )}
-                                                    </div>
-                                                </div>
-                                            </div>
-                                        </>
-                                    );
-                                })()}
-                            </div>
-                        )}
-
-                        {selectedUserDetail.role === 'project_manager' && (
-                            <div className="space-y-8">
-                                <h4 className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest flex items-center gap-2 px-1">
-                                    <LayoutGrid className="h-3 w-3 text-primary" /> Operations Managed
-                                </h4>
-                                <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-                                    <div className="enterprise-card p-4 bg-muted/50 border-border text-center">
-                                        <div className="text-xl font-black text-foreground">{projects.filter(p => p.assignedPMId === selectedUserDetail.uid).length}</div>
-                                        <div className="text-[8px] font-bold text-muted-foreground uppercase tracking-widest mt-1">Projects</div>
-                                    </div>
-                                    <div className="enterprise-card p-4 bg-muted/50 border-border text-center col-span-2">
-                                        <div className="text-xl font-black text-emerald-500">₹{projects.filter(p => p.assignedPMId === selectedUserDetail.uid).reduce((acc, p) => acc + (p.totalCost || 0), 0).toLocaleString()}</div>
-                                        <div className="text-[8px] font-bold text-muted-foreground uppercase tracking-widest mt-1">Volume Managed</div>
-                                    </div>
-                                </div>
-                                <div className="space-y-3 pt-6 border-t border-border">
-                                    <Label className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest ml-1">Auto-Assign Cap (Max Projects)</Label>
-                                    <div className="flex items-center gap-4">
-                                        <input 
-                                            type="number" 
-                                            className="w-32 h-10 px-4 rounded-lg bg-muted/50 border border-border text-foreground focus:border-primary/50 focus:outline-none transition-all font-medium text-sm" 
-                                            value={selectedUserDetail.maxProjectLimit || 10}
-                                            onChange={async (e) => {
-                                                const val = parseInt(e.target.value) || 10;
-                                                setSelectedUserDetail({...selectedUserDetail, maxProjectLimit: val});
-                                                try {
-                                                    await updateDoc(doc(db, "users", selectedUserDetail.uid), {
-                                                        maxProjectLimit: val,
-                                                        updatedAt: Date.now()
-                                                    });
-                                                } catch(err) {
-                                                    console.error(err);
-                                                }
-                                            }}
-                                        />
-                                        <span className="text-[11px] font-medium text-muted-foreground">Max active requests handler</span>
-                                    </div>
-                                </div>
-                            </div>
-                        )}
-
-                        {selectedUserDetail.role === 'sales_executive' && (
-                            <div className="space-y-8">
-                                <h4 className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest flex items-center gap-2 px-1">
-                                    <TrendingUp className="h-3 w-3 text-primary" /> Acquisition Metrics
-                                </h4>
-                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                                    <div className="enterprise-card p-4 bg-muted/50 border-border text-center">
-                                        <div className="text-2xl font-black text-foreground">{users.filter(u => u.role === 'client' && (u.managedBy === selectedUserDetail.uid || u.createdBy === selectedUserDetail.uid)).length}</div>
-                                        <div className="text-[8px] font-bold text-muted-foreground uppercase tracking-widest mt-1">Clients Generated</div>
-                                    </div>
-                                    <div className="enterprise-card p-4 bg-muted/50 border-border text-center">
-                                        <div className="text-2xl font-black text-emerald-500">
-                                            ₹{projects.filter(p => users.some(u => u.uid === p.clientId && (u.managedBy === selectedUserDetail.uid || u.createdBy === selectedUserDetail.uid))).reduce((acc, p) => acc + (p.amountPaid || 0), 0).toLocaleString()}
-                                        </div>
-                                        <div className="text-[8px] font-bold text-muted-foreground uppercase tracking-widest mt-1">Attributed Revenue</div>
-                                    </div>
-                                </div>
-                            </div>
-                        )}
-                    </div>
-
-                    {/* Actions */}
-                    <div className="pt-8 flex flex-col sm:flex-row gap-4">
-                        <button 
-                            onClick={() => { handleToggleUserStatus(selectedUserDetail.uid, (selectedUserDetail as any).status !== 'inactive'); setIsUserDetailModalOpen(false); }}
-                            className={cn(
-                                "flex-1 h-12 rounded-xl text-[10px] font-bold uppercase tracking-widest transition-all border flex items-center justify-center gap-2",
-                                (selectedUserDetail as any).status === 'inactive' 
-                                    ? "bg-emerald-500/10 text-emerald-500 border-emerald-500/20" 
-                                    : "bg-muted/50 text-muted-foreground border-border hover:text-foreground"
                             )}
-                        >
-                            <Shield className="h-4 w-4" />
-                            {(selectedUserDetail as any).status === 'inactive' ? "Reactivate" : "Suspend"}
-                        </button>
-                        <button 
-                            onClick={() => { handleDeleteUser(selectedUserDetail.uid); setIsUserDetailModalOpen(false); }}
-                            className="flex-1 h-12 bg-red-500 text-foreground font-bold uppercase text-[10px] tracking-widest rounded-xl hover:bg-red-600 transition-all flex items-center justify-center gap-2"
-                        >
-                            <Trash2 className="h-4 w-4" /> Delete Account
-                        </button>
+
+                            {selectedUserDetail.role === 'project_manager' && (
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                    <div className="bg-muted/30 border border-border rounded-2xl p-6 space-y-6">
+                                        <h5 className="text-[11px] font-black uppercase tracking-widest text-blue-500 flex items-center gap-2">
+                                            <Activity className="h-4 w-4" /> Operational Load
+                                        </h5>
+                                        <div className="grid grid-cols-2 gap-4">
+                                            <div className="p-4 bg-card border border-border rounded-xl text-center">
+                                                <div className="text-2xl font-black text-foreground">{projects.filter(p => p.assignedPMId === selectedUserDetail.uid).length}</div>
+                                                <div className="text-[8px] font-black text-muted-foreground uppercase tracking-widest">Managed Stacks</div>
+                                            </div>
+                                            <div className="p-4 bg-card border border-border rounded-xl text-center">
+                                                <div className="text-xl font-black text-emerald-500 truncate">₹{projects.filter(p => p.assignedPMId === selectedUserDetail.uid).reduce((acc, p) => acc + (p.totalCost || 0), 0).toLocaleString()}</div>
+                                                <div className="text-[8px] font-black text-muted-foreground uppercase tracking-widest">Revenue Node</div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div className="bg-muted/30 border border-border rounded-2xl p-6 space-y-6">
+                                        <h5 className="text-[11px] font-black uppercase tracking-widest text-blue-500 flex items-center gap-2">
+                                            <ShieldCheck className="h-4 w-4" /> Governor Settings
+                                        </h5>
+                                        <div className="bg-card p-5 border border-border rounded-xl space-y-4">
+                                            <div className="space-y-1">
+                                                <Label className="text-[9px] font-black text-muted-foreground uppercase tracking-[0.2em]">Flow Governor (Max Load)</Label>
+                                            </div>
+                                            <input 
+                                                type="number" 
+                                                className="w-full h-11 bg-muted border border-border rounded-lg px-4 text-sm font-bold focus:border-primary/50 transition-colors"
+                                                value={selectedUserDetail.maxProjectLimit || 10}
+                                                onChange={async (e) => {
+                                                    const val = parseInt(e.target.value) || 10;
+                                                    try { await updateDoc(doc(db, "users", selectedUserDetail.uid), { maxProjectLimit: val, updatedAt: Date.now() }); } catch(err){}
+                                                }}
+                                            />
+                                        </div>
+                                    </div>
+                                </div>
+                            )}
+
+                            {selectedUserDetail.role === 'sales_executive' && (
+                                <div className="bg-muted/30 border border-border rounded-2xl p-6 space-y-6">
+                                    <h5 className="text-[11px] font-black uppercase tracking-widest text-primary flex items-center gap-2">
+                                        <TrendingUp className="h-4 w-4" /> Acquisition Pipeline
+                                    </h5>
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                        <div className="p-5 bg-card border border-border rounded-xl">
+                                            <div className="text-3xl font-black text-foreground">
+                                                {users.filter(u => u.role === 'client' && (u.managedBy === selectedUserDetail.uid || u.createdBy === selectedUserDetail.uid)).length}
+                                            </div>
+                                            <div className="text-[8px] font-bold text-muted-foreground uppercase tracking-widest mt-1">Converted Leads</div>
+                                        </div>
+                                        <div className="p-5 bg-card border border-border rounded-xl">
+                                            <div className="text-3xl font-black text-emerald-500">
+                                                ₹{projects.filter(p => users.some(u => u.uid === p.clientId && (u.managedBy === selectedUserDetail.uid || u.createdBy === selectedUserDetail.uid))).reduce((acc, p) => acc + (p.amountPaid || 0), 0).toLocaleString()}
+                                            </div>
+                                            <div className="text-[8px] font-bold text-muted-foreground uppercase tracking-widest mt-1">Attributed Flow</div>
+                                        </div>
+                                    </div>
+                                </div>
+                            )}
+
+                            {/* Bio / Internal Intelligence (Large Rectangle) */}
+                            <div className="bg-muted/30 border border-border rounded-2xl p-6 space-y-3 relative overflow-hidden group">
+                                <div className="absolute -bottom-6 -right-6 opacity-[0.03] group-hover:opacity-[0.08] transition-opacity">
+                                    <Database className="h-24 w-24" />
+                                </div>
+                                <h5 className="text-[11px] font-black uppercase tracking-widest text-muted-foreground flex items-center gap-2">
+                                    <Database className="h-4 w-4" /> Internal Intelligence
+                                </h5>
+                                <div className="bg-card border border-border rounded-xl p-4 min-h-[100px] relative z-10 transition-colors group-hover:border-primary/20">
+                                    <p className="text-xs leading-relaxed text-foreground/80 font-medium whitespace-pre-wrap">
+                                        {selectedUserDetail.bio || "NO_BIOMETRIC_DATA_AVAILABLE // SYSTEM_DEFAULT_STATE"}
+                                    </p>
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* RIGHT COLUMN: Logistics & Geography (4 Units) */}
+                        <div className="lg:col-span-4 space-y-6">
+                            <div className="bg-muted/30 border border-border rounded-2xl p-6 space-y-6 relative overflow-hidden group">
+                                <div className="absolute top-0 right-0 p-4 opacity-[0.03] group-hover:opacity-[0.08] transition-opacity">
+                                    <Globe className="h-10 w-10" />
+                                </div>
+                                <h5 className="text-[11px] font-black uppercase tracking-widest text-primary border-b border-border pb-3 flex items-center gap-2">
+                                    <Monitor className="h-4 w-4" /> Geographic Node
+                                </h5>
+                                <div className="space-y-4 relative z-10">
+                                    <div className="p-4 bg-card border border-border rounded-xl flex items-center gap-4 group/item hover:border-primary/20 transition-colors">
+                                        <div className="h-10 w-10 rounded-lg bg-muted flex items-center justify-center group-hover/item:text-primary transition-colors">
+                                            <MapPin className="h-5 w-5" />
+                                        </div>
+                                        <div className="flex flex-col">
+                                            <span className="text-[8px] font-black text-muted-foreground uppercase tracking-widest">Current Location</span>
+                                            <span className="text-sm font-black text-foreground">{selectedUserDetail.location || "Remote Link"}</span>
+                                        </div>
+                                    </div>
+                                    <div className="p-4 bg-card border border-border rounded-xl flex items-center gap-4 group/item hover:border-primary/20 transition-colors">
+                                        <div className="h-10 w-10 rounded-lg bg-muted flex items-center justify-center group-hover/item:text-primary transition-colors">
+                                            <Activity className="h-5 w-5" />
+                                        </div>
+                                        <div className="flex flex-col">
+                                            <span className="text-[8px] font-black text-muted-foreground uppercase tracking-widest">System Link</span>
+                                            <span className="text-sm font-black text-foreground">
+                                                {selectedUserDetail.lastSignInTime ? new Date(selectedUserDetail.lastSignInTime).toLocaleDateString() : "Active"}
+                                            </span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div className="bg-muted/30 border border-border rounded-2xl p-6 space-y-6">
+                                <h5 className="text-[11px] font-black uppercase tracking-widest text-emerald-500 border-b border-border pb-3 flex items-center gap-2">
+                                    <Briefcase className="h-4 w-4" /> Logistics Summary
+                                </h5>
+                                <div className="space-y-4">
+                                    <div className="flex items-center justify-between text-[11px]">
+                                        <span className="font-bold text-muted-foreground">Verification Status</span>
+                                        <span className={cn("font-black", selectedUserDetail.verified ? "text-emerald-500" : "text-amber-500")}>
+                                            {selectedUserDetail.verified ? "VERIFIED" : "PENDING"}
+                                        </span>
+                                    </div>
+                                     <div className="flex items-center justify-between text-[11px]">
+                                        <span className="font-bold text-muted-foreground">Portfolio Status</span>
+                                        <span className="font-black text-foreground">
+                                            {selectedUserDetail.portfolio && selectedUserDetail.portfolio.length > 0 ? "CATALOGED" : "UNAVAILABLE"}
+                                        </span>
+                                    </div>
+                                    {selectedUserDetail.portfolio && selectedUserDetail.portfolio.length > 0 && (
+                                        <a href={selectedUserDetail.portfolio[0].url} target="_blank" className="block text-center py-2 bg-emerald-500/10 border border-emerald-500/20 rounded-lg text-[9px] font-black uppercase tracking-widest text-emerald-500 hover:bg-emerald-500/20 transition-all">
+                                            Review External Link
+                                        </a>
+                                    )}
+                                </div>
+                            </div>
+                        </div>
                     </div>
                 </div>
             )}
         </Modal>
 
-        {/* Project Audit Inspector */}
         <Modal 
             isOpen={isProjectDetailModalOpen} 
             onClose={() => setIsProjectDetailModalOpen(false)} 
-            title={`Project status dashboard for Admin: ${inspectProject?.name}`}
-            maxWidth="max-w-4xl"
+            title={`Infrastructure Audit // ${inspectProject?.name}`}
+            maxWidth="max-w-7xl"
         >
             {inspectProject && (
-                <div className="mt-8 space-y-10 max-h-[75vh] overflow-y-auto pr-4 custom-scrollbar">
-                    {/* Header Spec */}
-                    <div className="flex flex-col gap-6">
-                        <div className="flex flex-col gap-4 border-b border-border pb-6">
-                            <div className="flex items-center gap-4">
-                                <div className="h-12 w-12 rounded-xl bg-primary/10 border border-primary/20 flex items-center justify-center text-primary">
-                                    <MonitorPlay className="h-6 w-6" />
-                                </div>
-                                <div>
-                                    <h4 className="text-xl font-bold text-foreground tracking-tight">{inspectProject.name}</h4>
-                                    <p className="text-[10px] text-muted-foreground font-bold uppercase tracking-widest mt-1">Management Overview // Ref: {inspectProject.id}</p>
-                                </div>
-                            </div>
-                            <div className="mt-2">
-                                <ProjectStatusBadges project={inspectProject} />
-                            </div>
+                <div className="mt-6 space-y-6 max-h-[85vh] overflow-y-auto pr-2 custom-scrollbar pb-6 text-left">
+                    {/* Top Identity bar */}
+                    <div className="bg-muted/30 border border-border rounded-2xl p-6 flex flex-col md:flex-row md:items-center justify-between gap-6 relative overflow-hidden group">
+                        <div className="absolute top-0 right-0 p-8 opacity-5 pointer-events-none group-hover:opacity-10 transition-opacity">
+                            <Terminal className="h-24 w-24" />
                         </div>
-
-                        <div className="grid grid-cols-2 lg:grid-cols-4 gap-6">
-                            <div className="p-6 rounded-2xl bg-muted/50 border border-border space-y-2.5 group hover:border-primary/20 transition-all">
-                                <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Total Price</span>
-                                <div className="text-2xl font-black text-foreground tabular-nums tracking-tight">₹{inspectProject.totalCost?.toLocaleString()}</div>
+                        <div className="flex items-center gap-5 relative z-10">
+                            <div className="h-16 w-16 rounded-2xl bg-primary/10 border border-primary/20 flex items-center justify-center text-primary shadow-inner">
+                                <MonitorPlay className="h-8 w-8" />
                             </div>
-                            <div className="p-6 rounded-2xl bg-muted/50 border border-border space-y-2.5 group hover:border-emerald-500/20 transition-all">
-                                <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Editor Share</span>
-                                <div className="text-2xl font-black text-emerald-500 tabular-nums tracking-tight">₹{inspectProject.editorPrice?.toLocaleString() || '0'}</div>
-                            </div>
-                            <div className="p-6 rounded-2xl bg-muted/50 border border-border space-y-2.5 group transition-all">
-                                <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">AutoPay</span>
-                                <div className={cn("text-sm font-black uppercase tracking-widest", inspectProject.autoPay ? "text-primary drop-shadow-[0_0_8px_rgba(99,102,241,0.4)]" : "text-muted-foreground")}>
-                                    {inspectProject.autoPay ? 'Authorized' : 'Disabled'}
+                            <div className="space-y-1">
+                                <div className="flex items-center gap-2">
+                                    <h4 className="text-2xl font-black text-foreground tracking-tight">{inspectProject.name}</h4>
+                                    <span className="text-[9px] bg-primary/10 text-primary border border-primary/20 px-2 py-0.5 rounded-full font-black uppercase tracking-widest">{inspectProject.status}</span>
                                 </div>
-                            </div>
-                            <div className="p-6 rounded-2xl bg-muted/50 border border-border space-y-2.5 group transition-all">
-                                <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Assigned PM</span>
-                                <div className="text-[13px] font-bold text-foreground/80 truncate tracking-tight group-hover:text-foreground transition-colors">
-                                    {users.find(u => u.uid === inspectProject.assignedPMId)?.displayName || 'Unassigned'}
+                                <div className="flex items-center gap-3 text-muted-foreground">
+                                    <span className="text-[10px] font-bold uppercase tracking-[0.2em]">REF: {inspectProject.id}</span>
+                                    <span className="h-1 w-1 rounded-full bg-border" />
+                                    <span className="text-[10px] font-bold uppercase tracking-[0.2em]">{new Date(inspectProject.createdAt).toLocaleDateString()}</span>
                                 </div>
                             </div>
                         </div>
-                        
-                        {inspectProject.assignmentStatus === 'rejected' && inspectProject.editorDeclineReason && (
-                            <div className="p-4 rounded-xl bg-red-500/10 border border-red-500/20 text-red-500 space-y-2 mt-4">
-                                <div className="text-[10px] font-bold uppercase tracking-widest flex items-center gap-2">
-                                    <AlertCircle className="h-4 w-4 text-red-400" /> Editor Decline Reason
-                                </div>
-                                <p className="text-xs text-red-400/90 font-medium italic">“{inspectProject.editorDeclineReason}”</p>
+                        <div className="relative z-10 flex flex-col items-end gap-2 text-right">
+                            <ProjectStatusBadges project={inspectProject} />
+                            <div className="text-[9px] font-bold text-muted-foreground uppercase tracking-widest bg-card px-3 py-1 rounded-md border border-border">
+                                Last Updated: {new Date(inspectProject.updatedAt).toLocaleString()}
                             </div>
-                        )}
+                        </div>
                     </div>
 
-                    {/* Timeline Data */}
-                    <div className="space-y-6">
-                        <div className="flex items-center gap-2.5">
-                            <Activity className="h-4 w-4 text-primary" />
-                            <h5 className="text-[11px] font-bold text-muted-foreground uppercase tracking-widest">Project Event History</h5>
-                        </div>
+                    {/* Bento Grid Layout */}
+                    <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+                        {/* LEFT COLUMN: 8 Units */}
+                        <div className="lg:col-span-8 space-y-6">
+                            {/* Row 1: Technical & Metrics */}
+                            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                                {[
+                                    { label: 'Video Type', value: inspectProject.videoType || 'N/A', icon: <Layers className="h-3.5 w-3.5" /> },
+                                    { label: 'Format', value: inspectProject.videoFormat || 'N/A', icon: <Monitor className="h-3.5 w-3.5" /> },
+                                    { label: 'Ratio', value: inspectProject.aspectRatio || 'N/A', icon: <Cpu className="h-3.5 w-3.5" /> },
+                                    { label: 'Duration', value: inspectProject.duration ? `${inspectProject.duration}m` : 'N/A', icon: <Calendar className="h-3.5 w-3.5" /> },
+                                ].map((spec, i) => (
+                                    <div key={i} className="bg-card border border-border rounded-xl p-4 space-y-2 hover:border-primary/30 transition-all shadow-sm">
+                                        <div className="flex items-center gap-2 text-muted-foreground">
+                                            {spec.icon}
+                                            <span className="text-[9px] font-bold uppercase tracking-widest">{spec.label}</span>
+                                        </div>
+                                        <div className="text-sm font-black text-foreground tracking-tight">{spec.value}</div>
+                                    </div>
+                                ))}
+                            </div>
 
-                        <div className="relative space-y-8 pl-8 before:absolute before:left-3 before:top-2 before:bottom-2 before:w-px before:bg-card">
-                            {inspectProject.logs && inspectProject.logs.length > 0 ? (
-                                [...inspectProject.logs].reverse().map((log, i) => (
-                                    <div key={i} className="relative group">
-                                        <div className="absolute -left-[25px] top-1.5 h-2.5 w-2.5 rounded-full bg-muted-foreground border border-zinc-700 group-hover:bg-primary group-hover:border-primary transition-all z-10" />
-                                        <div className="space-y-1">
-                                            <div className="flex items-center justify-between">
-                                                <span className="text-[10px] font-black text-foreground uppercase tracking-widest">{log.event.replace('_', ' ')}</span>
-                                                <span className="text-[9px] font-bold text-muted-foreground tabular-nums">{new Date(log.timestamp).toLocaleString()}</span>
+                            {/* Section: Infrastructure & Assignments (Dense Row) */}
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                {/* Source Assets */}
+                                <div className="bg-muted/30 border border-border rounded-2xl p-5 space-y-4">
+                                    <h5 className="text-[10px] font-black uppercase tracking-widest text-primary flex items-center gap-2">
+                                        <HardDrive className="h-3.5 w-3.5" /> Source Infrastructure
+                                    </h5>
+                                    <div className="space-y-3">
+                                        <div className="p-3 bg-card border border-border rounded-xl flex items-center justify-between group/link hover:border-primary/20 transition-all">
+                                            <div className="flex flex-col min-w-0">
+                                                <span className="text-[8px] font-black text-muted-foreground uppercase tracking-tight">Main Footage</span>
+                                                <span className="text-xs font-bold text-foreground truncate max-w-[200px]">{inspectProject.footageLink || 'N/A'}</span>
                                             </div>
-                                            <p className="text-xs text-muted-foreground font-medium leading-relaxed">{log.details}</p>
-                                            <div className="flex flex-col gap-1 text-[9px] font-bold text-muted-foreground uppercase tracking-widest pt-1">
-                                                <div className="flex items-center gap-2">
-                                                    <span>Performed By:</span>
-                                                    <span className="text-muted-foreground">{log.userName}</span>
+                                            {inspectProject.footageLink && (
+                                                <a href={inspectProject.footageLink} target="_blank" className="h-8 w-8 rounded-lg bg-muted flex items-center justify-center text-muted-foreground hover:text-primary transition-all">
+                                                    <ExternalLink className="h-4 w-4" />
+                                                </a>
+                                            )}
+                                        </div>
+                                        <div className="grid grid-cols-3 gap-3">
+                                            {[
+                                                { label: 'Raw Files', count: inspectProject.rawFiles?.length || 0 },
+                                                { label: 'Scripts', count: inspectProject.scripts?.length || 0 },
+                                                { label: 'Refs', count: inspectProject.referenceFiles?.length || 0 }
+                                            ].map((item, i) => (
+                                                <div key={i} className="p-3 bg-card border border-border rounded-xl text-center">
+                                                    <div className="text-sm font-black text-foreground">{item.count}</div>
+                                                    <div className="text-[7px] font-black text-muted-foreground uppercase tracking-widest">{item.label}</div>
                                                 </div>
-                                                {(log as any).designation && (
-                                                    <div className="flex items-center gap-2">
-                                                        <span>Designation:</span>
-                                                        <span className="text-muted-foreground">{(log as any).designation}</span>
-                                                    </div>
-                                                )}
+                                            ))}
+                                        </div>
+                                    </div>
+                                </div>
+
+                                {/* Stakeholders */}
+                                <div className="bg-muted/30 border border-border rounded-2xl p-5 space-y-4">
+                                    <h5 className="text-[10px] font-black uppercase tracking-widest text-emerald-500 flex items-center gap-2">
+                                        <Activity className="h-3.5 w-3.5" /> Resource Assignment
+                                    </h5>
+                                    <div className="space-y-3">
+                                        <div className="p-3 bg-card border border-border rounded-xl flex items-center gap-3 hover:border-primary/20 transition-all">
+                                            <div className="h-9 w-9 rounded-lg bg-primary/10 flex items-center justify-center">
+                                                <UserIcon className="h-4 w-4 text-primary" />
+                                            </div>
+                                            <div className="flex flex-col">
+                                                <span className="text-[8px] font-black text-muted-foreground uppercase tracking-tight">Success Manager (PM)</span>
+                                                <span className="text-xs font-black text-foreground leading-tight">
+                                                    {users.find(u => u.uid === inspectProject.assignedPMId)?.displayName || 'Infrastructure Unmanaged'}
+                                                </span>
+                                            </div>
+                                        </div>
+                                        <div className="p-3 bg-card border border-border rounded-xl flex items-center gap-3 hover:border-primary/20 transition-all">
+                                            <div className="h-9 w-9 rounded-lg bg-emerald-500/10 flex items-center justify-center">
+                                                <Briefcase className="h-4 w-4 text-emerald-500" />
+                                            </div>
+                                            <div className="flex flex-col">
+                                                <span className="text-[8px] font-black text-muted-foreground uppercase tracking-tight">Assigned Creative (Editor)</span>
+                                                <span className="text-xs font-black text-foreground leading-tight">
+                                                    {users.find(u => u.uid === inspectProject.assignedEditorId)?.displayName || 'Awaiting Allocation'}
+                                                </span>
                                             </div>
                                         </div>
                                     </div>
-                                ))
-                            ) : (
-                                <div className="py-12 flex flex-col items-center justify-center border border-dashed border-border rounded-2xl opacity-30 gap-4">
-                                    <Database className="h-8 w-8 text-muted-foreground" />
-                                    <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">No activity history available</p>
                                 </div>
-                            )}
+                            </div>
+
+                            {/* Brief / Description (Large Rectangle) */}
+                            <div className="bg-muted/30 border border-border rounded-2xl p-6 space-y-3">
+                                <div className="flex items-center justify-between">
+                                    <h5 className="text-[10px] font-black uppercase tracking-widest text-muted-foreground flex items-center gap-2">
+                                        <Shield className="h-3.5 w-3.5" /> Internal Brief & Metadata
+                                    </h5>
+                                    <span className="text-[8px] font-bold text-muted-foreground/60 uppercase">CLASSIFIED_ACCESS</span>
+                                </div>
+                                <div className="bg-card border border-border rounded-xl p-4 min-h-[100px]">
+                                    <p className="text-xs leading-relaxed text-foreground/80 font-medium whitespace-pre-wrap">
+                                        {inspectProject.description || "No project brief has been cataloged for this resource phase."}
+                                    </p>
+                                </div>
+                                {inspectProject.assignmentStatus === 'rejected' && inspectProject.editorDeclineReason && (
+                                    <div className="p-4 rounded-xl bg-red-500/10 border border-red-500/20 text-red-500 space-y-1">
+                                        <div className="text-[9px] font-black uppercase tracking-[0.2em] flex items-center gap-2">
+                                            <AlertCircle className="h-3.5 w-3.5" /> REJECTION_INCIDENT
+                                        </div>
+                                        <p className="text-xs text-red-400 font-bold italic">“{inspectProject.editorDeclineReason}”</p>
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+
+                        {/* RIGHT COLUMN: 4 Units (Financials & Logs) */}
+                        <div className="lg:col-span-4 space-y-6">
+                            {/* Treasury Ledger (Rectangle) */}
+                            <div className="bg-muted/30 border border-border rounded-2xl p-6 space-y-6 relative overflow-hidden group">
+                                <div className="absolute -top-4 -right-4 opacity-5 group-hover:opacity-10 transition-opacity">
+                                    <IndianRupee className="h-24 w-24" />
+                                </div>
+                                <h5 className="text-[11px] font-black uppercase tracking-widest text-primary border-b border-border pb-3 flex items-center gap-2">
+                                    <IndianRupee className="h-4 w-4" /> Treasury Ledger
+                                </h5>
+                                <div className="space-y-5">
+                                    <div className="flex flex-col bg-card/40 p-4 rounded-xl border border-border">
+                                        <span className="text-[9px] font-black text-muted-foreground uppercase tracking-widest">Global Order Value</span>
+                                        <div className="text-3xl font-black text-foreground tabular-nums tracking-tighter mt-1">₹{inspectProject.totalCost?.toLocaleString()}</div>
+                                    </div>
+                                    
+                                    <div className="grid grid-cols-1 gap-3">
+                                        <div className="p-4 bg-emerald-500/5 border border-emerald-500/10 rounded-xl flex items-center justify-between">
+                                            <div className="flex flex-col">
+                                                <span className="text-[8px] font-black text-emerald-500/60 uppercase tracking-widest">Editor Revenue</span>
+                                                <span className="text-lg font-black text-emerald-500 tabular-nums">₹{inspectProject.editorPrice?.toLocaleString() || '0'}</span>
+                                            </div>
+                                            <ArrowUpRight className="h-5 w-5 text-emerald-500" />
+                                        </div>
+                                        <div className="p-4 bg-primary/5 border border-primary/10 rounded-xl flex items-center justify-between">
+                                            <div className="flex flex-col">
+                                                <span className="text-[8px] font-black text-primary/60 uppercase tracking-widest">Platform Margin</span>
+                                                <span className="text-lg font-black text-primary tabular-nums">₹{((inspectProject.totalCost || 0) - (inspectProject.editorPrice || 0)).toLocaleString()}</span>
+                                            </div>
+                                            <Zap className="h-5 w-5 text-primary" />
+                                        </div>
+                                    </div>
+                                    
+                                    <div className="pt-2 flex items-center justify-between px-1">
+                                        <div className="flex flex-col">
+                                            <span className="text-[8px] font-black text-muted-foreground uppercase tracking-widest">Auto-Settlement</span>
+                                            <span className={cn("text-[10px] font-black uppercase mt-0.5", inspectProject.autoPay ? "text-primary" : "text-muted-foreground")}>
+                                                {inspectProject.autoPay ? 'AUTHORIZED' : 'DISABLED'}
+                                            </span>
+                                        </div>
+                                        <div className={cn("h-6 w-10 rounded-lg border flex items-center justify-center", inspectProject.autoPay ? "bg-primary shadow-[0_0_10px_rgba(var(--primary),0.3)] border-primary" : "bg-muted border-border")}>
+                                            <ShieldCheck className={cn("h-3.5 w-3.5", inspectProject.autoPay ? "text-primary-foreground" : "text-muted-foreground")} />
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* Project History / Incident Logs (Rectangle) */}
+                            <div className="bg-muted/30 border border-border rounded-2xl p-6 flex flex-col min-h-[400px]">
+                                <h5 className="text-[11px] font-black uppercase tracking-widest text-primary border-b border-border pb-3 flex items-center gap-2">
+                                    <Activity className="h-4 w-4" /> Project History
+                                </h5>
+                                <div className="flex-1 overflow-y-auto mt-6 space-y-6 pr-2 custom-scrollbar">
+                                    {inspectProject.logs && inspectProject.logs.length > 0 ? (
+                                        [...inspectProject.logs].reverse().map((log: any, i) => (
+                                            <div key={i} className="relative pl-6 before:absolute before:left-1 before:top-2 before:w-px before:h-[calc(100%+1.5rem)] before:bg-border last:before:hidden text-left">
+                                                <div className="absolute left-[-2px] top-2 h-2 w-2 rounded-full bg-border border border-muted ring-2 ring-muted group-hover:bg-primary transition-all" />
+                                                <div className="space-y-1.5 pb-2 border-b border-border/20">
+                                                    <div className="flex items-center justify-between gap-2">
+                                                        <span className="text-[10px] font-black text-foreground uppercase tracking-tight">{log.event.replace('_', ' ')}</span>
+                                                        <span className="text-[8px] font-bold text-muted-foreground tabular-nums">
+                                                            {new Date(log.timestamp).toLocaleDateString([], { month: 'short', day: 'numeric' })}
+                                                        </span>
+                                                    </div>
+                                                    <p className="text-[11px] text-muted-foreground/90 font-medium leading-relaxed">{log.details}</p>
+                                                    <div className="flex items-center gap-1.5 pt-1">
+                                                        <span className="text-[9px] font-black text-primary uppercase">{log.userName}</span>
+                                                        {log.designation && <span className="text-[8px] font-bold text-muted-foreground italic truncate lowercase text-opacity-70">/ {log.designation}</span>}
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        ))
+                                    ) : (
+                                        <div className="py-12 flex flex-col items-center justify-center opacity-30 gap-3">
+                                            <Database className="h-6 w-6 text-muted-foreground" />
+                                            <p className="text-[9px] font-bold uppercase tracking-widest text-muted-foreground">No History cataloged</p>
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
                         </div>
                     </div>
                 </div>
             )}
         </Modal>
+
 
         {/* Add Editor Modal */}
         <Modal 
@@ -2466,118 +2544,6 @@ export function AdminDashboard() {
   );
 }
 
-function IndicatorCard({ label, value, subtext, trend, trendUp, alert, icon }: any) {
-    return (
-        <motion.div 
-            initial={{ opacity: 0, y: 15 }}
-            animate={{ opacity: 1, y: 0 }}
-            whileHover={{ y: -4, transition: { duration: 0.2 } }}
-            className={cn(
-                "group relative enterprise-card p-6 md:p-8 transition-all duration-300",
-                alert && "after:absolute after:inset-0 after:rounded-xl after:ring-1 after:ring-primary/40 after:animate-pulse"
-            )}
-        >
-            <div className="flex justify-between items-start mb-6">
-                <div className="h-10 w-10 bg-muted/50 border border-border rounded-lg flex items-center justify-center text-muted-foreground group-hover:text-primary group-hover:border-primary/30 transition-all duration-300">
-                    {icon}
-                </div>
-                {alert && <div className="h-2 w-2 rounded-full bg-primary animate-pulse shadow-[0_0_10px_rgba(var(--primary),0.8)]" />}
-            </div>
-            
-            <div className="space-y-1.5">
-                <span className="text-[11px] uppercase font-bold tracking-widest text-muted-foreground group-hover:text-muted-foreground transition-colors">{label}</span>
-                <div className="flex items-end gap-3">
-                    <span className="text-3xl font-black tracking-tight text-foreground font-heading tabular-nums">{value}</span>
-                </div>
-                
-                <div className="flex items-center gap-3 pt-4 border-t border-border mt-4">
-                    {trend && (
-                        <span className={cn(
-                            "flex items-center gap-1.5 px-1.5 py-0.5 rounded text-[9px] font-bold uppercase tracking-widest", 
-                            trendUp ? "bg-emerald-500/10 text-emerald-500 border border-emerald-500/20" : "bg-card text-muted-foreground border border-border"
-                        )}>
-                            {trend}
-                        </span>
-                    )}
-                    <span className="text-muted-foreground text-[10px] font-bold uppercase tracking-wider">{subtext}</span>
-                </div>
-            </div>
-        </motion.div>
-    );
-}
-
-function StatusIndicator({ status }: { status: string }) {
-    const config: any = {
-        active: { label: "Editing", color: "text-blue-400", bg: "bg-blue-400/5", border: "border-blue-400/20" },
-        in_review: { label: "Review", color: "text-purple-400", bg: "bg-purple-400/5", border: "border-purple-400/20" },
-        pending_assignment: { label: "Waiting", color: "text-amber-400", bg: "bg-amber-400/5", border: "border-amber-400/20" },
-        approved: { label: "Approved", color: "text-emerald-400", bg: "bg-emerald-400/5", border: "border-emerald-400/20" },
-        completed: { label: "Completed", color: "text-muted-foreground", bg: "bg-zinc-500/5", border: "border-zinc-500/20" },
-    };
-    const s = config[status] || config.completed;
-    return (
-        <span className={cn(
-            "inline-flex items-center gap-2 px-2 py-0.5 rounded text-[9px] font-bold uppercase tracking-widest border transition-all", 
-            s.bg, s.color, s.border
-        )}>
-            <div className={cn("w-1 h-1 rounded-full bg-current", status === 'active' && "animate-pulse shadow-[0_0_5px_currentColor]")} />
-            {s.label}
-        </span>
-    );
-}
-
-function ProjectStatusBadges({ project }: { project: any }) {
-    const badges = [];
-
-    // Overall Status
-    if (project.status === 'completed' || project.status === 'archived') {
-        badges.push({ label: "Completed", color: "text-muted-foreground", bg: "bg-zinc-500/10", border: "border-zinc-500/20" });
-    } else if (project.status === 'in_review') {
-        badges.push({ label: "In Review", color: "text-purple-400", bg: "bg-purple-400/10", border: "border-purple-400/20" });
-    } else if (project.status === 'active') {
-        badges.push({ label: "Editing", color: "text-blue-400", bg: "bg-blue-400/10", border: "border-blue-400/20", pulse: true });
-    } else if (project.status === 'approved') {
-        badges.push({ label: "Approved", color: "text-emerald-400", bg: "bg-emerald-400/10", border: "border-emerald-400/20" });
-    } else if (project.status === 'pending_assignment') {
-        if (!project.assignedEditorId) {
-            badges.push({ label: "Editor Not Assigned", color: "text-amber-400", bg: "bg-amber-400/10", border: "border-amber-400/20" });
-        } else {
-            badges.push({ label: "Editor Assigned", color: "text-blue-400", bg: "bg-blue-400/10", border: "border-blue-400/20" });
-        }
-    } else {
-        badges.push({ label: project.status, color: "text-muted-foreground", bg: "bg-zinc-400/10", border: "border-zinc-400/20" });
-    }
-
-    // Client Payment
-    if (project.paymentStatus === 'full_paid') {
-        badges.push({ label: "Client Payment Done", color: "text-emerald-500", bg: "bg-emerald-500/10", border: "border-emerald-500/20" });
-    } else if (project.paymentOption === 'pay_later' && project.paymentStatus !== 'full_paid') {
-        badges.push({ label: "Client Payment Left", color: "text-red-400", bg: "bg-red-400/10", border: "border-red-400/20" });
-    }
-
-    // Editor Payment
-    if (project.assignedEditorId && (project.editorPrice || 0) > 0) {
-        if (project.editorPaid) {
-            badges.push({ label: "Editor Payment Done", color: "text-emerald-500", bg: "bg-emerald-500/10", border: "border-emerald-500/20" });
-        } else {
-             badges.push({ label: "Editor Payment Left", color: "text-amber-500", bg: "bg-amber-500/10", border: "border-amber-500/20" });
-        }
-    }
-
-    return (
-        <div className="flex flex-wrap items-center gap-1.5">
-            {badges.map((b, i) => (
-                <span key={i} className={cn(
-                    "inline-flex items-center gap-1.5 px-2 py-0.5 rounded text-[9px] font-bold uppercase tracking-widest border transition-all whitespace-nowrap", 
-                    b.bg, b.color, b.border
-                )}>
-                    {b.pulse && <div className="w-1 h-1 rounded-full bg-current animate-pulse shadow-[0_0_5px_currentColor]" />}
-                    {b.label}
-                </span>
-            ))}
-        </div>
-    );
-}
 
 
 

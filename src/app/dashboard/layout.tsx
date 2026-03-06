@@ -6,7 +6,6 @@ import { useAuth } from "@/lib/context/auth-context";
 import { DashboardSidebar } from "@/components/dashboard/dashboard-sidebar";
 import { DashboardHeader } from "@/components/dashboard/dashboard-header";
 import { Loader2, Menu, X } from "lucide-react";
-import { DashboardFooter } from "@/components/dashboard/dashboard-footer";
 import { cn } from "@/lib/utils";
 import { AnimatePresence, motion } from "framer-motion";
 
@@ -84,7 +83,6 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
              <div className="flex-1 p-4 md:p-8 lg:p-10 max-w-[1920px] mx-auto w-full page-fade-in">
                 {children}
              </div>
-             <DashboardFooter />
           </main>
         </div>
       </div>
