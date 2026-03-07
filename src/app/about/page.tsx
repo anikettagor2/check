@@ -1,6 +1,9 @@
 import { Navbar } from "@/components/navbar";
 import { Footer } from "@/components/footer";
 import { AboutContent } from "@/components/about-content";
+import { LenisProvider } from "@/components/home/lenis-provider";
+import { CustomCursor } from "@/components/home/custom-cursor";
+import { ImmersiveBackground } from "@/components/home/immersive-background";
 
 export const metadata = {
   title: "About Us | EditoHub",
@@ -9,12 +12,14 @@ export const metadata = {
 
 export default function AboutPage() {
   return (
-    <main className="bg-background text-foreground min-h-screen">
-      <Navbar />
-      <div className="pt-32">
+    <LenisProvider>
+      <main className="bg-black text-white overflow-x-hidden selection:bg-primary selection:text-white">
+        <CustomCursor />
+        <ImmersiveBackground />
+        <Navbar />
         <AboutContent />
-      </div>
-      <Footer />
-    </main>
+        <Footer />
+      </main>
+    </LenisProvider>
   );
 }

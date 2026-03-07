@@ -59,10 +59,10 @@ export function Footer() {
           <div>
             <h3 className="font-semibold text-lg mb-6">Services</h3>
             <ul className="space-y-4">
-              <FooterLink href="#">Short-form Video</FooterLink>
-              <FooterLink href="#">Scriptwriting</FooterLink>
-              <FooterLink href="#">Thumbnail Design</FooterLink>
-              <FooterLink href="#">Bulk Video Editing</FooterLink>
+              <FooterLink href="/services">Short-form Video</FooterLink>
+              <FooterLink href="/services">Scriptwriting</FooterLink>
+              <FooterLink href="/services">Thumbnail Design</FooterLink>
+              <FooterLink href="/services">Bulk Video Editing</FooterLink>
             </ul>
           </div>
 
@@ -71,7 +71,7 @@ export function Footer() {
             <h3 className="font-semibold text-lg mb-6">Company</h3>
             <ul className="space-y-4">
               <FooterLink href="/about">About Us</FooterLink>
-              <FooterLink href="#">Portfolio</FooterLink>
+              <FooterLink href="/portfolio">Portfolio</FooterLink>
               <FooterLink href="#">Careers</FooterLink>
               <FooterLink href="#">Contact</FooterLink>
             </ul>
