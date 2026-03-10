@@ -78,7 +78,7 @@ import {
 
 import { useSearchParams } from "next/navigation";
 import { useAuth } from "@/lib/context/auth-context";
-import { assignEditor, updateProject, togglePayLater, deleteProject, deleteUser, toggleUserStatus, rejectDeletionRequest, verifyEditor, getWhatsAppTemplates, updateWhatsAppTemplates, settleProjectPayment, addProjectLog } from "@/app/actions/admin-actions";
+import { assignEditor, updateProject, togglePayLater, deleteProject, deleteUser, toggleUserStatus, rejectDeletionRequest, verifyEditor, getWhatsAppTemplates, updateWhatsAppTemplates, settleProjectPayment, addProjectLog, bulkSettleEditorDues } from "@/app/actions/admin-actions";
 import { AdminOverviewGraphs } from "./admin-overview-graphs";
 import { AdminPerformanceTab } from "./admin-performance";
 import { ClientDocuments } from "./client-documents";
@@ -288,7 +288,7 @@ export function AdminDashboard() {
         const clientPending = projects.reduce((acc, curr) => acc + Math.max(0, (curr.totalCost || 0) - (curr.amountPaid || 0)), 0);
         
         const editorPending = projects.reduce((acc, curr) => {
-            if (curr.assignedEditorId && !curr.editorPaid) {
+            if (curr.assignedEditorId && !curr.editorPaid && curr.clientHasDownloaded) {
                 return acc + (curr.editorPrice || 0);
             }
             return acc;
@@ -470,6 +470,23 @@ export function AdminDashboard() {
       }
   };
 
+  const handleSettleAllDues = async (editorId: string) => {
+    const editorProjects = projects.filter(p => p.assignedEditorId === editorId && p.clientHasDownloaded && !p.editorPaid);
+    if (editorProjects.length === 0) return;
+    
+    if(!confirm(`Are you sure you want to settle all ${editorProjects.length} pending payouts for this editor?`)) return;
+    
+    const pids = editorProjects.map(p => p.id);
+    const res = await bulkSettleEditorDues(pids, { 
+        uid: currentUser!.uid, 
+        displayName: currentUser!.displayName || "Admin", 
+        designation: currentUser?.role === 'admin' ? 'Admin' : 'Project Manager' 
+    });
+    
+    if(res.success) toast.success(`Settled all dues for editor.`);
+    else toast.error("Failed to settle dues");
+  };
+
    const handleUpdateProject = async () => {
       if (!selectedProject) return;
       try {
@@ -580,11 +597,15 @@ export function AdminDashboard() {
                          <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Live Updates</span>
                     </div>
                 </div>
-                <h1 className="text-4xl md:text-5xl font-heading font-bold tracking-tight text-foreground leading-tight">Admin <span className="text-muted-foreground">Dashboard</span></h1>
+                <h1 className="text-4xl md:text-5xl font-heading font-bold tracking-tight text-foreground leading-tight">
+                    {currentUser?.role === 'admin' ? 'Admin' : 'Management'} <span className="text-muted-foreground">Dashboard</span>
+                </h1>
                 <div className="flex items-center gap-6 pt-2">
                     <div className="flex items-center gap-2 text-muted-foreground">
                         <Shield className="h-3.5 w-3.5" />
-                        <span className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Administrator</span>
+                        <span className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+                            {currentUser?.role === 'admin' ? 'Administrator' : 'Project Manager'}
+                        </span>
                     </div>
                     <div className="flex items-center gap-2 text-muted-foreground">
                         <RefreshCw className="h-3.5 w-3.5" />
@@ -1033,13 +1054,13 @@ export function AdminDashboard() {
                                                     {u.role === 'client' && (
                                                         <DropdownMenuItem className="p-2.5 text-xs text-popover-foreground hover:bg-muted transition-colors cursor-pointer rounded-lg" onClick={async () => {
                                                             const res = await togglePayLater(u.uid, !u.payLater);
-                                                            if(res.success) toast.success(`Payment protocol adjusted`);
+                                                            if(res.success) toast.success(`Pay later status updated`);
                                                         }}>
                                                             <IndianRupee className="mr-2.5 h-3.5 w-3.5 text-muted-foreground" /> {u.payLater ? "Revoke Pay Later" : "Allow Pay Later"}
                                                         </DropdownMenuItem>
                                                     )}
                                                     <DropdownMenuItem className="p-2.5 text-xs text-popover-foreground hover:bg-muted transition-colors cursor-pointer rounded-lg" onClick={() => handleToggleUserStatus(u.uid, (u as any).status !== 'inactive')}>
-                                                        <Shield className="mr-2.5 h-3.5 w-3.5 text-muted-foreground" /> {(u as any).status === 'inactive' ? "Restore Integrity" : "Suspend Auth"}
+                                                        <Shield className="mr-2.5 h-3.5 w-3.5 text-muted-foreground" /> {(u as any).status === 'inactive' ? "Enable Account" : "Disable Account"}
                                                     </DropdownMenuItem>
                                                     <DropdownMenuSeparator className="my-1 bg-border" />
                                                     <DropdownMenuItem onClick={() => handleDeleteUser(u.uid)} className="p-2.5 text-xs text-red-400 hover:bg-red-500/10 transition-colors cursor-pointer rounded-lg">
@@ -1593,8 +1614,8 @@ export function AdminDashboard() {
                                     <h3 className="text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground">Editor Payables (Pending Payouts)</h3>
                                 </div>
                                 <div className="grid gap-6">
-                                    {users.filter(u => u.role === 'editor' && projects.some(p => p.assignedEditorId === u.uid && p.status === 'completed' && !p.editorPaid)).map(editor => {
-                                        const editorProjects = projects.filter(p => p.assignedEditorId === editor.uid && p.status === 'completed' && !p.editorPaid);
+                                    {users.filter(u => u.role === 'editor' && projects.some(p => p.assignedEditorId === u.uid && p.clientHasDownloaded && !p.editorPaid)).map(editor => {
+                                        const editorProjects = projects.filter(p => p.assignedEditorId === editor.uid && p.clientHasDownloaded && !p.editorPaid);
                                         const totalEditorDues = editorProjects.reduce((sum, p) => sum + (p.editorPrice || 0), 0);
 
                                         if (totalEditorDues === 0) return null;
@@ -1623,8 +1644,8 @@ export function AdminDashboard() {
                                                             <span className="text-2xl font-black text-blue-400 tabular-nums">₹{totalEditorDues.toLocaleString()}</span>
                                                         </div>
                                                         <button 
-                                                            disabled
-                                                            className="w-full md:w-auto h-9 px-4 rounded-lg bg-blue-500/50 text-foreground font-bold uppercase tracking-widest transition-all text-[10px] cursor-not-allowed opacity-50 flex items-center justify-center gap-2"
+                                                            onClick={() => handleSettleAllDues(editor.uid)}
+                                                            className="w-full md:w-auto h-9 px-4 rounded-lg bg-blue-500/10 border border-blue-500/20 text-blue-400 font-bold uppercase tracking-widest transition-all hover:bg-blue-500 hover:text-foreground text-[10px] flex items-center justify-center gap-2 active:scale-95"
                                                         >
                                                             <RefreshCw className="h-3.5 w-3.5" />
                                                             Settle All Dues
@@ -1646,7 +1667,7 @@ export function AdminDashboard() {
                                                                     <div className="flex items-center gap-2 mt-1">
                                                                         <span className="text-[9px] text-muted-foreground font-bold uppercase tracking-widest">ID: {project.id.slice(0,8)}</span>
                                                                         <div className="h-1 w-1 rounded-full bg-muted-foreground" />
-                                                                        <span className="text-[9px] font-bold uppercase tracking-widest text-emerald-500">Project Completed</span>
+                                                                        <span className="text-[9px] font-bold uppercase tracking-widest text-emerald-500">File Downloaded</span>
                                                                     </div>
                                                                 </div>
                                                             </div>
@@ -1670,7 +1691,7 @@ export function AdminDashboard() {
                                         );
                                     })}
 
-                                    {users.filter(u => u.role === 'editor' && projects.some(p => p.assignedEditorId === u.uid && p.status === 'completed' && !p.editorPaid)).length === 0 && (
+                                    {users.filter(u => u.role === 'editor' && projects.some(p => p.assignedEditorId === u.uid && p.clientHasDownloaded && !p.editorPaid)).length === 0 && (
                                         <div className="enterprise-card p-8 text-center flex flex-col items-center justify-center border-dashed border-2 border-border opacity-60">
                                             <h3 className="text-sm font-bold text-muted-foreground uppercase tracking-widest">All editor payouts settled</h3>
                                         </div>

@@ -426,7 +426,7 @@ export function EditorDashboard() {
                                                             </button>
                                                             <button 
                                                                 onClick={(e) => { e.stopPropagation(); handleResponse(project.id, 'rejected'); }}
-                                                                className="h-8 px-4 rounded-lg bg-muted-foreground text-muted-foreground text-[9px] font-black uppercase tracking-widest hover:bg-red-500/10 hover:text-red-500 transition-all"
+                                                                className="h-8 px-4 rounded-lg bg-zinc-800 text-zinc-400 text-[9px] font-black uppercase tracking-widest hover:bg-red-500/10 hover:text-red-500 transition-all border border-border"
                                                             >
                                                                 Decline
                                                             </button>
@@ -569,7 +569,7 @@ function IndicatorCard({ label, value, subtext, trend, trendUp, alert, icon }: a
                     <div className="pt-6 mt-6 border-t border-border flex flex-col items-end gap-2">
                         <div className={cn(
                             "flex items-center gap-1.5 px-3 py-1.5 rounded-xl shadow-sm border",
-                            trendUp ? "bg-emerald-500/10 border-emerald-500/30 text-emerald-400" : "bg-muted-foreground border-border text-muted-foreground"
+                            trendUp ? "bg-emerald-500/10 border-emerald-500/30 text-emerald-400" : "bg-muted/10 border-border text-muted-foreground"
                         )}>
                              {trendUp ? <ArrowUpRight className="h-3.5 w-3.5" /> : <Zap className="h-3.5 w-3.5" />}
                              <span className="text-[11px] font-black uppercase tracking-tight">{trend}</span>
@@ -588,7 +588,7 @@ function StatusIndicator({ status }: { status: string }) {
         in_review: { label: "QA Cycle", color: "text-purple-400", bg: "bg-purple-400/10", border: "border-purple-400/20", glow: "shadow-[0_0_15px_rgba(192,132,252,0.3)]" },
         pending_assignment: { label: "Invitation", color: "text-amber-400", bg: "bg-amber-400/10", border: "border-amber-400/20", glow: "shadow-[0_0_15px_rgba(251,191,36,0.3)]" },
         approved: { label: "Authorized", color: "text-emerald-400", bg: "bg-emerald-400/10", border: "border-emerald-400/20", glow: "shadow-[0_0_15px_rgba(52,211,153,0.3)]" },
-        completed: { label: "Completed", color: "text-muted-foreground", bg: "bg-muted-foreground", border: "border-border", glow: "" },
+        completed: { label: "Completed", color: "text-muted-foreground", bg: "bg-muted/20", border: "border-border", glow: "" },
     };
     const s = config[status] || config.completed;
     return (

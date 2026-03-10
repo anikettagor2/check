@@ -4,7 +4,7 @@ import { useState, useEffect } from "react";
 import { useAuth } from "@/lib/context/auth-context";
 import { db } from "@/lib/firebase/config";
 import { collection, query, where, onSnapshot, orderBy, doc, getDoc } from "firebase/firestore";
-import { Project } from "@/types/schema";
+import { Project, User } from "@/types/schema";
 import { cn } from "@/lib/utils";
 import { 
     Plus, 
@@ -59,7 +59,8 @@ export function ClientDashboard() {
     const [searchQuery, setSearchQuery] = useState("");
     const [statusFilter, setStatusFilter] = useState<string>("all");
     const [activeTab, setActiveTab] = useState<'overview' | 'finance'>('overview');
-    const [assignedPM, setAssignedPM] = useState<any>(null);
+    const [assignedSE, setAssignedSE] = useState<any>(null);
+    const [allUsers, setAllUsers] = useState<User[]>([]);
 
     useEffect(() => {
         if (!user?.uid) return;
@@ -81,10 +82,17 @@ export function ClientDashboard() {
     }, [user]);
 
     useEffect(() => {
+        const unsub = onSnapshot(collection(db, "users"), (snap) => {
+            setAllUsers(snap.docs.map(doc => ({ uid: doc.id, ...doc.data() } as User)));
+        });
+        return () => unsub();
+    }, []);
+
+    useEffect(() => {
         if (user?.managedBy) {
-            const pmRef = doc(db, "users", user.managedBy);
-            getDoc(pmRef).then(snap => {
-                if (snap.exists()) setAssignedPM({ uid: snap.id, ...snap.data() });
+            const seRef = doc(db, "users", user.managedBy);
+            getDoc(seRef).then(snap => {
+                if (snap.exists()) setAssignedSE({ uid: snap.id, ...snap.data() });
             });
         }
     }, [user?.managedBy]);
@@ -222,7 +230,7 @@ export function ClientDashboard() {
                          />
                     </div>
 
-                    {/* Project Manager Card */}
+                    {/* Sales Executive Card */}
                     <motion.div 
                         initial={{ opacity: 0, scale: 0.95 }}
                         animate={{ opacity: 1, scale: 1 }}
@@ -232,35 +240,35 @@ export function ClientDashboard() {
                             <ShieldCheck className="h-16 w-16 text-primary" />
                         </div>
                         <h4 className="text-[10px] font-black uppercase tracking-widest text-primary mb-4 flex items-center gap-2">
-                             <Briefcase className="h-3.5 w-3.5" /> Assigned Manager
+                             <Briefcase className="h-3.5 w-3.5" /> Sales Executive
                         </h4>
                         
-                        {assignedPM ? (
+                        {assignedSE ? (
                             <div className="space-y-4">
                                 <div className="flex items-center gap-4">
                                     <div className="h-12 w-12 rounded-xl bg-primary/20 border border-primary/30 flex items-center justify-center text-primary font-bold text-lg">
-                                        {assignedPM.displayName?.[0].toUpperCase() || "M"}
+                                        {assignedSE.displayName?.[0].toUpperCase() || "S"}
                                     </div>
                                     <div className="min-w-0">
-                                        <p className="text-sm font-black text-foreground truncate">{assignedPM.displayName}</p>
-                                        <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest mt-0.5">Client Success Lead</p>
+                                        <p className="text-sm font-black text-foreground truncate">{assignedSE.displayName}</p>
+                                        <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest mt-0.5">Strategy & Growth Lead</p>
                                     </div>
                                 </div>
                                 <div className="pt-4 border-t border-border space-y-2">
                                     <div className="flex items-center justify-between text-[10px] font-bold uppercase tracking-tight">
                                         <span className="text-muted-foreground">Status</span>
-                                        <span className="text-emerald-500 flex items-center gap-1.5"><div className="h-1 w-1 rounded-full bg-emerald-500 animate-pulse" /> Online</span>
+                                        <span className="text-emerald-500 flex items-center gap-1.5"><div className="h-1 w-1 rounded-full bg-emerald-500 animate-pulse" /> Active</span>
                                     </div>
                                     <div className="flex items-center justify-between text-[10px] font-bold uppercase tracking-tight">
-                                        <span className="text-muted-foreground">WhatsApp</span>
-                                        <span className="text-foreground">{assignedPM.whatsapp || '+91 99999 99999'}</span>
+                                        <span className="text-muted-foreground">Contact</span>
+                                        <span className="text-foreground">{assignedSE.phoneNumber || assignedSE.email || 'Verified'}</span>
                                     </div>
                                 </div>
                             </div>
                         ) : (
                             <div className="py-6 flex flex-col items-center justify-center opacity-40 text-center gap-2">
                                 <Activity className="h-5 w-5 text-muted-foreground animate-pulse" />
-                                <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Assigning Success Lead...</p>
+                                <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Assigning Growth Lead...</p>
                             </div>
                         )}
                     </motion.div>
@@ -311,6 +319,7 @@ export function ClientDashboard() {
                                  <tr className="bg-muted/30">
                                      <th className="px-6 py-4 text-[11px] font-bold text-muted-foreground uppercase tracking-widest border-b border-border">Project Name</th>
                                      <th className="px-6 py-4 text-[11px] font-bold text-muted-foreground uppercase tracking-widest border-b border-border">Type</th>
+                                     <th className="px-6 py-4 text-[11px] font-bold text-muted-foreground uppercase tracking-widest border-b border-border">Manager</th>
                                      <th className="px-6 py-4 text-[11px] font-bold text-muted-foreground uppercase tracking-widest border-b border-border text-center">Editor</th>
                                      <th className="px-6 py-4 text-[11px] font-bold text-muted-foreground uppercase tracking-widest border-b border-border text-right">Price</th>
                                      <th className="px-6 py-4 text-[11px] font-bold text-muted-foreground uppercase tracking-widest border-b border-border text-right">Status</th>
@@ -356,6 +365,14 @@ export function ClientDashboard() {
                                              </td>
                                              <td className="px-6 py-5 transition-colors">
                                                  <span className="text-[10px] text-muted-foreground font-bold uppercase tracking-wider">{project.videoType || 'N/A'}</span>
+                                             </td>
+                                             <td className="px-6 py-5 transition-colors">
+                                                 <div className="flex items-center gap-2">
+                                                     <div className="h-6 w-6 rounded-full bg-primary/10 border border-primary/20 flex items-center justify-center text-[8px] font-bold text-primary">
+                                                         {allUsers.find(u => u.uid === project.assignedPMId)?.displayName?.[0] || 'A'}
+                                                     </div>
+                                                     <span className="text-[10px] text-foreground font-bold uppercase tracking-tight">{allUsers.find(u => u.uid === project.assignedPMId)?.displayName || 'Admin'}</span>
+                                                 </div>
                                              </td>
                                              <td className="px-6 py-5 text-center transition-colors">
                                                  <Badge variant="outline" className="text-[9px] uppercase tracking-widest font-bold">

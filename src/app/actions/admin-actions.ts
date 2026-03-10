@@ -429,6 +429,49 @@ export async function setEditorPrice(projectId: string, price: number, pm: { uid
 }
 
 /**
+ * Bulk settles editor dues for multiple projects
+ */
+export async function bulkSettleEditorDues(projectIds: string[], user: { uid: string, displayName: string, designation?: string }) {
+    try {
+        const batch = adminDb.batch();
+        const now = Date.now();
+
+        for (const pid of projectIds) {
+            const ref = adminDb.collection('projects').doc(pid);
+            batch.update(ref, {
+                editorPaid: true,
+                editorPaidAt: now,
+                updatedAt: now
+            });
+
+            // We can't use union in batch directly for arrays in some versions easily 
+            // but we can update the doc with logs using the union operator if we do it doc by doc 
+            // OR just do it sequentially. For logs, since batch doesn't support arrayUnion as easily 
+            // in some envs without the right admin SDK version, I'll do it sequentially for simplicity 
+            // or just skip logs in bulk for performance if needed. 
+            // Actually, admin SDK supports FieldValue.arrayUnion in batch.
+            batch.update(ref, {
+                logs: admin.firestore.FieldValue.arrayUnion({
+                    event: 'PAYMENT_MARKED',
+                    user: user.uid,
+                    userName: user.displayName,
+                    designation: user.designation || 'System',
+                    timestamp: now,
+                    details: 'Editor payment marked as cleared via bulk settlement.'
+                })
+            });
+        }
+
+        await batch.commit();
+        revalidatePath('/dashboard');
+        return { success: true };
+    } catch (error: any) {
+        console.error('Error in bulk settlement:', error);
+        return { success: false, error: error.message };
+    }
+}
+
+/**
  * Toggles project autopay
  */
 export async function toggleProjectAutoPay(projectId: string, enabled: boolean, pm: { uid: string, displayName: string }) {

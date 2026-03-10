@@ -42,6 +42,13 @@ export async function registerDownload(projectId: string, revisionId: string) {
             downloadCount: currentCount + 1
         });
 
+        // Update project status to track download
+        await adminDb.collection('projects').doc(projectId).update({
+            clientHasDownloaded: true,
+            downloadedAt: Date.now(),
+            updatedAt: Date.now()
+        });
+
         // Return a signed URL with force-download headers
         let downloadUrl = data.videoUrl || "";
 

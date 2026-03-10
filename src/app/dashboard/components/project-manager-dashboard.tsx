@@ -49,7 +49,8 @@ import {
     toggleProjectAutoPay,
     settleProjectPayment,
     deleteProject,
-    updateClientCreditLimit
+    updateClientCreditLimit,
+    bulkSettleEditorDues
 } from "@/app/actions/admin-actions";
 import { unlockProjectDownloads } from "@/app/actions/project-actions";
 import { cn } from "@/lib/utils";
@@ -131,7 +132,7 @@ function StatusIndicator({ status }: { status: string }) {
 }
 
 function ProjectStatusBadges({ project }: { project: any }) {
-    const badges = [];
+    const badges: any[] = [];
 
     // Overall Status
     if (project.status === 'completed' || project.status === 'archived') {
@@ -143,25 +144,40 @@ function ProjectStatusBadges({ project }: { project: any }) {
     } else if (project.status === 'approved') {
         badges.push({ label: "Approved", color: "text-emerald-400", bg: "bg-emerald-400/10", border: "border-emerald-400/20" });
     } else if (project.status === 'pending_assignment') {
-        badges.push({ label: "Awaiting Editor", color: "text-amber-400", bg: "bg-amber-400/10", border: "border-amber-400/20" });
+        if (!project.assignedEditorId) {
+            badges.push({ label: "Editor Not Assigned", color: "text-amber-400", bg: "bg-amber-400/10", border: "border-amber-400/20" });
+        } else {
+            badges.push({ label: "Editor Assigned", color: "text-blue-400", bg: "bg-blue-400/10", border: "border-blue-400/20" });
+        }
+    } else {
+        badges.push({ label: project.status, color: "text-muted-foreground", bg: "bg-zinc-400/10", border: "border-zinc-400/20" });
     }
 
-    // Payment Status
-    if (project.paymentStatus === 'paid') {
-        badges.push({ label: "Paid", color: "text-emerald-500", bg: "bg-emerald-500/10", border: "border-emerald-500/20" });
-    } else if (project.paymentStatus === 'overdue') {
-        badges.push({ label: "Overdue", color: "text-red-500", bg: "bg-red-500/10", border: "border-red-500/20" });
+    // Client Payment
+    if (project.paymentStatus === 'full_paid') {
+        badges.push({ label: "Client Payment Done", color: "text-emerald-500", bg: "bg-emerald-500/10", border: "border-emerald-500/20" });
+    } else if (project.paymentOption === 'pay_later' && project.paymentStatus !== 'full_paid') {
+        badges.push({ label: "Client Payment Left", color: "text-red-400", bg: "bg-red-400/10", border: "border-red-400/20" });
+    }
+
+    // Editor Payment
+    if (project.assignedEditorId && (project.editorPrice || 0) > 0) {
+        if (project.editorPaid) {
+            badges.push({ label: "Editor Payment Done", color: "text-emerald-500", bg: "bg-emerald-500/10", border: "border-emerald-500/20" });
+        } else {
+            badges.push({ label: "Editor Payment Left", color: "text-amber-500", bg: "bg-amber-500/10", border: "border-amber-500/20" });
+        }
     }
 
     return (
-        <div className="flex flex-wrap gap-2">
-            {badges.map((badge, i) => (
+        <div className="flex flex-wrap items-center gap-1.5">
+            {badges.map((b, i) => (
                 <span key={i} className={cn(
-                    "px-2.5 py-0.5 rounded-md text-[9px] font-black uppercase tracking-widest border transition-all flex items-center gap-1.5",
-                    badge.bg, badge.color, badge.border
+                    "inline-flex items-center gap-1.5 px-2 py-0.5 rounded text-[9px] font-bold uppercase tracking-widest border transition-all whitespace-nowrap",
+                    b.bg, b.color, b.border
                 )}>
-                    {badge.pulse && <div className="h-1 w-1 rounded-full bg-current animate-pulse ring-2 ring-current/20" />}
-                    {badge.label}
+                    {b.pulse && <div className="w-1 h-1 rounded-full bg-current animate-pulse shadow-[0_0_5px_currentColor]" />}
+                    {b.label}
                 </span>
             ))}
         </div>
@@ -271,6 +287,23 @@ export function ProjectManagerDashboard() {
         }
     };
 
+    const handleSettleAllDues = async (editorId: string) => {
+        const editorProjects = projects.filter(p => p.assignedEditorId === editorId && p.clientHasDownloaded && !p.editorPaid);
+        if (editorProjects.length === 0) return;
+        
+        if(!confirm(`Are you sure you want to settle all ${editorProjects.length} pending payouts for this editor?`)) return;
+        
+        const pids = editorProjects.map(p => p.id);
+        const res = await bulkSettleEditorDues(pids, { 
+            uid: user!.uid, 
+            displayName: user!.displayName || "PM", 
+            designation: 'Project Manager' 
+        });
+        
+        if(res.success) toast.success(`Settled all dues for editor.`);
+        else toast.error("Failed to settle dues");
+    };
+
     const handleDeleteProject = async (projectId: string) => {
         if(!confirm("Proceed with permanent deletion of this project?")) return;
         const result = await deleteProject(projectId);
@@ -279,8 +312,9 @@ export function ProjectManagerDashboard() {
     };
 
     const unassignedCount = projects.filter(p => !p.assignedEditorId).length;
-    const activeCount = projects.filter(p => p.status === 'active').length;
+    const activeCount = projects.filter(p => !['completed', 'approved', 'archived', 'delivered'].includes(p.status)).length;
     const pendingUnlockCount = projects.filter(p => p.downloadUnlockRequested && p.paymentStatus !== 'full_paid').length;
+    const editorPendingCount = projects.filter(p => p.assignedEditorId && p.clientHasDownloaded && !p.editorPaid).length;
 
     const currentUserData = users.find(u => u.uid === user?.uid);
     const pmStatus = currentUserData?.availabilityStatus || 'offline';
@@ -408,13 +442,14 @@ export function ProjectManagerDashboard() {
                     trend="Stable"
                 />
                  <IndicatorCard 
-                    label="Our Editors" 
-                    value={editors.length} 
-                    icon={<Users className="h-4 w-4" />}
-                    subtext="Total team"
+                    label="Editor Payouts" 
+                    value={editorPendingCount} 
+                    icon={<Briefcase className="h-4 w-4" />}
+                    subtext="Pending clearance"
+                    alert={editorPendingCount > 0}
                 />
                  <IndicatorCard 
-                    label="Download Requests" 
+                    label="Download Access" 
                     value={pendingUnlockCount} 
                     icon={<IndianRupee className="h-4 w-4" />}
                     subtext="Approval needed"
@@ -465,10 +500,10 @@ export function ProjectManagerDashboard() {
                         className="w-full text-left"
                      >
                         <thead>
-                            <tr className="bg-muted/50">
-                                <th className="px-6 py-4 text-[11px] font-bold text-muted-foreground uppercase tracking-widest border-b border-border">Project Identifier</th>
+                            <tr className="bg-muted/30">
+                                <th className="px-6 py-4 text-[11px] font-bold text-muted-foreground uppercase tracking-widest border-b border-border">Project Name</th>
                                 <th className="px-6 py-4 text-[11px] font-bold text-muted-foreground uppercase tracking-widest border-b border-border">Status</th>
-                                <th className="px-6 py-4 text-[11px] font-bold text-muted-foreground uppercase tracking-widest border-b border-border">Assigned Editor</th>
+                                <th className="px-6 py-4 text-[11px] font-bold text-muted-foreground uppercase tracking-widest border-b border-border">Last Updated</th>
                                 <th className="px-6 py-4 border-b border-border w-[80px]"></th>
                             </tr>
                         </thead>
@@ -479,8 +514,6 @@ export function ProjectManagerDashboard() {
                                 <tr><td colSpan={4} className="px-6 py-24 text-center text-muted-foreground text-[10px] font-bold uppercase tracking-widest">No Projects Found</td></tr>
                             ) : (
                                 projects.filter(p => !searchQuery || p.name.toLowerCase().includes(searchQuery.toLowerCase()) || p.clientName?.toLowerCase().includes(searchQuery.toLowerCase())).map((project, idx) => {
-                                    const assignedEditor = editors.find(e => e.uid === project.assignedEditorId);
-                                    
                                     return (
                                     <motion.tr 
                                         key={project.id}
@@ -489,41 +522,27 @@ export function ProjectManagerDashboard() {
                                         transition={{ delay: idx * 0.05 }}
                                         className="group hover:bg-muted/50 transition-colors"
                                     >
-                                        <td className="px-6 py-6 transition-all duration-300 group-hover:pl-8">
-                                            <div className="flex flex-col gap-1">
-                                                <div className="text-base font-bold text-foreground tracking-tight leading-tight group-hover:text-primary transition-colors">{project.name}</div>
-                                                <div className="flex items-center gap-3">
-                                                    <span className="text-[10px] text-muted-foreground font-bold uppercase tracking-widest">{project.clientName || 'ENTITY_NULL'}</span>
-                                                    <span className="text-[9px] text-muted-foreground font-bold tracking-widest uppercase">HEX: {project.id.slice(0,12)}</span>
-                                                </div>
+                                        <td className="px-6 py-6 border-b border-transparent group-hover:border-border">
+                                            <Link href={`/dashboard/projects/${project.id}`} className="text-base font-bold text-foreground tracking-tight leading-tight hover:text-primary transition-colors cursor-pointer">{project.name}</Link>
+                                            <div className="flex items-center gap-2 mt-1">
+                                                <span className="text-[10px] text-muted-foreground font-bold uppercase tracking-wider">ID: {project.id.slice(0,12)}</span>
+                                                {(project as any).isPayLaterRequest && (
+                                                    <span className="text-[8px] bg-emerald-500/10 text-emerald-500 border border-emerald-500/20 px-1.5 py-0.5 rounded uppercase font-bold tracking-widest">Deferred Pay</span>
+                                                )}
                                             </div>
                                         </td>
-                                        <td className="px-6 py-6 border-b border-border group-hover:border-border">
-                                            <StatusIndicator status={project.status} />
+                                        <td className="px-6 py-6 border-b border-transparent group-hover:border-border">
+                                            <ProjectStatusBadges project={project} />
                                         </td>
-                                        <td className="px-6 py-6">
-                                            {assignedEditor ? (
-                                                <div className="flex items-center gap-3 bg-muted/50 border border-border p-2 rounded-lg w-fit group-hover:border-primary/30 transition-all">
-                                                    <Avatar className="h-7 w-7 border border-border rounded-md">
-                                                        <AvatarImage src={assignedEditor.photoURL || undefined} className="object-cover" />
-                                                        <AvatarFallback className="text-[9px] bg-primary/20 text-primary font-bold">{assignedEditor.displayName?.[0]}</AvatarFallback>
-                                                    </Avatar>
-                                                    <div className="flex flex-col">
-                                                         <span className="text-[11px] font-bold text-foreground leading-none uppercase tracking-tight">{assignedEditor.displayName}</span>
-                                                         <span className="text-[9px] text-muted-foreground leading-none mt-1 uppercase font-bold tracking-widest">Authorized</span>
-                                                    </div>
-                                                </div>
-                                            ) : (
-                                                <div className="flex items-center gap-2 text-amber-500 bg-amber-500/5 px-3 py-1.5 rounded-lg border border-amber-500/20 w-fit">
-                                                    <div className="h-1.5 w-1.5 rounded-full bg-amber-500 animate-pulse" />
-                                                    <span className="text-[9px] font-bold uppercase tracking-widest">Needs Editor</span>
-                                                </div>
-                                            )}
+                                        <td className="px-6 py-6 border-b border-transparent group-hover:border-border">
+                                            <span className="text-xs text-muted-foreground font-medium tabular-nums" suppressHydrationWarning>
+                                                {project.updatedAt ? new Date(project.updatedAt).toLocaleDateString('en-IN', { day: '2-digit', month: 'short' }) + ' — ' + new Date(project.updatedAt).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: true }) : '—'}
+                                            </span>
                                         </td>
                                         <td className="px-6 py-6 text-right">
                                             <div className="flex items-center justify-end gap-3">
                                                 {project.downloadUnlockRequested && project.paymentStatus !== 'full_paid' && (
-                                                        <button
+                                                    <button
                                                         className="h-8 px-4 text-[9px] font-bold uppercase tracking-widest bg-emerald-500 text-foreground rounded-lg shadow-lg hover:opacity-90 transition-all active:scale-[0.98]"
                                                         onClick={async () => {
                                                             if (!user) return;
@@ -545,30 +564,30 @@ export function ProjectManagerDashboard() {
                                                          
                                                          {!(project.status === 'completed' || project.status === 'archived') && (
                                                              <>
-                                                        {!project.assignedEditorId && (
-                                                            <DropdownMenuItem className="p-2.5 text-xs text-popover-foreground hover:bg-muted transition-colors cursor-pointer rounded-lg px-3" onClick={() => { setSelectedProject(project); setEditorPriceInput(project.editorPrice?.toString() || ""); setIsAssignModalOpen(true); }}>
-                                                                <UserPlus className="mr-2.5 h-3.5 w-3.5 text-muted-foreground" /> Assign Editor
-                                                            </DropdownMenuItem>
-                                                        )}
-                                                        {project.assignedEditorId && (
-                                                            <DropdownMenuItem className="p-2.5 text-xs text-popover-foreground hover:bg-muted transition-colors cursor-pointer rounded-lg px-3" onClick={() => { setSelectedProject(project); setEditorPriceInput(project.editorPrice?.toString() || ""); setIsManageModalOpen(true); }}>
-                                                                <Briefcase className="mr-2.5 h-3.5 w-3.5 text-muted-foreground" /> Manage Project
-                                                            </DropdownMenuItem>
-                                                        )}
-                                                        {(project as any).paymentOption === 'pay_later' && project.paymentStatus !== 'full_paid' && (
-                                                            <DropdownMenuItem className="p-2.5 text-xs text-emerald-500 hover:bg-emerald-500/10 transition-colors cursor-pointer rounded-lg px-3 font-bold" onClick={() => handleSettlePayment(project.id)}>
-                                                                <IndianRupee className="mr-2.5 h-3.5 w-3.5" /> Settle Payment
-                                                            </DropdownMenuItem>
-                                                        )}
+                                                            {!project.assignedEditorId && (
+                                                                <DropdownMenuItem className="p-2.5 text-xs text-popover-foreground hover:bg-muted transition-colors cursor-pointer rounded-lg px-3" onClick={() => { setSelectedProject(project); setEditorPriceInput(project.editorPrice?.toString() || ""); setIsAssignModalOpen(true); }}>
+                                                                    <UserPlus className="mr-2.5 h-3.5 w-3.5 text-muted-foreground" /> Assign Editor
+                                                                </DropdownMenuItem>
+                                                            )}
+                                                            {project.assignedEditorId && (
+                                                                <DropdownMenuItem className="p-2.5 text-xs text-popover-foreground hover:bg-muted transition-colors cursor-pointer rounded-lg px-3" onClick={() => { setSelectedProject(project); setEditorPriceInput(project.editorPrice?.toString() || ""); setIsManageModalOpen(true); }}>
+                                                                    <Briefcase className="mr-2.5 h-3.5 w-3.5 text-muted-foreground" /> Manage Project
+                                                                </DropdownMenuItem>
+                                                            )}
+                                                            {(project as any).paymentOption === 'pay_later' && project.paymentStatus !== 'full_paid' && (
+                                                                <DropdownMenuItem className="p-2.5 text-xs text-emerald-500 hover:bg-emerald-500/10 transition-colors cursor-pointer rounded-lg px-3 font-bold" onClick={() => handleSettlePayment(project.id)}>
+                                                                    <IndianRupee className="mr-2.5 h-3.5 w-3.5" /> Settle Payment
+                                                                </DropdownMenuItem>
+                                                            )}
                                                              </>
                                                          )}
-
+                                                         <DropdownMenuItem asChild className="p-2.5 text-xs text-popover-foreground hover:bg-muted transition-colors cursor-pointer rounded-lg">
+                                                             <Link href={`/dashboard/projects/${project.id}`} className="flex items-center w-full">
+                                                                 <ExternalLink className="mr-2.5 h-3.5 w-3.5 text-muted-foreground" /> Open Project Hub
+                                                             </Link>
+                                                         </DropdownMenuItem>
                                                          <DropdownMenuItem className="p-2.5 text-xs text-popover-foreground hover:bg-muted transition-colors cursor-pointer rounded-lg px-3" onClick={() => { setInspectProject(project); setIsProjectDetailModalOpen(true); }}>
                                                             <Search className="mr-2.5 h-3.5 w-3.5 text-muted-foreground" /> Project Status
-                                                         </DropdownMenuItem>
-                                                         <DropdownMenuSeparator className="my-1 bg-border" />
-                                                         <DropdownMenuItem onClick={() => handleDeleteProject(project.id)} className="p-2.5 text-xs text-red-400 hover:bg-red-500/10 transition-colors cursor-pointer rounded-lg px-3">
-                                                             <Trash2 className="mr-2.5 h-3.5 w-3.5" /> Delete Project
                                                          </DropdownMenuItem>
                                                     </DropdownMenuContent>
                                                 </DropdownMenu>
@@ -650,11 +669,11 @@ export function ProjectManagerDashboard() {
                                                 )}
                                                 onClick={async () => {
                                                     const res = await togglePayLater(u.uid, !u.payLater);
-                                                    if(res.success) toast.success(`Entity protocol adjusted.`);
-                                                    else toast.error("Failed to adjust");
+                                                    if(res.success) toast.success(`Pay later status updated.`);
+                                                    else toast.error("Failed to update status");
                                                 }}
                                             >
-                                                Deferred Payment: {u.payLater ? "AUTHORIZED" : "REVOKED"}
+                                                Pay Later: {u.payLater ? "Enabled" : "Disabled"}
                                             </button>
                                         </div>
                                     </motion.div>
@@ -775,8 +794,8 @@ export function ProjectManagerDashboard() {
                                         <h3 className="text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground">Editor Payables (Pending Payouts)</h3>
                                     </div>
                                     <div className="grid gap-6">
-                                        {users.filter(u => u.role === 'editor' && projects.some(p => p.assignedEditorId === u.uid && p.status === 'completed' && !p.editorPaid)).map(editor => {
-                                            const editorProjects = projects.filter(p => p.assignedEditorId === editor.uid && p.status === 'completed' && !p.editorPaid);
+                                        {users.filter(u => u.role === 'editor' && projects.some(p => p.assignedEditorId === u.uid && p.clientHasDownloaded && !p.editorPaid)).map(editor => {
+                                            const editorProjects = projects.filter(p => p.assignedEditorId === editor.uid && p.clientHasDownloaded && !p.editorPaid);
                                             const totalEditorDues = editorProjects.reduce((sum, p) => sum + (p.editorPrice || 0), 0);
 
                                             if (totalEditorDues === 0) return null;
@@ -799,9 +818,18 @@ export function ProjectManagerDashboard() {
                                                                 <p className="text-xs text-muted-foreground font-bold uppercase tracking-widest mt-1 text-blue-400/80">{editor.email}</p>
                                                             </div>
                                                         </div>
-                                                        <div className="flex flex-col md:items-end gap-1 border border-blue-500/20 bg-blue-500/5 px-6 py-3 rounded-xl">
-                                                            <span className="text-[10px] text-muted-foreground uppercase font-bold tracking-widest">Total Payout Pending</span>
-                                                            <span className="text-2xl font-black text-blue-400 tabular-nums">₹{totalEditorDues.toLocaleString()}</span>
+                                                        <div className="flex flex-col md:items-end gap-3">
+                                                            <div className="flex flex-col md:items-end gap-1 border border-blue-500/20 bg-blue-500/5 px-6 py-3 rounded-xl w-full">
+                                                                <span className="text-[10px] text-muted-foreground uppercase font-bold tracking-widest">Total Payout Pending</span>
+                                                                <span className="text-2xl font-black text-blue-400 tabular-nums">₹{totalEditorDues.toLocaleString()}</span>
+                                                            </div>
+                                                            <button 
+                                                                onClick={() => handleSettleAllDues(editor.uid)}
+                                                                className="w-full md:w-auto h-9 px-4 rounded-lg bg-blue-500/10 border border-blue-500/20 text-blue-400 font-bold uppercase tracking-widest transition-all hover:bg-blue-500 hover:text-foreground text-[10px] flex items-center justify-center gap-2 active:scale-95"
+                                                            >
+                                                                <RefreshCw className="h-3.5 w-3.5" />
+                                                                Settle All Dues
+                                                            </button>
                                                         </div>
                                                     </div>
                                                     
@@ -819,7 +847,7 @@ export function ProjectManagerDashboard() {
                                                                         <div className="flex items-center gap-2 mt-1">
                                                                             <span className="text-[9px] text-muted-foreground font-bold uppercase tracking-widest">ID: {project.id.slice(0,8)}</span>
                                                                             <div className="h-1 w-1 rounded-full bg-muted-foreground" />
-                                                                            <span className="text-[9px] font-bold uppercase tracking-widest text-emerald-500">Project Completed</span>
+                                                                            <span className="text-[9px] font-bold uppercase tracking-widest text-emerald-500">File Downloaded</span>
                                                                         </div>
                                                                     </div>
                                                                 </div>
@@ -843,7 +871,7 @@ export function ProjectManagerDashboard() {
                                             );
                                         })}
 
-                                        {users.filter(u => u.role === 'editor' && projects.some(p => p.assignedEditorId === u.uid && p.status === 'completed' && !p.editorPaid)).length === 0 && (
+                                        {users.filter(u => u.role === 'editor' && projects.some(p => p.assignedEditorId === u.uid && p.clientHasDownloaded && !p.editorPaid)).length === 0 && (
                                             <div className="enterprise-card p-8 text-center flex flex-col items-center justify-center border-dashed border-2 border-border opacity-60">
                                                 <h3 className="text-sm font-bold text-muted-foreground uppercase tracking-widest">All editor payouts settled</h3>
                                             </div>
@@ -1106,7 +1134,7 @@ export function ProjectManagerDashboard() {
                                     "h-10 px-6 rounded-lg text-[10px] font-bold uppercase tracking-widest transition-all",
                                     selectedProject?.autoPay 
                                         ? "bg-emerald-500 text-foreground shadow-[0_0_15px_rgba(16,185,129,0.3)]" 
-                                        : "bg-muted-foreground text-muted-foreground border border-zinc-700 hover:text-foreground"
+                                        : "bg-zinc-800 text-zinc-400 border border-zinc-700 hover:text-foreground"
                                 )}
                             >
                                 {selectedProject?.autoPay ? "ENABLED" : "DISABLED"}
@@ -1261,30 +1289,42 @@ export function ProjectManagerDashboard() {
                         {/* RIGHT COLUMN: Financials & History */}
                         <div className="lg:col-span-4 space-y-6">
                             {/* Treasury Ledger */}
-                            <div className="bg-muted/30 border border-border rounded-2xl p-6 space-y-6">
-                                <h5 className="text-[11px] font-black uppercase tracking-[0.2em] text-muted-foreground border-b border-border pb-3 flex items-center gap-2">
-                                    <IndianRupee className="h-4 w-4 text-primary" /> Treasury Ledger
+                            <div className="bg-muted/30 border border-border rounded-2xl p-6 space-y-6 relative overflow-hidden group">
+                                <div className="absolute -top-4 -right-4 opacity-5 group-hover:opacity-10 transition-opacity">
+                                    <IndianRupee className="h-24 w-24" />
+                                </div>
+                                <h5 className="text-[11px] font-black uppercase tracking-widest text-primary border-b border-border pb-3 flex items-center gap-2">
+                                    <IndianRupee className="h-4 w-4" /> Treasury Ledger
                                 </h5>
                                 <div className="space-y-5">
-                                    <div className="flex flex-col">
-                                        <span className="text-[9px] font-bold text-muted-foreground uppercase tracking-widest">Global Project Value</span>
-                                        <div className="text-3xl font-black text-foreground tabular-nums tracking-tighter">₹{inspectProject.totalCost?.toLocaleString()}</div>
+                                    <div className="flex flex-col bg-card/40 p-4 rounded-xl border border-border">
+                                        <span className="text-[9px] font-black text-muted-foreground uppercase tracking-widest">Global Order Value</span>
+                                        <div className="text-3xl font-black text-foreground tabular-nums tracking-tighter mt-1">₹{inspectProject.totalCost?.toLocaleString()}</div>
                                     </div>
+                                    
                                     <div className="grid grid-cols-1 gap-3">
                                         <div className="p-4 bg-emerald-500/5 border border-emerald-500/10 rounded-xl flex items-center justify-between">
                                             <div className="flex flex-col">
-                                                <span className="text-[8px] font-black text-emerald-500/60 uppercase tracking-widest">Editor Payout</span>
+                                                <span className="text-[8px] font-black text-emerald-500/60 uppercase tracking-widest">Editor Revenue</span>
                                                 <span className="text-lg font-black text-emerald-500 tabular-nums">₹{inspectProject.editorPrice?.toLocaleString() || '0'}</span>
                                             </div>
-                                            <div className="h-8 w-8 rounded-lg bg-emerald-500/10 flex items-center justify-center">
-                                                <ArrowUpRight className="h-4 w-4 text-emerald-500" />
+                                            <ArrowUpRight className="h-5 w-5 text-emerald-500" />
+                                        </div>
+                                        <div className="p-4 bg-primary/5 border border-primary/10 rounded-xl flex items-center justify-between">
+                                            <div className="flex flex-col">
+                                                <span className="text-[8px] font-black text-primary/60 uppercase tracking-widest">Platform Margin</span>
+                                                <span className="text-lg font-black text-primary tabular-nums">₹{((inspectProject.totalCost || 0) - (inspectProject.editorPrice || 0)).toLocaleString()}</span>
                                             </div>
+                                            <Zap className="h-5 w-5 text-primary" />
                                         </div>
                                     </div>
-                                    <div className="pt-2 border-t border-border flex items-center justify-between">
-                                        <span className="text-[9px] font-bold text-muted-foreground uppercase tracking-widest">Auto-Settlement</span>
-                                        <div className={cn("text-[10px] font-black uppercase px-2 py-0.5 rounded border", inspectProject.autoPay ? "text-primary border-primary/20 bg-primary/5" : "text-muted-foreground border-border bg-muted")}>
-                                            {inspectProject.autoPay ? 'Authorized' : 'Disabled'}
+                                    
+                                    <div className="pt-2 flex items-center justify-between px-1 border-t border-border">
+                                        <div className="flex flex-col">
+                                            <span className="text-[8px] font-black text-muted-foreground uppercase tracking-widest">Auto-Settlement</span>
+                                            <span className={cn("text-[10px] font-black uppercase mt-0.5", inspectProject.autoPay ? "text-primary" : "text-muted-foreground")}>
+                                                {inspectProject.autoPay ? 'AUTHORIZED' : 'DISABLED'}
+                                            </span>
                                         </div>
                                     </div>
                                 </div>

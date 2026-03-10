@@ -74,6 +74,7 @@ export default function ProjectDetailsPage() {
     const [uploadAssetProgress, setUploadAssetProgress] = useState(0);
     const [isDownloading, setIsDownloading] = useState(false);
     const [assignedPM, setAssignedPM] = useState<User | null>(null);
+    const [assignedEditor, setAssignedEditor] = useState<User | null>(null);
 
     const handleAssetUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
         if (!e.target.files || !e.target.files[0] || !project) return;
@@ -155,23 +156,40 @@ export default function ProjectDetailsPage() {
         };
     }, [id, authLoading]);
 
-    // Admin: Fetch Editors & PMs
+    // Personnel Data Fetching
     useEffect(() => {
-        if (user?.role === 'admin' || user?.role === 'project_manager' || (user?.role === 'client' && project?.assignedPMId)) {
+        if (!project || !user) return;
+        
+        const shouldFetch = user.role === 'admin' || 
+                          user.role === 'project_manager' || 
+                          user.role === 'editor' || 
+                          (user.role === 'client' && (project.assignedPMId || project.assignedEditorId));
+
+        if (shouldFetch) {
             getAllUsers().then(res => {
                 if (res.success && res.data) {
                     const allUsers = res.data as User[];
-                    if (user?.role === 'admin' || user?.role === 'project_manager') {
+                    
+                    // Filter for assignment dropdowns (Admin/PM only)
+                    if (user.role === 'admin' || user.role === 'project_manager') {
                         setEditors(allUsers.filter(u => u.role === 'editor'));
                     }
-                    if (project?.assignedPMId) {
+
+                    // Resolve Assigned PM
+                    if (project.assignedPMId) {
                         const pm = allUsers.find(u => u.uid === project.assignedPMId);
                         if (pm) setAssignedPM(pm);
+                    }
+
+                    // Resolve Assigned Editor
+                    if (project.assignedEditorId) {
+                        const ed = allUsers.find(u => u.uid === project.assignedEditorId);
+                        if (ed) setAssignedEditor(ed);
                     }
                 }
             });
         }
-    }, [user, project?.assignedPMId]);
+    }, [user, project?.assignedPMId, project?.assignedEditorId]);
 
     const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false);
     const [isAssignModalOpen, setIsAssignModalOpen] = useState(false);
@@ -492,7 +510,7 @@ export default function ProjectDetailsPage() {
             {/* Main Content Grid or Simplified View */}
             {project.status === 'completed' && !isEditor ? (
                 <div className="space-y-8 animate-in fade-in duration-500">
-                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-6 gap-6">
                         <div className="enterprise-card p-6 bg-muted/50">
                             <span className="text-[10px] text-muted-foreground font-bold uppercase tracking-widest">Project Name</span>
                             <div className="text-xl font-bold text-foreground mt-1 truncate">{project.name}</div>
@@ -500,6 +518,14 @@ export default function ProjectDetailsPage() {
                         <div className="enterprise-card p-6 bg-muted/50">
                             <span className="text-[10px] text-muted-foreground font-bold uppercase tracking-widest">Client Name</span>
                             <div className="text-xl font-bold text-foreground mt-1 truncate">{project.brand || project.clientName || 'N/A'}</div>
+                        </div>
+                        <div className="enterprise-card p-6 bg-muted/50">
+                            <span className="text-[10px] text-muted-foreground font-bold uppercase tracking-widest">Project Manager</span>
+                            <div className="text-xl font-bold text-foreground mt-1 truncate">{assignedPM?.displayName || 'Not Assigned'}</div>
+                        </div>
+                        <div className="enterprise-card p-6 bg-muted/50">
+                            <span className="text-[10px] text-muted-foreground font-bold uppercase tracking-widest">Lead Editor</span>
+                            <div className="text-xl font-bold text-foreground mt-1 truncate">{assignedEditor?.displayName || 'Not Assigned'}</div>
                         </div>
                         <div className="enterprise-card p-6 bg-muted/50">
                             <span className="text-[10px] text-muted-foreground font-bold uppercase tracking-widest">Status</span>
@@ -906,6 +932,7 @@ export default function ProjectDetailsPage() {
                         <div className="space-y-4">
                             <DetailRow label="Client Account" value={project.brand || project.clientName || 'N/A'} />
                             {assignedPM && <DetailRow label="Project Manager" value={assignedPM.displayName || "Assigned PM"} />}
+                            {assignedEditor && <DetailRow label="Primary Editor" value={assignedEditor.displayName || "Assigned Editor"} />}
                             {(project as any).videoFormat && <DetailRow label="Video Format" value={(project as any).videoFormat} />}
                             {(project as any).aspectRatio && <DetailRow label="Aspect Ratio" value={(project as any).aspectRatio} />}
                             <DetailRow label="Estimated Duration" value={`${project.duration || 0}m`} />
