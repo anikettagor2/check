@@ -6,11 +6,11 @@ import { adminDb } from "@/lib/firebase/admin";
 import { Project, User } from "@/types/schema";
 
 // ============================================================================
-// CAMPAIGN NAMES (Approved by Meta)
+// CAMPAIGN NAMES (AiSensy Campaign Names - NOT template names)
 // ============================================================================
 const CAMPAIGNS = {
-    CLIENT: "clinet",
-    EDITOR: "editor", 
+    CLIENT: "CLIENT",
+    EDITOR: "EDITOR", 
     PM: "PROJECT_MANAGER"
 };
 

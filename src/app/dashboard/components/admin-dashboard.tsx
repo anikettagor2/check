@@ -57,7 +57,9 @@ import {
     ShieldCheck,
     MapPin,
     Bell,
-    Film
+    Film,
+    Settings,
+    Phone
 } from "lucide-react";
 
 import { cn } from "@/lib/utils";
@@ -81,7 +83,7 @@ import {
 
 import { useSearchParams } from "next/navigation";
 import { useAuth } from "@/lib/context/auth-context";
-import { assignEditor, updateProject, togglePayLater, deleteProject, deleteUser, toggleUserStatus, rejectDeletionRequest, verifyEditor, getWhatsAppTemplates, updateWhatsAppTemplates, settleProjectPayment, addProjectLog, bulkSettleEditorDues } from "@/app/actions/admin-actions";
+import { assignEditor, updateProject, togglePayLater, deleteProject, deleteUser, toggleUserStatus, rejectDeletionRequest, verifyEditor, getWhatsAppTemplates, updateWhatsAppTemplates, getSystemSettings, updateSystemSettings, settleProjectPayment, addProjectLog, bulkSettleEditorDues } from "@/app/actions/admin-actions";
 import { AdminOverviewGraphs } from "./admin-overview-graphs";
 import { AdminPerformanceTab } from "./admin-performance";
 import { ClientDocuments } from "./client-documents";
@@ -252,6 +254,7 @@ export function AdminDashboard() {
 
   const [whatsappTemplates, setWhatsappTemplates] = useState<any>({});
   const [isUpdatingTemplates, setIsUpdatingTemplates] = useState(false);
+  const [systemSettings, setSystemSettings] = useState<{ allowDuplicatePhone?: boolean }>({});
 
 
 
@@ -276,7 +279,11 @@ export function AdminDashboard() {
         }
     });
 
-
+    getSystemSettings().then(res => {
+        if (res.success && res.data) {
+            setSystemSettings(res.data);
+        }
+    });
 
     return () => {
         unsubProjects();
@@ -1437,6 +1444,33 @@ export function AdminDashboard() {
                                 checked={whatsappTemplates.enabled !== false}
                                 onCheckedChange={(checked) => setWhatsappTemplates({ ...whatsappTemplates, enabled: checked })}
                             />
+                        </div>
+
+                        {/* System Settings Section */}
+                        <div className="space-y-3 pt-4 border-t border-border">
+                            <h3 className="text-sm font-bold text-foreground flex items-center gap-2 px-1">
+                                <Settings className="h-4 w-4 text-orange-500" />
+                                System Settings
+                            </h3>
+                            <div className="p-4 border border-border bg-muted/50 rounded-2xl flex items-center justify-between">
+                                <div className="flex items-center gap-3">
+                                    <div className="h-10 w-10 rounded-xl bg-orange-500/10 flex items-center justify-center">
+                                        <Phone className="h-5 w-5 text-orange-500" />
+                                    </div>
+                                    <div>
+                                        <p className="text-sm font-bold text-foreground">Allow Duplicate Phone Numbers</p>
+                                        <p className="text-[10px] text-muted-foreground">When enabled, same phone can be used for multiple accounts (different user types)</p>
+                                    </div>
+                                </div>
+                                <Switch 
+                                    checked={systemSettings.allowDuplicatePhone === true}
+                                    onCheckedChange={async (checked) => {
+                                        setSystemSettings({ ...systemSettings, allowDuplicatePhone: checked });
+                                        await updateSystemSettings({ allowDuplicatePhone: checked });
+                                        toast.success(checked ? "Duplicate phone numbers allowed" : "Phone numbers must be unique");
+                                    }}
+                                />
+                            </div>
                         </div>
 
                         {/* Client Notifications */}

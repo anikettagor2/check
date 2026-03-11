@@ -598,3 +598,28 @@ export async function updateGlobalPrices(prices: any) {
         return { success: false, error: error.message };
     }
 }
+
+/**
+ * Gets system settings (phone uniqueness, etc.)
+ */
+export async function getSystemSettings() {
+    try {
+        const snap = await adminDb.collection('settings').doc('system').get();
+        if (!snap.exists) return { success: true, data: { allowDuplicatePhone: false } };
+        return { success: true, data: snap.data() };
+    } catch (error: any) {
+        return { success: false, error: error.message };
+    }
+}
+
+/**
+ * Updates system settings
+ */
+export async function updateSystemSettings(settings: any) {
+    try {
+        await adminDb.collection('settings').doc('system').set(settings, { merge: true });
+        return { success: true };
+    } catch (error: any) {
+        return { success: false, error: error.message };
+    }
+}

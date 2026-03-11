@@ -13,12 +13,34 @@ export async function POST(request: Request) {
 
         // Validate and format phone number
         let formattedPhone: string | undefined = undefined;
+        let usePhoneInAuth = true; // Whether to set phone in Firebase Auth
+        
         if (phoneNumber && phoneNumber.trim().length > 0) {
             const cleaned = phoneNumber.replace(/\D/g, '');
             if (cleaned.length !== 10) {
                 return NextResponse.json({ error: 'Phone number must be exactly 10 digits' }, { status: 400 });
             }
             formattedPhone = `+91${cleaned}`;
+
+            // Check system settings for phone uniqueness
+            const settingsSnap = await adminDb.collection('settings').doc('system').get();
+            const systemSettings = settingsSnap.exists ? settingsSnap.data() : {};
+            const allowDuplicatePhone = systemSettings?.allowDuplicatePhone === true;
+
+            if (!allowDuplicatePhone) {
+                // Check if phone number already exists
+                const existingUsers = await adminDb.collection('users')
+                    .where('phoneNumber', '==', formattedPhone)
+                    .limit(1)
+                    .get();
+                
+                if (!existingUsers.empty) {
+                    return NextResponse.json({ error: 'This phone number is already registered. Please use a different phone number.' }, { status: 409 });
+                }
+            } else {
+                // When duplicates allowed, don't set phone in Firebase Auth (it enforces uniqueness)
+                usePhoneInAuth = false;
+            }
         }
 
         // 1. Create User in Firebase Auth
@@ -26,7 +48,7 @@ export async function POST(request: Request) {
             email,
             password,
             displayName,
-            phoneNumber: formattedPhone
+            phoneNumber: usePhoneInAuth ? formattedPhone : undefined
         });
 
         // 2. Create User Profile in Firestore
