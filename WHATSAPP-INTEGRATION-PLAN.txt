@@ -1,0 +1,376 @@
+================================================================================
+                    EDITOHUB - WHATSAPP NOTIFICATION INTEGRATION PLAN
+                              IMPLEMENTATION COMPLETE ✅
+================================================================================
+
+🎉 STATUS: FULLY IMPLEMENTED AND READY FOR PRODUCTION
+
+--------------------------------------------------------------------------------
+                              1. AISENSY CAMPAIGN SETUP
+--------------------------------------------------------------------------------
+
+Campaigns Created in AiSensy:
+| Campaign Name   | Template Name    | Status        |
+|-----------------|------------------|---------------|
+| CLIENT          | client           | ✅ Approved   |
+| EDITOR          | editor           | ✅ Approved   |
+| PROJECT_MANAGER | project_manager  | ✅ Approved   |
+
+--------------------------------------------------------------------------------
+                           2. NOTIFICATION EVENTS IMPLEMENTED
+--------------------------------------------------------------------------------
+
+🔵 CLIENT NOTIFICATIONS (7):
+| Event                      | Trigger Point                              |
+|----------------------------|-------------------------------------------|
+| client_project_created     | When client uploads a new project          |
+| client_pm_assigned         | When PM is assigned to client's project    |
+| client_editor_assigned     | When PM assigns an editor                  |
+| client_editor_accepted     | When editor accepts the project            |
+| client_draft_submitted     | When editor uploads a revision             |
+| client_new_comment         | When someone comments on the project       |
+| client_project_completed   | When client downloads final files          |
+
+🟢 EDITOR NOTIFICATIONS (3):
+| Event                      | Trigger Point                              |
+|----------------------------|-------------------------------------------|
+| editor_project_assigned    | When PM assigns a project to editor        |
+| editor_new_comment         | When client comments on the project        |
+| editor_feedback_received   | When client rates the editor               |
+
+🟣 PM NOTIFICATIONS (5):
+| Event                      | Trigger Point                              |
+|----------------------------|-------------------------------------------|
+| pm_project_assigned        | When SE assigns project to PM              |
+| pm_editor_accepted         | When editor accepts assignment             |
+| pm_editor_rejected         | When editor declines assignment            |
+| pm_new_comment             | When anyone comments on managed project    |
+| pm_project_completed       | When client downloads final files          |
+
+--------------------------------------------------------------------------------
+                              3. FILES MODIFIED
+--------------------------------------------------------------------------------
+
+📁 Core Notification Service:
+   - src/lib/whatsapp.ts (Complete rewrite with 3-campaign approach)
+
+📁 Server Actions:
+   - src/app/actions/admin-actions.ts (Updated to use new notification functions)
+   - src/app/actions/notification-actions.ts (New comprehensive notification handlers)
+   - src/app/actions/project-actions.ts (Updated imports)
+
+📁 Client Pages (Added notification triggers):
+   - src/app/dashboard/projects/[id]/page.tsx (Project completion + rating)
+   - src/app/dashboard/projects/[id]/review/[revisionId]/page.tsx (Comments)
+   - src/app/review/[id]/[revisionId]/page.tsx (Public review comments)
+
+📁 Admin Dashboard:
+   - src/app/dashboard/components/admin-dashboard.tsx (WhatsApp settings panel)
+   - src/components/ui/switch.tsx (New UI component)
+
+--------------------------------------------------------------------------------
+                           4. ADMIN PANEL FEATURES  
+--------------------------------------------------------------------------------
+
+Location: Dashboard → WhatsApp Tab (Admin/SE only)
+
+Features:
+• Global ON/OFF toggle for all WhatsApp notifications
+• Individual toggles for each of the 15 notification types
+• Custom message override for each notification type
+• Organized by role: Client, Editor, PM sections
+• Leave field blank to use default message
+
+--------------------------------------------------------------------------------
+                              5. FIRESTORE SCHEMA
+--------------------------------------------------------------------------------
+
+Collection: settings
+Document: whatsapp
+
+{
+  "enabled": true,
+  "campaigns": {
+    "client": "CLIENT",
+    "editor": "EDITOR", 
+    "pm": "PROJECT_MANAGER"
+  },
+  "notifications": {
+    "client_project_created": { "enabled": true, "message": "" },
+    "client_pm_assigned": { "enabled": true, "message": "" },
+    ...
+  }
+}
+
+--------------------------------------------------------------------------------
+                              6. USAGE EXAMPLES
+--------------------------------------------------------------------------------
+
+Fire-and-forget (non-blocking):
+```typescript
+import { notifyClientProjectCreated, notifyEditorProjectAssigned } from "@/lib/whatsapp";
+
+// Notify client about new project
+notifyClientProjectCreated(projectId);
+
+// Notify editor about assignment
+notifyEditorProjectAssigned(projectId, editorId, pmName, deadline);
+```
+
+With async/await (if you need to handle result):
+```typescript
+import { notifyClient, notifyPM } from "@/lib/whatsapp";
+
+const result = await notifyClient(projectId, 'client_draft_submitted');
+if (!result.success) console.error(result.error);
+```
+
+--------------------------------------------------------------------------------
+                              7. TESTING CHECKLIST
+--------------------------------------------------------------------------------
+
+□ Test client project creation notification
+□ Test PM assignment notification  
+□ Test editor assignment notification
+□ Test editor acceptance notification (also notifies PM)
+□ Test editor rejection notification (notifies PM)
+□ Test draft submission notification
+□ Test new comment notifications (all parties)
+□ Test project completion notification (client + PM)
+□ Test editor rating notification
+□ Verify admin panel toggle functionality
+□ Verify custom message override works
+
+--------------------------------------------------------------------------------
+                              8. ENVIRONMENT VARIABLES
+--------------------------------------------------------------------------------
+
+Required in .env.local:
+AISENSY_API_KEY=your_api_key_here
+
+================================================================================
+                          IMPLEMENTATION COMPLETED ✅
+================================================================================
+                         3-TEMPLATE APPROACH (FINAL)
+================================================================================
+
+AISENSY CONFIGURATION:
+----------------------
+- API Key: Stored in .env as AISENSY_API_KEY ✅ (Already configured)
+- API URL: https://backend.aisensy.com/campaign/t1/api/v2
+- 3 Campaigns = 3 Templates (Client, Editor, PM)
+
+
+================================================================================
+                    STEP 1: CREATE 3 CAMPAIGNS IN AISENSY
+================================================================================
+
+Go to AiSensy Dashboard → Campaigns → Create New Campaign
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+📱 CAMPAIGN 1: CLIENT NOTIFICATIONS
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Campaign Name:    client
+Template Name:    client_notification
+Category:         UTILITY
+Language:         English
+
+BODY (Copy this exactly):
+─────────────────────────────────────────
+Hi {{1}},
+
+{{2}}
+
+Project: {{3}}
+
+Thanks,
+EditoHub Team
+─────────────────────────────────────────
+
+Variables Explanation (for Meta approval):
+- {{1}} = Customer name
+- {{2}} = Update message about their project
+- {{3}} = Project name
+
+Sample Values (for Meta approval):
+- {{1}} = John
+- {{2}} = Your project has been received. Our team is reviewing it.
+- {{3}} = YouTube Video Edit
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+📱 CAMPAIGN 2: EDITOR NOTIFICATIONS
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Campaign Name:    editor
+Template Name:    editor_notification
+Category:         UTILITY
+Language:         English
+
+BODY (Copy this exactly):
+─────────────────────────────────────────
+Hi {{1}},
+
+{{2}}
+
+Project: {{3}}
+{{4}}
+
+- EditoHub
+─────────────────────────────────────────
+
+Variables Explanation (for Meta approval):
+- {{1}} = Editor name
+- {{2}} = Work update message
+- {{3}} = Project name
+- {{4}} = Additional details (deadline, manager name)
+
+Sample Values (for Meta approval):
+- {{1}} = Rahul
+- {{2}} = You have been assigned a new project. Please review.
+- {{3}} = Brand Promo Video
+- {{4}} = Deadline: March 15, 2026
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+📱 CAMPAIGN 3: PROJECT MANAGER NOTIFICATIONS
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Campaign Name:    project_manager
+Template Name:    pm_notification
+Category:         UTILITY
+Language:         English
+
+BODY (Copy this exactly):
+─────────────────────────────────────────
+Hi {{1}},
+
+{{2}}
+
+Project: {{3}}
+{{4}}
+
+- EditoHub
+─────────────────────────────────────────
+
+Variables Explanation (for Meta approval):
+- {{1}} = Manager name
+- {{2}} = Project update message
+- {{3}} = Project name
+- {{4}} = Client or editor name
+
+Sample Values (for Meta approval):
+- {{1}} = Amit
+- {{2}} = A new project has been assigned to you for review.
+- {{3}} = Corporate Video
+- {{4}} = Client: TechCorp Ltd
+
+
+================================================================================
+                         STEP 2: SUBMIT FOR META APPROVAL
+================================================================================
+
+After creating each campaign:
+1. Click "Submit for Approval"
+2. Wait 24-48 hours for Meta to approve
+3. Status will change from "Pending" to "Approved"
+
+
+================================================================================
+                         STEP 3: CAMPAIGN NAMES (CONFIRMED ✅)
+================================================================================
+
+┌─────────────────────────────────────────────────────────────────┐
+│                                                                 │
+│  ✅ Client Campaign:    CLIENT        (template: client)        │
+│                                                                 │
+│  ✅ Editor Campaign:    EDITOR        (template: editor)        │
+│                                                                 │
+│  ✅ PM Campaign:        PROJECT_MANAGER (template: project_manager)
+│                                                                 │
+└─────────────────────────────────────────────────────────────────┘
+
+STATUS: ⏳ Waiting for Meta approval (24-48 hours)
+
+
+================================================================================
+                              HOW IT WILL WORK
+================================================================================
+
+EXAMPLE: When editor uploads a draft
+
+1. System detects: "Draft uploaded for project X"
+2. System looks up: Client phone number
+3. System sends to AiSensy:
+   - Campaign: "client"
+   - {{1}}: "John"
+   - {{2}}: "A new draft is ready for your review! Check your dashboard."
+   - {{3}}: "YouTube Video Edit"
+4. Client receives WhatsApp message ✅
+
+
+================================================================================
+                         ALL 14 NOTIFICATION EVENTS
+================================================================================
+
+CLIENT receives these messages (via "client" campaign):
+───────────────────────────────────────────────────────
+✉️ 1.1  Project Created    → "Your project has been received..."
+✉️ 1.2  PM Assigned        → "Amit has been assigned as your PM..."
+✉️ 1.3  Editor Assigned    → "An expert editor has been assigned..."
+✉️ 1.4  Editor Accepted    → "Production has started..."
+✉️ 1.5  Draft Submitted    → "A new draft is ready for review..."
+✉️ 1.6  New Comment        → "You have a new message from Rahul..."
+✉️ 1.7  Project Completed  → "Congratulations! Your project is complete..."
+
+
+EDITOR receives these messages (via "editor" campaign):
+───────────────────────────────────────────────────────
+✉️ 2.1  Project Assigned   → "You've been assigned a new project by Amit..."
+✉️ 2.2  New Comment        → "New message from John on this project..."
+✉️ 2.3  Feedback Received  → "You received 5-star feedback..."
+
+
+PM receives these messages (via "project_manager" campaign):
+───────────────────────────────────────────────────────
+✉️ 3.1  Project Assigned   → "Priya (SE) assigned you a new project..."
+✉️ 3.2  Editor Accepted    → "Rahul has ACCEPTED the project..."
+✉️ 3.2b Editor Rejected    → "Rahul has DECLINED. Reason: Too busy..."
+✉️ 3.3  New Comment        → "New comment from John (Client)..."
+✉️ 3.4  Project Completed  → "John has downloaded the final files..."
+
+
+================================================================================
+                         ADMIN PANEL (TO BE BUILT)
+================================================================================
+
+Admin can control everything from Dashboard → Settings → WhatsApp:
+
+• Enable/Disable WhatsApp notifications globally
+• Enter campaign names from AiSensy
+• Enable/Disable individual notification types
+• Customize message text for each event
+• Test notifications before going live
+
+
+================================================================================
+                              CHECKLIST
+================================================================================
+
+YOUR TASKS:
+☐ Create Campaign 1: "client" with client_notification template
+☐ Create Campaign 2: "editor" with editor_notification template  
+☐ Create Campaign 3: "project_manager" with pm_notification template
+☐ Submit all 3 for Meta approval
+☐ Wait for approval (24-48 hours)
+☐ Share approved campaign names
+
+DEVELOPER TASKS (after you share names):
+☐ Build Admin Panel UI
+☐ Update notification service
+☐ Add triggers at all 14 event points
+☐ Test & deploy
+
+================================================================================

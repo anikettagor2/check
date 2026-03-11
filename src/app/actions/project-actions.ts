@@ -104,7 +104,7 @@ export async function registerDownload(projectId: string, revisionId: string) {
 }
 
 
-import { notifyClientOfStatusUpdate } from "@/lib/whatsapp";
+import { notifyClientProjectCompleted } from "@/lib/whatsapp";
 
 /**
  * Marks a project as paid/deferred based on user's Pay Later status.
@@ -136,7 +136,7 @@ export async function unlockProjectDownloads(projectId: string, userId: string) 
         });
 
         // Notify client that project is completed/ready for download
-        await notifyClientOfStatusUpdate(projectId, 'completed');
+        notifyClientProjectCompleted(projectId);
 
         const { addProjectLog } = await import("./admin-actions");
         await addProjectLog(projectId, 'COMPLETED', { uid: userId, displayName: userData?.displayName || 'PM/Admin' }, 'Downloads unlocked. Project successfully marked as completed.');

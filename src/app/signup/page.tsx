@@ -44,12 +44,18 @@ export default function SignupPage() {
         return;
     }
 
+    // Validate editor WhatsApp number
+    if (selectedRole === 'editor' && whatsapp.length !== 10) {
+        setError("WhatsApp number must be exactly 10 digits");
+        return;
+    }
+
     setIsSigningUp(true);
     setError(null);
     try {
       const metadata: any = { displayName: name };
       if (selectedRole === 'editor') {
-          metadata.whatsappNumber = whatsapp;
+          metadata.whatsappNumber = `+91${whatsapp}`;
           metadata.portfolio = [{ name: "Main Portfolio", url: portfolio, date: Date.now() }];
       }
       
@@ -69,13 +75,25 @@ export default function SignupPage() {
         return;
     }
     
+    // Validate phone number is exactly 10 digits
+    if (phone.length !== 10) {
+        setError("Phone number must be exactly 10 digits");
+        return;
+    }
+
+    // Validate editor WhatsApp number
+    if (selectedRole === 'editor' && whatsapp.length !== 10) {
+        setError("WhatsApp number must be exactly 10 digits");
+        return;
+    }
+    
     setIsSigningUp(true);
     setError(null);
     try {
         const metadata = {
-            phoneNumber: phone,
+            phoneNumber: `+91${phone}`,
             ...(selectedRole === 'editor' ? {
-                whatsappNumber: whatsapp,
+                whatsappNumber: `+91${whatsapp}`,
                 portfolio: [{ name: "Main Portfolio", url: portfolio, date: Date.now() }],
                 initialPassword: password
             } : {})
@@ -202,12 +220,17 @@ export default function SignupPage() {
                       value={name}
                       onChange={e => setName(e.target.value)}
                   />
-                  <Input 
-                      placeholder="Phone Number (mandatory for login)" 
-                      className="bg-black/5 dark:bg-black/40 border-border text-foreground h-10 mt-2"
-                      value={phone}
-                      onChange={e => setPhone(e.target.value)}
-                  />
+                  <div className="flex gap-2 mt-2">
+                      <div className="flex items-center justify-center h-10 px-3 bg-black/20 border border-border rounded-md text-sm text-muted-foreground">+91</div>
+                      <Input 
+                          type="tel"
+                          placeholder="9876543210" 
+                          className="bg-black/5 dark:bg-black/40 border-border text-foreground h-10 flex-1"
+                          value={phone}
+                          onChange={e => setPhone(e.target.value.replace(/\D/g, '').slice(0, 10))}
+                          maxLength={10}
+                      />
+                  </div>
               </div>
 
               {/* Role-Specific Fields */}
@@ -219,12 +242,17 @@ export default function SignupPage() {
                   >
                       <div className="space-y-1.5">
                           <Label className="text-muted-foreground text-[10px] uppercase tracking-wider font-bold">Professional Details</Label>
-                          <Input 
-                              placeholder="WhatsApp Number (+91...)" 
-                              className="bg-black/5 dark:bg-black/40 border-border text-foreground h-10"
-                              value={whatsapp}
-                              onChange={e => setWhatsapp(e.target.value)}
-                          />
+                          <div className="flex gap-2">
+                              <div className="flex items-center justify-center h-10 px-3 bg-black/20 border border-border rounded-md text-sm text-muted-foreground">+91</div>
+                              <Input 
+                                  type="tel"
+                                  placeholder="9876543210" 
+                                  className="bg-black/5 dark:bg-black/40 border-border text-foreground h-10 flex-1"
+                                  value={whatsapp}
+                                  onChange={e => setWhatsapp(e.target.value.replace(/\D/g, '').slice(0, 10))}
+                                  maxLength={10}
+                              />
+                          </div>
                       </div>
                       <Input 
                           placeholder="Portfolio Link (Google Drive/YouTube/behance)" 

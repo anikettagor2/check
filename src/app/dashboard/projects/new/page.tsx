@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
-import { addDoc, collection, doc, getDoc } from "firebase/firestore";
+import { addDoc, collection, doc, getDoc, updateDoc, increment } from "firebase/firestore";
 import { ref, uploadBytesResumable, getDownloadURL } from "firebase/storage";
 import { db, storage } from "@/lib/firebase/config";
 import { useAuth } from "@/lib/context/auth-context";
@@ -32,6 +32,22 @@ import { cn } from "@/lib/utils";
 import { motion, AnimatePresence } from "framer-motion";
 
 import { handleProjectCreated } from "@/app/actions/admin-actions";
+import { CURRENCY } from "@/lib/razorpay";
+
+// Function to load Razorpay script dynamically
+const loadRazorpayScript = () => {
+    return new Promise((resolve) => {
+        if ((window as any).Razorpay) {
+            resolve(true);
+            return;
+        }
+        const script = document.createElement("script");
+        script.src = "https://checkout.razorpay.com/v1/checkout.js";
+        script.onload = () => resolve(true);
+        script.onerror = () => resolve(false);
+        document.body.appendChild(script);
+    });
+};
 
 interface UploadedFile {
     name: string;
@@ -102,6 +118,13 @@ export default function NewProjectPage() {
     const finalCost = basePrice + urgentExtraCost;
 
     const canPayLater = user?.payLater === true;
+    const [isProcessingPayment, setIsProcessingPayment] = useState(false);
+    
+    // Pay Later limit check
+    const creditLimit = user?.creditLimit || 0;
+    const pendingDues = user?.pendingDues || 0;
+    const canUsePayLater = canPayLater && (pendingDues + finalCost <= creditLimit);
+    const remainingCredit = Math.max(0, creditLimit - pendingDues);
 
     // Check if all files are uploaded
     const allFilesUploaded = [...rawFiles, ...scriptFiles, ...referenceFiles].every(
@@ -284,68 +307,182 @@ export default function NewProjectPage() {
         setCurrentStep(prev => Math.max(1, prev - 1));
     };
 
-    const handleSubmitProject = async (paymentOption: 'pay_now' | 'pay_later') => {
+    // Collect uploaded file data
+    const getUploadedFiles = () => {
+        const uploadedRawFiles = rawFiles
+            .filter(f => f.status === 'complete' && f.uploadedData)
+            .map(f => f.uploadedData!);
+        
+        const uploadedScripts = scriptFiles
+            .filter(f => f.status === 'complete' && f.uploadedData)
+            .map(f => f.uploadedData!);
+        
+        const uploadedReferences = referenceFiles
+            .filter(f => f.status === 'complete' && f.uploadedData)
+            .map(f => f.uploadedData!);
+
+        return { uploadedRawFiles, uploadedScripts, uploadedReferences };
+    };
+
+    // Create project in Firestore
+    const createProject = async (paymentOption: 'pay_now' | 'pay_later', razorpayPaymentId?: string) => {
+        if (!user) throw new Error("User not authenticated");
+
+        const { uploadedRawFiles, uploadedScripts, uploadedReferences } = getUploadedFiles();
+
+        const projectData = {
+            name,
+            videoType,
+            description,
+            urgency,
+            budget: finalCost,
+            totalCost: finalCost,
+            amountPaid: paymentOption === 'pay_now' ? finalCost : 0, 
+            paymentStatus: paymentOption === 'pay_now' ? 'full_paid' : 'pay_later',
+            paymentOption,
+            razorpayPaymentId: razorpayPaymentId || null,
+            deadline: null,
+            footageLink, 
+            rawFiles: uploadedRawFiles,
+            scripts: uploadedScripts,
+            referenceFiles: uploadedReferences,
+            referenceLink,
+            aspectRatio,
+            videoFormat: videoType,
+            scriptText,
+            assignedPMId: user.managedByPM || null,
+            assignedSEId: user.managedBy || user.createdBy || null,
+            status: 'pending_assignment', 
+            createdAt: Date.now(),
+            updatedAt: Date.now(),
+            members: [user.uid],
+            ownerId: user.uid,
+            clientId: user.uid,
+            isPayLaterRequest: paymentOption === 'pay_later',
+            clientName: user.displayName || 'Anonymous Client'
+        };
+
+        const projectRef = await addDoc(collection(db, "projects"), projectData);
+        await handleProjectCreated(projectRef.id);
+        return projectRef.id;
+    };
+
+    // Handle Pay Later submission
+    const handlePayLater = async () => {
         if (!user) return;
+        
+        // Double-check pay later limit
+        if (!canUsePayLater) {
+            toast.error("You have exceeded your Pay Later limit. Please use Pay Now or clear pending dues.");
+            return;
+        }
+        
         setIsSubmitting(true);
 
         try {
-            // Files are already uploaded - just collect the data
-            const uploadedRawFiles = rawFiles
-                .filter(f => f.status === 'complete' && f.uploadedData)
-                .map(f => f.uploadedData!);
+            await createProject('pay_later');
             
-            const uploadedScripts = scriptFiles
-                .filter(f => f.status === 'complete' && f.uploadedData)
-                .map(f => f.uploadedData!);
+            // Update user's pending dues
+            const userRef = doc(db, "users", user.uid);
+            await updateDoc(userRef, {
+                pendingDues: increment(finalCost)
+            });
             
-            const uploadedReferences = referenceFiles
-                .filter(f => f.status === 'complete' && f.uploadedData)
-                .map(f => f.uploadedData!);
-
-            // Create Project
-            const projectData = {
-                name,
-                videoType,
-                description,
-                urgency,
-                budget: finalCost,
-                totalCost: finalCost,
-                amountPaid: paymentOption === 'pay_now' ? finalCost : 0, 
-                paymentStatus: paymentOption === 'pay_now' ? 'paid' : 'pay_later',
-                paymentOption, // either pay_now or pay_later
-                deadline: null, // As requested
-                footageLink, 
-                rawFiles: uploadedRawFiles,
-                scripts: uploadedScripts,
-                referenceFiles: uploadedReferences,
-                referenceLink,
-                aspectRatio,
-                videoFormat: videoType,
-                scriptText,
-                assignedPMId: user.managedByPM || null,
-                assignedSEId: user.managedBy || user.createdBy || null,
-                status: 'pending_assignment', 
-                createdAt: Date.now(),
-                updatedAt: Date.now(),
-                members: [user.uid],
-                ownerId: user.uid,
-                clientId: user.uid,
-                isPayLaterRequest: paymentOption === 'pay_later',
-                clientName: user.displayName || 'Anonymous Client'
-            };
-
-            const projectRef = await addDoc(collection(db, "projects"), projectData);
-            
-            // 3. Trigger Server-side workflows
-            await handleProjectCreated(projectRef.id);
-
             toast.success("Project created successfully!");
             router.push("/dashboard");
-
         } catch (error: any) {
             console.error("Error creating project:", error);
             toast.error("Something went wrong: " + error.message);
             setIsSubmitting(false);
+        }
+    };
+
+    // Handle Pay Now with Razorpay
+    const handlePayNow = async () => {
+        if (!user) return;
+        setIsProcessingPayment(true);
+
+        try {
+            // 1. Load Razorpay Script
+            const scriptLoaded = await loadRazorpayScript();
+            if (!scriptLoaded) {
+                toast.error("Razorpay SDK failed to load. Please check your internet connection.");
+                setIsProcessingPayment(false);
+                return;
+            }
+
+            // 2. Create a temporary order ID for Razorpay
+            const tempOrderId = `temp_${Date.now()}`;
+            
+            // 3. Create Razorpay Order
+            const orderRes = await fetch("/api/create-order", {
+                method: "POST",
+                body: JSON.stringify({ amount: finalCost, projectId: tempOrderId }),
+                headers: { "Content-Type": "application/json" }
+            });
+            
+            if (!orderRes.ok) {
+                const errorData = await orderRes.json();
+                throw new Error(errorData.error || "Failed to create payment order");
+            }
+            
+            const orderData = await orderRes.json();
+
+            // 4. Open Razorpay Checkout
+            const options = {
+                key: process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID!,
+                amount: orderData.amount,
+                currency: orderData.currency,
+                name: "EditoHub Studio",
+                description: `Project: ${name}`,
+                order_id: orderData.id,
+                handler: async function (response: any) {
+                    try {
+                        setIsSubmitting(true);
+                        
+                        // Create project with payment details
+                        await createProject('pay_now', response.razorpay_payment_id);
+                        
+                        toast.success("Payment successful! Project created.");
+                        router.push("/dashboard");
+                    } catch (err: any) {
+                        console.error("Error creating project after payment:", err);
+                        toast.error("Payment received but project creation failed. Please contact support.");
+                        setIsSubmitting(false);
+                    }
+                },
+                prefill: {
+                    name: user?.displayName || "",
+                    email: user?.email || "",
+                    contact: user?.phoneNumber || "",
+                },
+                theme: {
+                    color: "#D946EF",
+                },
+                modal: {
+                    ondismiss: function() {
+                        setIsProcessingPayment(false);
+                        toast.info("Payment cancelled");
+                    }
+                }
+            };
+
+            const paymentObject = new (window as any).Razorpay(options);
+            paymentObject.open();
+
+        } catch (error: any) {
+            console.error("Payment Error:", error);
+            toast.error("Payment failed: " + error.message);
+            setIsProcessingPayment(false);
+        }
+    };
+
+    // Legacy handler for compatibility
+    const handleSubmitProject = async (paymentOption: 'pay_now' | 'pay_later') => {
+        if (paymentOption === 'pay_later') {
+            await handlePayLater();
+        } else {
+            await handlePayNow();
         }
     };
 
@@ -937,33 +1074,97 @@ export default function NewProjectPage() {
                             </div>
                         )}
 
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-4">
-                            <Button 
-                                type="button"
-                                disabled={true}
-                                size="lg" 
-                                className="h-14 rounded-xl font-bold tracking-wide w-full opacity-50"
-                            >
-                                <CreditCard className="w-5 h-5 mr-3 opacity-50" />
-                                Pay Now (Coming Soon)
-                            </Button>
-                            
-                            {canPayLater ? (
+                        {/* Payment Options - Pay Now visible to everyone, Pay Later only for enabled clients */}
+                        <div className="pt-4 space-y-4">
+                            {/* Pay Now - Always visible to everyone */}
+                            <div>
+                                <div className="bg-green-500/10 border border-green-500/20 rounded-xl p-4 mb-3">
+                                    <div className="flex items-center gap-2 mb-2">
+                                        <CreditCard className="w-5 h-5 text-green-400" />
+                                        <span className="text-sm font-bold text-green-400">Secure Payment</span>
+                                    </div>
+                                    <p className="text-xs text-muted-foreground">
+                                        Complete your payment securely via Razorpay. Your project will be submitted immediately after successful payment.
+                                    </p>
+                                </div>
                                 <Button 
-                                    onClick={() => handleSubmitProject('pay_later')} 
-                                    disabled={isSubmitting}
-                                    variant="outline"
+                                    onClick={handlePayNow} 
+                                    disabled={isSubmitting || isProcessingPayment}
                                     size="lg" 
-                                    className="h-14 rounded-xl font-bold tracking-wide w-full border-primary/50 text-primary hover:bg-primary/10"
+                                    className="h-14 rounded-xl font-bold tracking-wide w-full bg-green-600 hover:bg-green-700"
                                 >
-                                    {isSubmitting ? <Loader2 className="w-5 h-5 animate-spin mr-2" /> : <Clock className="w-5 h-5 mr-3" />}
-                                    Pay Later
+                                    {(isSubmitting || isProcessingPayment) ? (
+                                        <Loader2 className="w-5 h-5 animate-spin mr-2" />
+                                    ) : (
+                                        <CreditCard className="w-5 h-5 mr-3" />
+                                    )}
+                                    Pay ₹{finalCost.toLocaleString()} & Submit
                                 </Button>
-                            ) : (
-                                <div className="h-14 rounded-xl border border-dashed border-border flex items-center justify-center text-xs font-bold text-muted-foreground uppercase tracking-widest w-full">
-                                    Pay Later Disabled
+                            </div>
+
+                            {/* Pay Later - Only visible to enabled clients */}
+                            {canPayLater && (
+                                <div>
+                                    <div className="relative">
+                                        <div className="absolute inset-0 flex items-center">
+                                            <div className="w-full border-t border-border"></div>
+                                        </div>
+                                        <div className="relative flex justify-center text-xs uppercase">
+                                            <span className="bg-card px-3 text-muted-foreground font-bold tracking-widest">Or</span>
+                                        </div>
+                                    </div>
+                                    
+                                    <div className={cn(
+                                        "mt-4 rounded-xl p-4 mb-3",
+                                        canUsePayLater 
+                                            ? "bg-blue-500/10 border border-blue-500/20" 
+                                            : "bg-red-500/10 border border-red-500/20"
+                                    )}>
+                                        <div className="flex items-center gap-2 mb-2">
+                                            <Clock className={cn("w-5 h-5", canUsePayLater ? "text-blue-400" : "text-red-400")} />
+                                            <span className={cn("text-sm font-bold", canUsePayLater ? "text-blue-400" : "text-red-400")}>
+                                                Pay Later {canUsePayLater ? "Available" : "Limit Exceeded"}
+                                            </span>
+                                        </div>
+                                        {canUsePayLater ? (
+                                            <p className="text-xs text-muted-foreground">
+                                                Submit your project now and settle payment with your Project Manager later.
+                                                <span className="block mt-1 text-blue-400 font-medium">
+                                                    Available Credit: ₹{remainingCredit.toLocaleString()} / ₹{creditLimit.toLocaleString()}
+                                                </span>
+                                            </p>
+                                        ) : (
+                                            <p className="text-xs text-muted-foreground">
+                                                You have exceeded your Pay Later limit. Please clear pending dues or use Pay Now.
+                                                <span className="block mt-1 text-red-400 font-medium">
+                                                    Pending: ₹{pendingDues.toLocaleString()} | Limit: ₹{creditLimit.toLocaleString()}
+                                                </span>
+                                            </p>
+                                        )}
+                                    </div>
+                                    <Button 
+                                        onClick={handlePayLater} 
+                                        disabled={isSubmitting || !canUsePayLater}
+                                        size="lg" 
+                                        className={cn(
+                                            "h-14 rounded-xl font-bold tracking-wide w-full",
+                                            canUsePayLater 
+                                                ? "bg-blue-600 hover:bg-blue-700" 
+                                                : "bg-gray-500 cursor-not-allowed"
+                                        )}
+                                    >
+                                        {isSubmitting ? <Loader2 className="w-5 h-5 animate-spin mr-2" /> : <Clock className="w-5 h-5 mr-3" />}
+                                        Submit Project (Pay Later)
+                                    </Button>
                                 </div>
                             )}
+                        </div>
+                        
+                        {/* Additional info for all users */}
+                        <div className="mt-4 p-3 bg-muted/30 rounded-lg">
+                            <p className="text-[10px] text-muted-foreground text-center">
+                                By submitting, you agree to our terms of service. Your project will be assigned to an editor within 24 hours.
+                            </p>
                         </div>
 
                         {!isSubmitting && (

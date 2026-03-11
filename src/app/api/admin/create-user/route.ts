@@ -18,13 +18,15 @@ export async function POST(request: Request) {
         }
 
         let formattedPhone: string | undefined = undefined;
-        if (phoneNumber && phoneNumber.trim().length >= 10) {
-            // Strip any non-numeric characters for simple length check
+        if (phoneNumber && phoneNumber.trim().length > 0) {
+            // Strip any non-numeric characters
             const cleaned = phoneNumber.replace(/\D/g, '');
-            if (cleaned.length >= 10) {
-                // Ensure it starts with +91 if not specified
-                formattedPhone = phoneNumber.startsWith('+') ? phoneNumber : `+91${cleaned.slice(-10)}`;
+            // Validate exactly 10 digits
+            if (cleaned.length !== 10) {
+                return NextResponse.json({ error: 'Phone number must be exactly 10 digits' }, { status: 400 });
             }
+            // Format with +91 prefix
+            formattedPhone = `+91${cleaned}`;
         }
 
         // 1. Create User in Firebase Auth
@@ -41,7 +43,8 @@ export async function POST(request: Request) {
             email,
             displayName,
             role: role,
-            phoneNumber: phoneNumber || null,
+            phoneNumber: formattedPhone || null,
+            whatsappNumber: formattedPhone || null,
             photoURL: null,
             createdAt: Date.now(),
             createdBy: createdBy || 'admin',

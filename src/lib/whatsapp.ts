@@ -5,18 +5,78 @@ const AISENSY_URL = "https://backend.aisensy.com/campaign/t1/api/v2";
 import { adminDb } from "@/lib/firebase/admin";
 import { Project, User } from "@/types/schema";
 
-// Configuration for retry logic
-const MAX_RETRIES = 3;
-const RETRY_DELAY = 1000; // 1 second
+// ============================================================================
+// CAMPAIGN NAMES (Approved by Meta)
+// ============================================================================
+const CAMPAIGNS = {
+    CLIENT: "clinet",
+    EDITOR: "editor", 
+    PM: "PROJECT_MANAGER"
+};
 
-/**
- * Helper to delay execution
- */
+// ============================================================================
+// NOTIFICATION TYPES
+// ============================================================================
+export type ClientNotificationType = 
+    | 'client_project_created'
+    | 'client_pm_assigned'
+    | 'client_editor_assigned'
+    | 'client_editor_accepted'
+    | 'client_draft_submitted'
+    | 'client_new_comment'
+    | 'client_project_completed';
+
+export type EditorNotificationType =
+    | 'editor_project_assigned'
+    | 'editor_new_comment'
+    | 'editor_feedback_received';
+
+export type PMNotificationType =
+    | 'pm_project_assigned'
+    | 'pm_editor_accepted'
+    | 'pm_editor_rejected'
+    | 'pm_new_comment'
+    | 'pm_project_completed';
+
+export type NotificationType = ClientNotificationType | EditorNotificationType | PMNotificationType;
+
+// ============================================================================
+// DEFAULT MESSAGES (Can be customized via Admin Panel)
+// ============================================================================
+const DEFAULT_MESSAGES: Record<NotificationType, string> = {
+    // Client messages
+    client_project_created: "Your project has been received. Our team will review and assign a manager shortly.",
+    client_pm_assigned: "{pm} has been assigned as your Project Manager. They'll coordinate your project.",
+    client_editor_assigned: "An expert editor has been assigned and is reviewing your requirements.",
+    client_editor_accepted: "Production has officially started! We'll notify you when the first draft is ready.",
+    client_draft_submitted: "A new draft is ready for your review! Check your dashboard to provide feedback.",
+    client_new_comment: "You have a new message from {name}. Please check the review tool to respond.",
+    client_project_completed: "Congratulations! Your project is complete. Thank you for choosing EditoHub!",
+    
+    // Editor messages
+    editor_project_assigned: "You've been assigned a new project by {pm}. Please accept or decline within 5 minutes.",
+    editor_new_comment: "You have a new message from {client} on this project. Check the review tool to respond.",
+    editor_feedback_received: "Great news! You received {rating}-star feedback from the client. Keep up the excellent work!",
+    
+    // PM messages
+    pm_project_assigned: "{se} has assigned you a new project. Please review and assign an editor.",
+    pm_editor_accepted: "{editor} has ACCEPTED the project. Production is starting!",
+    pm_editor_rejected: "{editor} has DECLINED the project. Reason: {reason}. Please reassign.",
+    pm_new_comment: "New activity: {name} ({role}) left a comment. Check the review tool.",
+    pm_project_completed: "Project complete! {client} has downloaded the final files. Great job!"
+};
+
+// ============================================================================
+// CONFIGURATION
+// ============================================================================
+const MAX_RETRIES = 3;
+const RETRY_DELAY = 1000;
+
 const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 
-/**
- * Validates and formats phone number for Indian numbers
- */
+// ============================================================================
+// PHONE NUMBER VALIDATION
+// ============================================================================
 function formatPhoneNumber(phoneNumber: string): { valid: boolean; formatted: string; error?: string } {
     if (!phoneNumber) {
         return { valid: false, formatted: '', error: "Phone number is required" };
@@ -24,27 +84,55 @@ function formatPhoneNumber(phoneNumber: string): { valid: boolean; formatted: st
 
     const sanitized = phoneNumber.replace(/\D/g, '');
     
-    // Handle different formats
     if (sanitized.length === 10) {
-        // Indian mobile without country code
         return { valid: true, formatted: `91${sanitized}` };
     } else if (sanitized.length === 12 && sanitized.startsWith('91')) {
-        // Indian mobile with country code
         return { valid: true, formatted: sanitized };
     } else if (sanitized.length === 11 && sanitized.startsWith('0')) {
-        // Indian mobile with leading 0
         return { valid: true, formatted: `91${sanitized.slice(1)}` };
     } else if (sanitized.length === 13 && sanitized.startsWith('091')) {
-        // Indian mobile with 0 + country code
         return { valid: true, formatted: sanitized.slice(1) };
     }
     
     return { valid: false, formatted: '', error: `Invalid phone format: ${phoneNumber}` };
 }
 
-/**
- * Sends a WhatsApp notification via AiSensy with retry logic
- */
+// ============================================================================
+// SETTINGS HELPER
+// ============================================================================
+interface WhatsAppSettings {
+    enabled: boolean;
+    campaigns: {
+        client: string;
+        editor: string;
+        pm: string;
+    };
+    notifications: Record<string, { enabled: boolean; message: string }>;
+}
+
+async function getWhatsAppSettings(): Promise<WhatsAppSettings | null> {
+    try {
+        const settingsSnap = await adminDb.collection('settings').doc('whatsapp').get();
+        if (settingsSnap.exists) {
+            return settingsSnap.data() as WhatsAppSettings;
+        }
+    } catch (err) {
+        console.error("[WhatsApp] Failed to fetch settings:", err);
+    }
+    return null;
+}
+
+function replacePlaceholders(message: string, data: Record<string, string>): string {
+    let result = message;
+    for (const [key, value] of Object.entries(data)) {
+        result = result.replace(new RegExp(`\\{${key}\\}`, 'gi'), value);
+    }
+    return result;
+}
+
+// ============================================================================
+// CORE SEND FUNCTION
+// ============================================================================
 export async function sendWhatsAppNotification(
     phoneNumber: string,
     params: string[],
@@ -53,17 +141,15 @@ export async function sendWhatsAppNotification(
 ): Promise<{ success: boolean; error?: string; data?: any }> {
     console.log(`[WhatsApp] Attempting send to ${phoneNumber} via campaign "${campaignName}" (attempt ${retryCount + 1})`);
 
-    // Validate phone number
     const phoneResult = formatPhoneNumber(phoneNumber);
     if (!phoneResult.valid) {
         console.warn(`[WhatsApp] ${phoneResult.error}`);
         return { success: false, error: phoneResult.error };
     }
 
-    // Check API key
     if (!AISENSY_API_KEY) {
-        console.error("[WhatsApp] AISENSY_API_KEY is missing from environment variables");
-        return { success: false, error: "WhatsApp service not configured. Please add AISENSY_API_KEY to environment." };
+        console.error("[WhatsApp] AISENSY_API_KEY is missing");
+        return { success: false, error: "WhatsApp service not configured" };
     }
 
     const payload = {
@@ -77,7 +163,7 @@ export async function sendWhatsAppNotification(
 
     try {
         const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 second timeout
+        const timeoutId = setTimeout(() => controller.abort(), 10000);
 
         const response = await fetch(AISENSY_URL, {
             method: 'POST',
@@ -90,16 +176,13 @@ export async function sendWhatsAppNotification(
         });
 
         clearTimeout(timeoutId);
-
         const data = await response.json();
         
         if (!response.ok) {
             console.error("[WhatsApp] AiSensy Error:", data);
             
-            // Retry on certain errors
             if (retryCount < MAX_RETRIES && (response.status >= 500 || response.status === 429)) {
-                console.log(`[WhatsApp] Retrying in ${RETRY_DELAY}ms...`);
-                await delay(RETRY_DELAY * (retryCount + 1)); // Exponential backoff
+                await delay(RETRY_DELAY * (retryCount + 1));
                 return sendWhatsAppNotification(phoneNumber, params, campaignName, retryCount + 1);
             }
             
@@ -112,9 +195,7 @@ export async function sendWhatsAppNotification(
     } catch (error: any) {
         console.error("[WhatsApp] Network Error:", error);
         
-        // Retry on network errors
         if (retryCount < MAX_RETRIES && (error.name === 'AbortError' || error.code === 'ECONNRESET')) {
-            console.log(`[WhatsApp] Network error, retrying in ${RETRY_DELAY}ms...`);
             await delay(RETRY_DELAY * (retryCount + 1));
             return sendWhatsAppNotification(phoneNumber, params, campaignName, retryCount + 1);
         }
@@ -123,113 +204,288 @@ export async function sendWhatsAppNotification(
     }
 }
 
-export type WhatsAppTrigger =
-    | 'PROJECT_RECEIVED'      // Sent when client uploads project
-    | 'EDITOR_ASSIGNED'      // Sent when PM assigns editor
-    | 'EDITOR_ACCEPTED'      // Sent when editor accepts
-    | 'PROPOSAL_UPLOADED'    // Sent when editor uploads proposal
-    | 'PROJECT_COMPLETED';    // Sent when project is marked as completed
-
-/**
- * Higher level helper to notify a client based on project events
- */
-export async function notifyClient(projectId: string, trigger: WhatsAppTrigger, extraData?: any) {
+// ============================================================================
+// CLIENT NOTIFICATIONS
+// ============================================================================
+export async function notifyClient(
+    projectId: string,
+    notificationType: ClientNotificationType,
+    extraData?: Record<string, string>
+): Promise<{ success: boolean; error?: string }> {
     try {
+        // Check settings
+        const settings = await getWhatsAppSettings();
+        if (settings && !settings.enabled) {
+            console.log("[WhatsApp] Notifications disabled globally");
+            return { success: true };
+        }
+        
+        const notifSettings = settings?.notifications?.[notificationType];
+        if (notifSettings && !notifSettings.enabled) {
+            console.log(`[WhatsApp] ${notificationType} is disabled`);
+            return { success: true };
+        }
+
+        // Get project and client data
         const projectSnap = await adminDb.collection('projects').doc(projectId).get();
         if (!projectSnap.exists) return { success: false, error: "Project not found" };
         const project = projectSnap.data() as Project;
 
         if (!project.clientId) return { success: false, error: "No client assigned" };
+        
         const clientSnap = await adminDb.collection('users').doc(project.clientId).get();
         if (!clientSnap.exists) return { success: false, error: "Client not found" };
         const client = clientSnap.data() as User;
 
-        if (!client.phoneNumber) return { success: false, error: "No phone number" };
+        const phoneNumber = client.whatsappNumber || client.phoneNumber;
+        if (!phoneNumber) return { success: false, error: "No phone number" };
 
-        let params: string[] = [];
-        let campaignName = "editohub";
+        // Get message (custom or default)
+        let message = notifSettings?.message || DEFAULT_MESSAGES[notificationType];
+        message = replacePlaceholders(message, extraData || {});
 
-        // Fetch custom templates if any
-        let customTemplates: any = {};
-        try {
-            const settingsSnap = await adminDb.collection('settings').doc('whatsapp').get();
-            if (settingsSnap.exists) {
-                customTemplates = settingsSnap.data() || {};
-            }
-        } catch (err) {
-            console.error("[WhatsApp] Failed to fetch custom templates, using defaults.");
-        }
+        // Build params: [name, message, projectName]
+        const params = [
+            client.displayName || "Client",
+            message,
+            project.name || "Your Project"
+        ];
 
-        const getMessage = (key: WhatsAppTrigger, defaultMsg: string) => {
-            let msg = customTemplates[key] || defaultMsg;
-            if (key === 'PROPOSAL_UPLOADED') {
-                msg = msg.replace('{{reviewLink}}', extraData?.reviewLink || 'Dashboard');
-            }
-            return msg;
-        };
-
-        switch (trigger) {
-            case 'PROJECT_RECEIVED':
-                params = [
-                    client.displayName || "Client",
-                    project.name,
-                    getMessage('PROJECT_RECEIVED', "We have received your request. We're currently finding the best editor for you.")
-                ];
-                break;
-            case 'EDITOR_ASSIGNED':
-                params = [
-                    client.displayName || "Client",
-                    project.name,
-                    getMessage('EDITOR_ASSIGNED', "A specialist editor has been assigned and is reviewing your requirements.")
-                ];
-                break;
-            case 'EDITOR_ACCEPTED':
-                params = [
-                    client.displayName || "Client",
-                    project.name,
-                    getMessage('EDITOR_ACCEPTED', "Production has officially started! We'll notify you once the first draft is ready.")
-                ];
-                break;
-            case 'PROPOSAL_UPLOADED':
-                params = [
-                    client.displayName || "Client",
-                    project.name,
-                    getMessage('PROPOSAL_UPLOADED', `A new draft is ready for review! View it here: ${extraData?.reviewLink || 'Dashboard'}`)
-                ];
-                break;
-            case 'PROJECT_COMPLETED':
-                params = [
-                    client.displayName || "Client",
-                    project.name,
-                    getMessage('PROJECT_COMPLETED', "Congratulations! Your project is now complete and all files are ready for final download. Thank you for choosing EditoHub!")
-                ];
-                break;
-        }
-
-        // Use the campaign name "editohub" if specifically requested or if custom campaigns aren't set up
-        // For now, using specialized names as per typical professional setup
-        return await sendWhatsAppNotification(client.phoneNumber, params, campaignName);
+        const campaignName = settings?.campaigns?.client || CAMPAIGNS.CLIENT;
+        return await sendWhatsAppNotification(phoneNumber, params, campaignName);
 
     } catch (error: any) {
-        console.error("[WhatsApp] Helper Error:", error);
+        console.error("[WhatsApp] notifyClient Error:", error);
         return { success: false, error: error.message };
     }
 }
 
-/**
- * @deprecated Use notifyClient instead
- */
-export async function notifyClientOfStatusUpdate(projectId: string, status: string) {
-    // Keep for backward compatibility but redirect to notifyClient if it matches
-    const triggerMap: Record<string, WhatsAppTrigger> = {
-        'pending_assignment': 'PROJECT_RECEIVED',
-        'active': 'EDITOR_ACCEPTED',
-        'completed': 'PROJECT_COMPLETED',
-    };
+// ============================================================================
+// EDITOR NOTIFICATIONS
+// ============================================================================
+export async function notifyEditor(
+    projectId: string,
+    editorId: string,
+    notificationType: EditorNotificationType,
+    extraData?: Record<string, string>
+): Promise<{ success: boolean; error?: string }> {
+    try {
+        // Check settings
+        const settings = await getWhatsAppSettings();
+        if (settings && !settings.enabled) {
+            console.log("[WhatsApp] Notifications disabled globally");
+            return { success: true };
+        }
+        
+        const notifSettings = settings?.notifications?.[notificationType];
+        if (notifSettings && !notifSettings.enabled) {
+            console.log(`[WhatsApp] ${notificationType} is disabled`);
+            return { success: true };
+        }
 
-    if (triggerMap[status]) {
-        return notifyClient(projectId, triggerMap[status]);
+        // Get project data
+        const projectSnap = await adminDb.collection('projects').doc(projectId).get();
+        if (!projectSnap.exists) return { success: false, error: "Project not found" };
+        const project = projectSnap.data() as Project;
+
+        // Get editor data
+        const editorSnap = await adminDb.collection('users').doc(editorId).get();
+        if (!editorSnap.exists) return { success: false, error: "Editor not found" };
+        const editor = editorSnap.data() as User;
+
+        const phoneNumber = editor.whatsappNumber || editor.phoneNumber;
+        if (!phoneNumber) return { success: false, error: "No phone number" };
+
+        // Get message (custom or default)
+        let message = notifSettings?.message || DEFAULT_MESSAGES[notificationType];
+        message = replacePlaceholders(message, extraData || {});
+
+        // Build params: [name, message, projectName, extraInfo]
+        const params = [
+            editor.displayName || "Editor",
+            message,
+            project.name || "Project",
+            extraData?.extra || `Deadline: ${project.deadline || 'Not set'}`
+        ];
+
+        const campaignName = settings?.campaigns?.editor || CAMPAIGNS.EDITOR;
+        return await sendWhatsAppNotification(phoneNumber, params, campaignName);
+
+    } catch (error: any) {
+        console.error("[WhatsApp] notifyEditor Error:", error);
+        return { success: false, error: error.message };
     }
+}
 
-    return { success: true }; // Skip if no mapping
+// ============================================================================
+// PROJECT MANAGER NOTIFICATIONS
+// ============================================================================
+export async function notifyPM(
+    projectId: string,
+    pmId: string,
+    notificationType: PMNotificationType,
+    extraData?: Record<string, string>
+): Promise<{ success: boolean; error?: string }> {
+    try {
+        // Check settings
+        const settings = await getWhatsAppSettings();
+        if (settings && !settings.enabled) {
+            console.log("[WhatsApp] Notifications disabled globally");
+            return { success: true };
+        }
+        
+        const notifSettings = settings?.notifications?.[notificationType];
+        if (notifSettings && !notifSettings.enabled) {
+            console.log(`[WhatsApp] ${notificationType} is disabled`);
+            return { success: true };
+        }
+
+        // Get project data
+        const projectSnap = await adminDb.collection('projects').doc(projectId).get();
+        if (!projectSnap.exists) return { success: false, error: "Project not found" };
+        const project = projectSnap.data() as Project;
+
+        // Get PM data
+        const pmSnap = await adminDb.collection('users').doc(pmId).get();
+        if (!pmSnap.exists) return { success: false, error: "PM not found" };
+        const pm = pmSnap.data() as User;
+
+        const phoneNumber = pm.whatsappNumber || pm.phoneNumber;
+        if (!phoneNumber) return { success: false, error: "No phone number" };
+
+        // Get client name for context
+        let clientName = "Client";
+        if (project.clientId) {
+            const clientSnap = await adminDb.collection('users').doc(project.clientId).get();
+            if (clientSnap.exists) {
+                clientName = (clientSnap.data() as User).displayName || "Client";
+            }
+        }
+
+        // Get message (custom or default)
+        let message = notifSettings?.message || DEFAULT_MESSAGES[notificationType];
+        message = replacePlaceholders(message, { client: clientName, ...extraData });
+
+        // Build params: [name, message, projectName, details]
+        const params = [
+            pm.displayName || "Manager",
+            message,
+            project.name || "Project",
+            extraData?.details || `Client: ${clientName}`
+        ];
+
+        const campaignName = settings?.campaigns?.pm || CAMPAIGNS.PM;
+        return await sendWhatsAppNotification(phoneNumber, params, campaignName);
+
+    } catch (error: any) {
+        console.error("[WhatsApp] notifyPM Error:", error);
+        return { success: false, error: error.message };
+    }
+}
+
+// ============================================================================
+// CONVENIENCE WRAPPERS (Fire-and-forget, non-blocking)
+// ============================================================================
+
+/** Notify client about project creation */
+export function notifyClientProjectCreated(projectId: string) {
+    notifyClient(projectId, 'client_project_created').catch(console.error);
+}
+
+/** Notify client about PM assignment */
+export function notifyClientPMAssigned(projectId: string, pmName: string) {
+    notifyClient(projectId, 'client_pm_assigned', { pm: pmName }).catch(console.error);
+}
+
+/** Notify client about editor assignment */
+export function notifyClientEditorAssigned(projectId: string) {
+    notifyClient(projectId, 'client_editor_assigned').catch(console.error);
+}
+
+/** Notify client that editor accepted */
+export function notifyClientEditorAccepted(projectId: string) {
+    notifyClient(projectId, 'client_editor_accepted').catch(console.error);
+}
+
+/** Notify client about new draft */
+export function notifyClientDraftSubmitted(projectId: string) {
+    notifyClient(projectId, 'client_draft_submitted').catch(console.error);
+}
+
+/** Notify client about new comment */
+export function notifyClientNewComment(projectId: string, commenterName: string) {
+    notifyClient(projectId, 'client_new_comment', { name: commenterName }).catch(console.error);
+}
+
+/** Notify client about project completion */
+export function notifyClientProjectCompleted(projectId: string) {
+    notifyClient(projectId, 'client_project_completed').catch(console.error);
+}
+
+/** Notify editor about new project assignment */
+export function notifyEditorProjectAssigned(projectId: string, editorId: string, pmName: string, deadline?: string) {
+    notifyEditor(projectId, editorId, 'editor_project_assigned', { 
+        pm: pmName, 
+        extra: deadline ? `Deadline: ${deadline}` : '' 
+    }).catch(console.error);
+}
+
+/** Notify editor about new comment from client */
+export function notifyEditorNewComment(projectId: string, editorId: string, clientName: string) {
+    notifyEditor(projectId, editorId, 'editor_new_comment', { client: clientName }).catch(console.error);
+}
+
+/** Notify editor about client feedback */
+export function notifyEditorFeedbackReceived(projectId: string, editorId: string, rating: number) {
+    notifyEditor(projectId, editorId, 'editor_feedback_received', { 
+        rating: rating.toString(),
+        extra: `Rating: ${rating} stars`
+    }).catch(console.error);
+}
+
+/** Notify PM about new project from SE */
+export function notifyPMProjectAssigned(projectId: string, pmId: string, seName: string) {
+    notifyPM(projectId, pmId, 'pm_project_assigned', { se: seName }).catch(console.error);
+}
+
+/** Notify PM that editor accepted */
+export function notifyPMEditorAccepted(projectId: string, pmId: string, editorName: string) {
+    notifyPM(projectId, pmId, 'pm_editor_accepted', { editor: editorName, details: `Editor: ${editorName}` }).catch(console.error);
+}
+
+/** Notify PM that editor rejected */
+export function notifyPMEditorRejected(projectId: string, pmId: string, editorName: string, reason: string) {
+    notifyPM(projectId, pmId, 'pm_editor_rejected', { editor: editorName, reason, details: `Reason: ${reason}` }).catch(console.error);
+}
+
+/** Notify PM about new comment in project */
+export function notifyPMNewComment(projectId: string, pmId: string, commenterName: string, commenterRole: string) {
+    notifyPM(projectId, pmId, 'pm_new_comment', { name: commenterName, role: commenterRole, details: `${commenterName} (${commenterRole})` }).catch(console.error);
+}
+
+/** Notify PM about project completion (client downloaded) */
+export function notifyPMProjectCompleted(projectId: string, pmId: string, clientName: string) {
+    notifyPM(projectId, pmId, 'pm_project_completed', { client: clientName, details: `Client: ${clientName}` }).catch(console.error);
+}
+
+// ============================================================================
+// LEGACY SUPPORT (Backward compatibility)
+// ============================================================================
+export type WhatsAppTrigger =
+    | 'PROJECT_RECEIVED'
+    | 'EDITOR_ASSIGNED'
+    | 'EDITOR_ACCEPTED'
+    | 'PROPOSAL_UPLOADED'
+    | 'PROJECT_COMPLETED';
+
+/** @deprecated Use specific notify functions instead */
+export async function notifyClientLegacy(projectId: string, trigger: WhatsAppTrigger, extraData?: any) {
+    const triggerMap: Record<WhatsAppTrigger, ClientNotificationType> = {
+        'PROJECT_RECEIVED': 'client_project_created',
+        'EDITOR_ASSIGNED': 'client_editor_assigned',
+        'EDITOR_ACCEPTED': 'client_editor_accepted',
+        'PROPOSAL_UPLOADED': 'client_draft_submitted',
+        'PROJECT_COMPLETED': 'client_project_completed'
+    };
+    return notifyClient(projectId, triggerMap[trigger], extraData);
 }

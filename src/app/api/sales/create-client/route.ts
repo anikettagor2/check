@@ -11,12 +11,22 @@ export async function POST(request: Request) {
             return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
         }
 
+        // Validate and format phone number
+        let formattedPhone: string | undefined = undefined;
+        if (phoneNumber && phoneNumber.trim().length > 0) {
+            const cleaned = phoneNumber.replace(/\D/g, '');
+            if (cleaned.length !== 10) {
+                return NextResponse.json({ error: 'Phone number must be exactly 10 digits' }, { status: 400 });
+            }
+            formattedPhone = `+91${cleaned}`;
+        }
+
         // 1. Create User in Firebase Auth
         const userRecord = await adminAuth.createUser({
             email,
             password,
             displayName,
-            phoneNumber: phoneNumber ? `+91${phoneNumber}` : undefined
+            phoneNumber: formattedPhone
         });
 
         // 2. Create User Profile in Firestore
@@ -25,7 +35,8 @@ export async function POST(request: Request) {
             email,
             displayName,
             role: 'client',
-            phoneNumber: phoneNumber || null,
+            phoneNumber: formattedPhone || null,
+            whatsappNumber: formattedPhone || null,
             photoURL: null,
             createdAt: Date.now(),
             createdBy: createdBy || 'system',

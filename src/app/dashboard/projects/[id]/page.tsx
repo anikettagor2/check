@@ -40,6 +40,7 @@ import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import { assignEditor, getAllUsers, respondToAssignment } from "@/app/actions/admin-actions";
 import { unlockProjectDownloads, requestDownloadUnlock, registerDownload, submitEditorRating } from "@/app/actions/project-actions";
+import { handleProjectCompleted, handleEditorRatingSubmitted } from "@/app/actions/notification-actions";
 import { User, ProjectAssignmentStatus } from "@/types/schema";
 import { Modal } from "@/components/ui/modal";
 import { PaymentButton } from "@/components/payment-button";
@@ -282,6 +283,9 @@ export default function ProjectDetailsPage() {
                     });
                     setProject(prev => prev ? ({ ...prev, status: 'completed' }) : null);
                 }
+                
+                // Send project completion notifications (fire-and-forget)
+                handleProjectCompleted(id as string).catch(console.error);
             } else {
                 toast.error(res.error || 'Download error.');
             }
@@ -304,6 +308,9 @@ export default function ProjectDetailsPage() {
                 toast.success("Thank you for your feedback!");
                 setProject(prev => prev ? ({ ...prev, editorRating, editorReview }) : null);
                 setIsRatingModalOpen(false);
+                
+                // Notify editor about the feedback (fire-and-forget)
+                handleEditorRatingSubmitted(id as string, editorRating).catch(console.error);
                 
                 if (pendingDownloadId) {
                     await initiateDownload(pendingDownloadId);

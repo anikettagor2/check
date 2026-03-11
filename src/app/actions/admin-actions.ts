@@ -4,7 +4,7 @@ import * as admin from 'firebase-admin';
 import { adminAuth, adminDb, adminStorage } from '@/lib/firebase/admin';
 import { UserRole } from '@/types/schema';
 import { revalidatePath } from 'next/cache';
-import { notifyClient } from '@/lib/whatsapp';
+import { notifyClient, notifyClientProjectCreated, notifyClientPMAssigned, notifyPMProjectAssigned, notifyPMEditorAccepted, notifyPMEditorRejected, notifyClientEditorAssigned, notifyEditorProjectAssigned } from '@/lib/whatsapp';
 
 /**
  * Toggles a user's disabled status in Firebase Auth and updates Firestore
@@ -184,6 +184,9 @@ export async function handleProjectCreated(projectId: string) {
                 { uid: clientUID, displayName: clientName, designation: 'Client' },
                 `Project created. (SE: ${seName}, Assigned PM: ${pmName})`
             );
+            
+            // Notify PM about new project assignment
+            notifyPMProjectAssigned(projectId, pmId, seName);
         } else {
             await addProjectLog(
                 projectId,
@@ -193,7 +196,8 @@ export async function handleProjectCreated(projectId: string) {
             );
         }
 
-        await notifyClient(projectId, 'PROJECT_RECEIVED');
+        // Notify client about project creation
+        notifyClientProjectCreated(projectId);
         return { success: true };
     } catch (error: any) {
         return { success: false, error: error.message };
@@ -253,7 +257,10 @@ export async function assignEditor(projectId: string, editorId: string, editorPr
         );
 
         // Notify client that PM has assigned an editor
-        await notifyClient(projectId, 'EDITOR_ASSIGNED');
+        notifyClientEditorAssigned(projectId);
+        
+        // Notify editor about new assignment
+        notifyEditorProjectAssigned(projectId, editorId, pmName, deadline);
 
         revalidatePath('/dashboard');
         return { success: true };
@@ -314,9 +321,32 @@ export async function respondToAssignment(projectId: string, response: 'accepted
 
         await adminDb.collection('projects').doc(projectId).update(updateData);
 
-        // Notify client that editor has accepted/started
+        // Get editor and PM info for notifications
+        const editorId = projectData?.assignedEditorId;
+        const pmId = projectData?.assignedPMId;
+        let editorName = 'Editor';
+        
+        if (editorId) {
+            const editorSnap = await adminDb.collection('users').doc(editorId).get();
+            if (editorSnap.exists) editorName = editorSnap.data()?.displayName || 'Editor';
+        }
+
+        // Notify based on response
         if (response === 'accepted') {
-            await notifyClient(projectId, 'EDITOR_ACCEPTED');
+            // Notify client that editor accepted/production started
+            const { notifyClientEditorAccepted, notifyPMEditorAccepted } = await import('@/lib/whatsapp');
+            notifyClientEditorAccepted(projectId);
+            
+            // Notify PM that editor accepted
+            if (pmId) {
+                notifyPMEditorAccepted(projectId, pmId, editorName);
+            }
+        } else {
+            // Notify PM that editor rejected
+            const { notifyPMEditorRejected } = await import('@/lib/whatsapp');
+            if (pmId) {
+                notifyPMEditorRejected(projectId, pmId, editorName, reason || 'No reason provided');
+            }
         }
 
         revalidatePath('/dashboard');

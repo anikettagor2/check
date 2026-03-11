@@ -55,7 +55,9 @@ import {
     MessageSquare,
     FileText,
     ShieldCheck,
-    MapPin
+    MapPin,
+    Bell,
+    Film
 } from "lucide-react";
 
 import { cn } from "@/lib/utils";
@@ -66,6 +68,7 @@ import { Modal } from "@/components/ui/modal";
 import { Button } from "@/components/ui/button"; 
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Switch } from "@/components/ui/switch";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { 
     DropdownMenu, 
@@ -1131,14 +1134,18 @@ export function AdminDashboard() {
                                      </div>
                                      <div className="space-y-2">
                                          <Label className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground ml-1">WhatsApp Number</Label>
-                                         <input 
-                                            value={newUser.phoneNumber} 
-                                            onChange={e => setNewUser({...newUser, phoneNumber: e.target.value})} 
-                                            required 
-                                            className="w-full h-11 px-4 rounded-lg border border-border bg-muted/50 text-sm text-foreground focus:border-primary/50 focus:outline-none transition-all placeholder:text-muted-foreground font-medium"
-                                            type="tel" 
-                                            placeholder="+91 00000 00000" 
-                                        />
+                                         <div className="flex gap-2">
+                                             <div className="flex items-center justify-center h-11 px-3 bg-muted border border-border rounded-lg text-sm text-muted-foreground">+91</div>
+                                             <input 
+                                                value={newUser.phoneNumber} 
+                                                onChange={e => setNewUser({...newUser, phoneNumber: e.target.value.replace(/\D/g, '').slice(0, 10)})} 
+                                                required 
+                                                className="flex-1 h-11 px-4 rounded-lg border border-border bg-muted/50 text-sm text-foreground focus:border-primary/50 focus:outline-none transition-all placeholder:text-muted-foreground font-medium"
+                                                type="tel" 
+                                                placeholder="9876543210"
+                                                maxLength={10}
+                                            />
+                                         </div>
                                      </div>
                                      <div className="space-y-2">
                                          <Label className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground ml-1">Department</Label>
@@ -1408,35 +1415,175 @@ export function AdminDashboard() {
                         <div className="flex flex-col gap-2">
                             <h2 className="text-xl font-bold tracking-tight text-foreground mb-1 flex items-center gap-2">
                                 <Monitor className="h-5 w-5 text-primary" />
-                                Notifications Configuration
+                                WhatsApp Notifications Configuration
                             </h2>
                             <p className="text-xs font-medium text-muted-foreground leading-relaxed max-w-2xl">
-                                Manage automated WhatsApp messages sent to users based on triggers. Customize the text here. Dynamic variables like <code className="text-[10px] text-primary bg-primary/10 px-1 py-0.5 rounded font-mono">{`{{reviewLink}}`}</code> will be automatically replaced with the actual link when sending 'First Draft Ready'.
+                                Manage automated WhatsApp messages sent to users based on triggers. Leave fields blank to use default messages. Toggle switches to enable/disable specific notifications.
                             </p>
                         </div>
-                        
-                        <div className="space-y-4 pt-4">
+
+                        {/* Global Toggle */}
+                        <div className="p-4 border border-border bg-muted/50 rounded-2xl flex items-center justify-between">
+                            <div className="flex items-center gap-3">
+                                <div className="h-10 w-10 rounded-xl bg-primary/10 flex items-center justify-center">
+                                    <Bell className="h-5 w-5 text-primary" />
+                                </div>
+                                <div>
+                                    <p className="text-sm font-bold text-foreground">Global WhatsApp Notifications</p>
+                                    <p className="text-[10px] text-muted-foreground">Master switch for all WhatsApp notifications</p>
+                                </div>
+                            </div>
+                            <Switch 
+                                checked={whatsappTemplates.enabled !== false}
+                                onCheckedChange={(checked) => setWhatsappTemplates({ ...whatsappTemplates, enabled: checked })}
+                            />
+                        </div>
+
+                        {/* Client Notifications */}
+                        <div className="space-y-3">
+                            <h3 className="text-sm font-bold text-foreground flex items-center gap-2 px-1">
+                                <Users className="h-4 w-4 text-blue-500" />
+                                Client Notifications (7)
+                            </h3>
                             {[
-                                { key: 'PROJECT_RECEIVED', label: '1. Project Uploaded (To Client)' },
-                                { key: 'EDITOR_ASSIGNED', label: '2. Editor Assigned (To Client)' },
-                                { key: 'EDITOR_ACCEPTED', label: '3. Editor Accepted/Active (To Client)' },
-                                { key: 'PROPOSAL_UPLOADED', label: '4. First Draft Ready (To Client)' },
-                                { key: 'PROJECT_COMPLETED', label: '5. Project Finalized/Completed (To Client)' }
+                                { key: 'client_project_created', label: 'Project Created', desc: 'When client uploads a new project' },
+                                { key: 'client_pm_assigned', label: 'PM Assigned', desc: 'When a Project Manager is assigned' },
+                                { key: 'client_editor_assigned', label: 'Editor Assigned', desc: 'When PM assigns an editor' },
+                                { key: 'client_editor_accepted', label: 'Production Started', desc: 'When editor accepts the project' },
+                                { key: 'client_draft_submitted', label: 'Draft Ready', desc: 'When editor uploads a revision' },
+                                { key: 'client_new_comment', label: 'New Comment', desc: 'When someone comments on the project' },
+                                { key: 'client_project_completed', label: 'Project Completed', desc: 'When client downloads final files' }
                             ].map((topic) => (
-                                <div key={topic.key} className="p-5 border border-border bg-muted/50 rounded-2xl flex flex-col gap-3">
-                                    <div className="flex justify-between items-center">
-                                        <Label className="text-foreground text-[10px] font-bold uppercase tracking-widest">{topic.label}</Label>
-                                        <span className="text-[9px] font-mono text-muted-foreground bg-card py-1 px-2 rounded flex items-center gap-2">
-                                            <Terminal className="h-3 w-3" />
-                                            {topic.key}
-                                        </span>
+                                <div key={topic.key} className="p-4 border border-border bg-muted/30 rounded-xl">
+                                    <div className="flex justify-between items-start mb-2">
+                                        <div className="flex-1">
+                                            <div className="flex items-center gap-2">
+                                                <Label className="text-foreground text-xs font-bold">{topic.label}</Label>
+                                                <span className="text-[9px] font-mono text-muted-foreground bg-card py-0.5 px-1.5 rounded">{topic.key}</span>
+                                            </div>
+                                            <p className="text-[10px] text-muted-foreground mt-0.5">{topic.desc}</p>
+                                        </div>
+                                        <Switch 
+                                            checked={whatsappTemplates.notifications?.[topic.key]?.enabled !== false}
+                                            onCheckedChange={(checked) => setWhatsappTemplates({ 
+                                                ...whatsappTemplates, 
+                                                notifications: { 
+                                                    ...whatsappTemplates.notifications, 
+                                                    [topic.key]: { ...whatsappTemplates.notifications?.[topic.key], enabled: checked } 
+                                                } 
+                                            })}
+                                        />
                                     </div>
                                     <textarea
-                                      className="w-full bg-black/5 dark:bg-black/40 border border-border rounded-xl p-4 text-sm text-foreground/80 font-medium placeholder:text-muted-foreground focus:outline-none focus:border-primary/50 transition-colors resize-none"
-                                      rows={2}
-                                      value={whatsappTemplates[topic.key] || ''}
-                                      onChange={(e) => setWhatsappTemplates({ ...whatsappTemplates, [topic.key]: e.target.value })}
-                                      placeholder="Leave blank to use default template..."
+                                      className="w-full bg-black/5 dark:bg-black/40 border border-border rounded-lg p-3 text-xs text-foreground/80 font-medium placeholder:text-muted-foreground focus:outline-none focus:border-primary/50 transition-colors resize-none"
+                                      rows={1}
+                                      value={whatsappTemplates.notifications?.[topic.key]?.message || ''}
+                                      onChange={(e) => setWhatsappTemplates({ 
+                                          ...whatsappTemplates, 
+                                          notifications: { 
+                                              ...whatsappTemplates.notifications, 
+                                              [topic.key]: { ...whatsappTemplates.notifications?.[topic.key], message: e.target.value } 
+                                          } 
+                                      })}
+                                      placeholder="Leave blank for default message..."
+                                    />
+                                </div>
+                            ))}
+                        </div>
+
+                        {/* Editor Notifications */}
+                        <div className="space-y-3">
+                            <h3 className="text-sm font-bold text-foreground flex items-center gap-2 px-1">
+                                <Film className="h-4 w-4 text-green-500" />
+                                Editor Notifications (3)
+                            </h3>
+                            {[
+                                { key: 'editor_project_assigned', label: 'New Assignment', desc: 'When PM assigns a project to editor' },
+                                { key: 'editor_new_comment', label: 'New Comment', desc: 'When client comments on the project' },
+                                { key: 'editor_feedback_received', label: 'Feedback Received', desc: 'When client rates the editor' }
+                            ].map((topic) => (
+                                <div key={topic.key} className="p-4 border border-border bg-muted/30 rounded-xl">
+                                    <div className="flex justify-between items-start mb-2">
+                                        <div className="flex-1">
+                                            <div className="flex items-center gap-2">
+                                                <Label className="text-foreground text-xs font-bold">{topic.label}</Label>
+                                                <span className="text-[9px] font-mono text-muted-foreground bg-card py-0.5 px-1.5 rounded">{topic.key}</span>
+                                            </div>
+                                            <p className="text-[10px] text-muted-foreground mt-0.5">{topic.desc}</p>
+                                        </div>
+                                        <Switch 
+                                            checked={whatsappTemplates.notifications?.[topic.key]?.enabled !== false}
+                                            onCheckedChange={(checked) => setWhatsappTemplates({ 
+                                                ...whatsappTemplates, 
+                                                notifications: { 
+                                                    ...whatsappTemplates.notifications, 
+                                                    [topic.key]: { ...whatsappTemplates.notifications?.[topic.key], enabled: checked } 
+                                                } 
+                                            })}
+                                        />
+                                    </div>
+                                    <textarea
+                                      className="w-full bg-black/5 dark:bg-black/40 border border-border rounded-lg p-3 text-xs text-foreground/80 font-medium placeholder:text-muted-foreground focus:outline-none focus:border-primary/50 transition-colors resize-none"
+                                      rows={1}
+                                      value={whatsappTemplates.notifications?.[topic.key]?.message || ''}
+                                      onChange={(e) => setWhatsappTemplates({ 
+                                          ...whatsappTemplates, 
+                                          notifications: { 
+                                              ...whatsappTemplates.notifications, 
+                                              [topic.key]: { ...whatsappTemplates.notifications?.[topic.key], message: e.target.value } 
+                                          } 
+                                      })}
+                                      placeholder="Leave blank for default message..."
+                                    />
+                                </div>
+                            ))}
+                        </div>
+
+                        {/* PM Notifications */}
+                        <div className="space-y-3">
+                            <h3 className="text-sm font-bold text-foreground flex items-center gap-2 px-1">
+                                <Briefcase className="h-4 w-4 text-purple-500" />
+                                Project Manager Notifications (5)
+                            </h3>
+                            {[
+                                { key: 'pm_project_assigned', label: 'New Project', desc: 'When SE assigns a project to PM' },
+                                { key: 'pm_editor_accepted', label: 'Editor Accepted', desc: 'When editor accepts assignment' },
+                                { key: 'pm_editor_rejected', label: 'Editor Rejected', desc: 'When editor declines assignment' },
+                                { key: 'pm_new_comment', label: 'New Comment', desc: 'When someone comments on managed project' },
+                                { key: 'pm_project_completed', label: 'Project Completed', desc: 'When client downloads final files' }
+                            ].map((topic) => (
+                                <div key={topic.key} className="p-4 border border-border bg-muted/30 rounded-xl">
+                                    <div className="flex justify-between items-start mb-2">
+                                        <div className="flex-1">
+                                            <div className="flex items-center gap-2">
+                                                <Label className="text-foreground text-xs font-bold">{topic.label}</Label>
+                                                <span className="text-[9px] font-mono text-muted-foreground bg-card py-0.5 px-1.5 rounded">{topic.key}</span>
+                                            </div>
+                                            <p className="text-[10px] text-muted-foreground mt-0.5">{topic.desc}</p>
+                                        </div>
+                                        <Switch 
+                                            checked={whatsappTemplates.notifications?.[topic.key]?.enabled !== false}
+                                            onCheckedChange={(checked) => setWhatsappTemplates({ 
+                                                ...whatsappTemplates, 
+                                                notifications: { 
+                                                    ...whatsappTemplates.notifications, 
+                                                    [topic.key]: { ...whatsappTemplates.notifications?.[topic.key], enabled: checked } 
+                                                } 
+                                            })}
+                                        />
+                                    </div>
+                                    <textarea
+                                      className="w-full bg-black/5 dark:bg-black/40 border border-border rounded-lg p-3 text-xs text-foreground/80 font-medium placeholder:text-muted-foreground focus:outline-none focus:border-primary/50 transition-colors resize-none"
+                                      rows={1}
+                                      value={whatsappTemplates.notifications?.[topic.key]?.message || ''}
+                                      onChange={(e) => setWhatsappTemplates({ 
+                                          ...whatsappTemplates, 
+                                          notifications: { 
+                                              ...whatsappTemplates.notifications, 
+                                              [topic.key]: { ...whatsappTemplates.notifications?.[topic.key], message: e.target.value } 
+                                          } 
+                                      })}
+                                      placeholder="Leave blank for default message..."
                                     />
                                 </div>
                             ))}
@@ -2479,14 +2626,19 @@ export function AdminDashboard() {
                      />
                  </div>
                  <div className="space-y-1.5">
-                     <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest ml-1">WhatsApp Number (+91...)</label>
-                     <input 
-                         required
-                         type="text"
-                         value={newEditor.whatsapp}
-                         onChange={(e) => setNewEditor({...newEditor, whatsapp: e.target.value})}
-                         className="w-full h-11 bg-black/5 dark:bg-black/40 border border-border rounded-lg px-4 text-sm text-foreground focus:outline-none focus:border-primary/50 transition-colors"
-                     />
+                     <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest ml-1">WhatsApp Number</label>
+                     <div className="flex gap-2">
+                         <div className="flex items-center justify-center h-11 px-3 bg-muted border border-border rounded-lg text-sm text-muted-foreground">+91</div>
+                         <input 
+                             required
+                             type="tel"
+                             value={newEditor.whatsapp}
+                             onChange={(e) => setNewEditor({...newEditor, whatsapp: e.target.value.replace(/\D/g, '').slice(0, 10)})}
+                             className="flex-1 h-11 bg-black/5 dark:bg-black/40 border border-border rounded-lg px-4 text-sm text-foreground focus:outline-none focus:border-primary/50 transition-colors"
+                             placeholder="9876543210"
+                             maxLength={10}
+                         />
+                     </div>
                  </div>
                   <div className="space-y-1.5">
                       <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest ml-1">Portfolio URL</label>

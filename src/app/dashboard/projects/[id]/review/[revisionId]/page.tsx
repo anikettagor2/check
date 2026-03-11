@@ -32,6 +32,7 @@ import { cn } from "@/lib/utils";
 import { Modal } from "@/components/ui/modal";
 import { toast } from "sonner";
 import { registerDownload, requestDownloadUnlock } from "@/app/actions/project-actions";
+import { handleNewComment } from "@/app/actions/notification-actions";
 import { motion, AnimatePresence } from "framer-motion";
 
 export default function ReviewPage(props: { params: Promise<{ id: string; revisionId: string }> }) {
@@ -220,6 +221,9 @@ export default function ReviewPage(props: { params: Promise<{ id: string; revisi
       try {
           const { id, ...data } = newComment;
           await setDoc(doc(db, "comments", newId), data);
+          
+          // Send WhatsApp notifications (fire-and-forget)
+          handleNewComment(params.id, userId, userName, userRole).catch(console.error);
       } catch (err) {
           setComments(prev => prev.filter(c => c.id !== newId));
           toast.error("Couldn't add your comment. Please try again.");

@@ -18,6 +18,7 @@ import { cn } from "@/lib/utils";
 import { Modal } from "@/components/ui/modal";
 import { toast } from "sonner";
 import { registerDownload, requestDownloadUnlock } from "@/app/actions/project-actions";
+import { handleNewComment } from "@/app/actions/notification-actions";
 
 export default function PublicReviewPage(props: { params: Promise<{ id: string; revisionId: string }> }) {
   const params = use(props.params); 
@@ -197,6 +198,9 @@ export default function PublicReviewPage(props: { params: Promise<{ id: string; 
       try {
           const { id, ...data } = newComment;
           await setDoc(doc(db, "comments", newId), data);
+          
+          // Send WhatsApp notifications (fire-and-forget)
+          handleNewComment(params.id, userId, userName, userRole).catch(console.error);
       } catch (err) {
           console.error("Failed to add comment:", err);
           setComments(prev => prev.filter(c => c.id !== newId));
