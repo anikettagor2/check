@@ -788,11 +788,11 @@ export function ProjectManagerDashboard() {
                             </div>
                             <div className={cn(
                                 "px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wide",
-                                selectedProject?.urgency === 'urgent' 
+                                (selectedProject as any)?.urgency === 'urgent' 
                                     ? "bg-amber-500/20 text-amber-500 border border-amber-500/30" 
                                     : "bg-blue-500/20 text-blue-500 border border-blue-500/30"
                             )}>
-                                {selectedProject?.urgency === 'urgent' ? '⚡ Urgent' : '24hrs'}
+                                {(selectedProject as any)?.urgency === 'urgent' ? '⚡ Urgent' : '24hrs'}
                             </div>
                         </div>
                     </div>
@@ -1004,7 +1004,7 @@ export function ProjectManagerDashboard() {
                             </div>
                             <div className="bg-card border border-border rounded-xl p-4 text-center">
                                 <p className="text-2xl font-black text-foreground">
-                                    {projects.filter(p => p.assignedEditorId === selectedEditorDetail.uid && (p.status === 'in_progress' || p.status === 'pending_assignment')).length}
+                                    {projects.filter(p => p.assignedEditorId === selectedEditorDetail.uid && (p.status === 'active' || p.status === 'pending_assignment' || p.status === 'in_review')).length}
                                 </p>
                                 <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground mt-1">In Progress</p>
                             </div>

@@ -658,14 +658,14 @@ function ProjectDetailPanel({
             {/* Content */}
             <div className="p-6 space-y-6">
                 {/* Project Brief */}
-                {project.brief && (
+                {project.description && (
                     <div className="space-y-3">
                         <h3 className="text-sm font-semibold text-foreground flex items-center gap-2">
                             <FileText className="h-4 w-4 text-primary" />
                             Project Brief
                         </h3>
                         <p className="text-sm text-muted-foreground leading-relaxed bg-muted/30 rounded-xl p-4 border border-border">
-                            {project.brief}
+                            {project.description}
                         </p>
                     </div>
                 )}
