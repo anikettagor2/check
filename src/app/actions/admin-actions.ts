@@ -857,3 +857,19 @@ export async function deleteInvoice(invoiceId: string) {
         return { success: false, error: error.message };
     }
 }
+
+/**
+ * Assigns a Project Manager to a client (used by Sales Executives)
+ */
+export async function assignClientPM(clientId: string, pmId: string) {
+    try {
+        await adminDb.collection('users').doc(clientId).update({
+            managedByPM: pmId,
+            updatedAt: Date.now()
+        });
+        revalidatePath('/dashboard');
+        return { success: true };
+    } catch (error: any) {
+        return { success: false, error: error.message };
+    }
+}

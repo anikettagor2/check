@@ -30,6 +30,7 @@ import { User } from "@/types/schema";
 import { cn } from "@/lib/utils";
 import { motion, AnimatePresence } from "framer-motion";
 import Image from "next/image";
+import { assignClientPM } from "@/app/actions/admin-actions";
 import {
     DropdownMenu,
     DropdownMenuContent,
@@ -292,14 +293,12 @@ export function SalesDashboard() {
         if (!pmId) return;
         setAssigningPM(clientId);
         try {
-            await updateDoc(doc(db, "users", clientId), {
-                managedByPM: pmId,
-                updatedAt: Date.now()
-            });
+            const res = await assignClientPM(clientId, pmId);
+            if (!res.success) throw new Error(res.error);
             const pm = projectManagers.find(p => p.uid === pmId);
             toast.success(`Assigned ${pm?.displayName || 'PM'} to client`);
-        } catch (err) {
-            toast.error("Failed to assign project manager");
+        } catch (err: any) {
+            toast.error(err.message || "Failed to assign project manager");
         } finally {
             setAssigningPM(null);
         }
@@ -677,7 +676,11 @@ export function SalesDashboard() {
                                                 <td className="px-4 py-4">
                                                     {(() => {
                                                         const pm = projectManagers.find(p => p.uid === client.managedByPM);
-                                                        if (!pm) return (
+                                                        if (!pm) return client.isPending ? (
+                                                            <span className="inline-flex items-center gap-1.5 px-2 py-1 rounded-md text-xs font-medium bg-muted text-muted-foreground border border-border">
+                                                                <UserCog className="h-3 w-3" /> Pending...
+                                                            </span>
+                                                        ) : (
                                                             <div className="relative">
                                                                 <select
                                                                     defaultValue=""
