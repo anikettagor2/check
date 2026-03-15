@@ -1515,6 +1515,165 @@ export function AdminDashboard() {
                             </p>
                         </div>
 
+                        {/* Campaign Status Overview */}
+                        {(() => {
+                            const globalEnabled = whatsappTemplates.enabled !== false;
+                            const notifs = whatsappTemplates.notifications || {};
+
+                            const campaigns = [
+                                {
+                                    label: 'Client Campaign',
+                                    role: 'Clients',
+                                    icon: Users,
+                                    color: 'blue',
+                                    campaignKey: 'client',
+                                    defaultName: 'CLIENT',
+                                    keys: [
+                                        'client_project_created', 'client_pm_assigned', 'client_editor_assigned',
+                                        'client_editor_accepted', 'client_draft_submitted', 'client_new_comment', 'client_project_completed'
+                                    ],
+                                },
+                                {
+                                    label: 'Editor Campaign',
+                                    role: 'Editors',
+                                    icon: Film,
+                                    color: 'green',
+                                    campaignKey: 'editor',
+                                    defaultName: 'EDITOR',
+                                    keys: ['editor_project_assigned', 'editor_new_comment', 'editor_feedback_received'],
+                                },
+                                {
+                                    label: 'PM Campaign',
+                                    role: 'Project Managers',
+                                    icon: Briefcase,
+                                    color: 'purple',
+                                    campaignKey: 'pm',
+                                    defaultName: 'PROJECT_MANAGER',
+                                    keys: ['pm_project_assigned', 'pm_editor_accepted', 'pm_editor_rejected', 'pm_new_comment', 'pm_project_completed'],
+                                },
+                            ];
+
+                            const colorMap: Record<string, { bg: string; text: string; border: string; dot: string }> = {
+                                blue:   { bg: 'bg-blue-500/10',   text: 'text-blue-400',   border: 'border-blue-500/20',   dot: 'bg-blue-400' },
+                                green:  { bg: 'bg-emerald-500/10',text: 'text-emerald-400',border: 'border-emerald-500/20',dot: 'bg-emerald-400' },
+                                purple: { bg: 'bg-purple-500/10', text: 'text-purple-400', border: 'border-purple-500/20', dot: 'bg-purple-400' },
+                            };
+
+                            return (
+                                <div className="space-y-3">
+                                    <h3 className="text-sm font-bold text-foreground flex items-center gap-2 px-1">
+                                        <Activity className="h-4 w-4 text-primary" />
+                                        Campaign Status
+                                        <span className={cn(
+                                            "ml-auto inline-flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-widest px-2 py-1 rounded-full border",
+                                            globalEnabled
+                                                ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/20"
+                                                : "bg-red-500/10 text-red-400 border-red-500/20"
+                                        )}>
+                                            <span className={cn("w-1.5 h-1.5 rounded-full", globalEnabled ? "bg-emerald-400 animate-pulse" : "bg-red-400")} />
+                                            {globalEnabled ? 'Service Active' : 'Service Paused'}
+                                        </span>
+                                    </h3>
+
+                                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                                        {campaigns.map((c) => {
+                                            const C = c.icon;
+                                            const col = colorMap[c.color];
+                                            const enabledCount = c.keys.filter(k => notifs[k]?.enabled !== false).length;
+                                            const total = c.keys.length;
+                                            const allOn = enabledCount === total;
+                                            const noneOn = enabledCount === 0;
+                                            const campaignName = whatsappTemplates.campaigns?.[c.campaignKey] || c.defaultName;
+
+                                            return (
+                                                <div key={c.label} className={cn(
+                                                    "rounded-2xl border p-4 space-y-3 transition-all",
+                                                    globalEnabled && enabledCount > 0
+                                                        ? `${col.border} bg-muted/30`
+                                                        : "border-border bg-muted/20 opacity-70"
+                                                )}>
+                                                    {/* Header */}
+                                                    <div className="flex items-center justify-between">
+                                                        <div className="flex items-center gap-2">
+                                                            <div className={cn("h-8 w-8 rounded-lg flex items-center justify-center", col.bg)}>
+                                                                <C className={cn("h-4 w-4", col.text)} />
+                                                            </div>
+                                                            <div>
+                                                                <p className="text-xs font-bold text-foreground leading-tight">{c.label}</p>
+                                                                <p className="text-[9px] text-muted-foreground">{c.role}</p>
+                                                            </div>
+                                                        </div>
+                                                        <span className={cn(
+                                                            "text-[9px] font-bold uppercase tracking-widest px-2 py-0.5 rounded-full border",
+                                                            globalEnabled && !noneOn
+                                                                ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/20"
+                                                                : "bg-zinc-500/10 text-muted-foreground border-zinc-700"
+                                                        )}>
+                                                            {globalEnabled && !noneOn ? 'Active' : 'Inactive'}
+                                                        </span>
+                                                    </div>
+
+                                                    {/* AiSensy Campaign Name */}
+                                                    <div className="flex items-center gap-2 bg-black/20 rounded-lg px-2 py-1.5">
+                                                        <span className="text-[9px] text-muted-foreground uppercase tracking-widest font-bold shrink-0">Campaign</span>
+                                                        <input
+                                                            className="flex-1 bg-transparent text-[10px] font-mono text-primary/80 outline-none min-w-0"
+                                                            value={campaignName}
+                                                            onChange={(e) => setWhatsappTemplates({
+                                                                ...whatsappTemplates,
+                                                                campaigns: {
+                                                                    ...whatsappTemplates.campaigns,
+                                                                    [c.campaignKey]: e.target.value
+                                                                }
+                                                            })}
+                                                            placeholder={c.defaultName}
+                                                        />
+                                                    </div>
+
+                                                    {/* Progress Bar */}
+                                                    <div className="space-y-1.5">
+                                                        <div className="flex items-center justify-between">
+                                                            <span className="text-[9px] text-muted-foreground font-bold uppercase tracking-widest">Messages Enabled</span>
+                                                            <span className="text-[10px] font-bold text-foreground tabular-nums">{enabledCount}/{total}</span>
+                                                        </div>
+                                                        <div className="h-1.5 w-full bg-muted rounded-full overflow-hidden">
+                                                            <div
+                                                                className={cn("h-full rounded-full transition-all", col.dot)}
+                                                                style={{ width: `${(enabledCount / total) * 100}%` }}
+                                                            />
+                                                        </div>
+                                                    </div>
+
+                                                    {/* Per-message status dots */}
+                                                    <div className="flex flex-wrap gap-1.5">
+                                                        {c.keys.map((k) => {
+                                                            const on = notifs[k]?.enabled !== false;
+                                                            const label = k.replace(/^(client|editor|pm)_/, '').replace(/_/g, ' ');
+                                                            return (
+                                                                <span
+                                                                    key={k}
+                                                                    title={k}
+                                                                    className={cn(
+                                                                        "inline-flex items-center gap-1 text-[9px] font-medium px-1.5 py-0.5 rounded-md border capitalize",
+                                                                        on
+                                                                            ? `${col.bg} ${col.text} ${col.border}`
+                                                                            : "bg-zinc-800/50 text-zinc-500 border-zinc-700/50"
+                                                                    )}
+                                                                >
+                                                                    <span className={cn("w-1 h-1 rounded-full shrink-0", on ? col.dot : "bg-zinc-600")} />
+                                                                    {label}
+                                                                </span>
+                                                            );
+                                                        })}
+                                                    </div>
+                                                </div>
+                                            );
+                                        })}
+                                    </div>
+                                </div>
+                            );
+                        })()}
+
                         {/* Global Toggle */}
                         <div className="p-4 border border-border bg-muted/50 rounded-2xl flex items-center justify-between">
                             <div className="flex items-center gap-3">
