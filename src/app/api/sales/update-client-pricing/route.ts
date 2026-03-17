@@ -1,22 +1,22 @@
 import { NextResponse } from 'next/server';
-import { adminDb, adminAuth } from '@/lib/firebase/admin';
-import { doc, updateDoc } from 'firebase/firestore';
+import { adminDb } from '@/lib/firebase/admin';
 
 export async function POST(request: Request) {
     try {
         const body = await request.json();
-        const { clientId, customRates } = body;
+        const { clientId, customRates, allowedFormats } = body;
 
-        if (!clientId || !customRates) {
+        if (!clientId || !customRates || !allowedFormats) {
             return NextResponse.json(
-                { error: 'Missing required fields: clientId, customRates' },
+                { error: 'Missing required fields: clientId, customRates, allowedFormats' },
                 { status: 400 }
             );
         }
 
-        // Update the client's customRates in Firestore
+        // Update the client's customRates and allowedFormats in Firestore
         await adminDb.collection('users').doc(clientId).update({
             customRates: customRates,
+            allowedFormats: allowedFormats,
             updatedAt: Date.now()
         });
 

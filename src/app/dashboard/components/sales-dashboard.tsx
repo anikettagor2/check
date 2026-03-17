@@ -123,6 +123,7 @@ export function SalesDashboard() {
     // Edit Pricing State
     const [editingClientId, setEditingClientId] = useState<string | null>(null);
     const [editingPrices, setEditingPrices] = useState<Record<string, number>>({});
+    const [editingAllowedFormats, setEditingAllowedFormats] = useState<Record<string, boolean>>({});
     const [isEditingSaving, setIsEditingSaving] = useState(false);
 
     const VIDEO_TYPES_LABELS = [
@@ -337,7 +338,8 @@ export function SalesDashboard() {
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
                         clientId: editingClientId,
-                        customRates: editingPrices
+                        customRates: editingPrices,
+                        allowedFormats: editingAllowedFormats
                     })
                 });
                 const data = await res.json();
@@ -367,10 +369,24 @@ export function SalesDashboard() {
                         </button>
                     </div>
                     <div className="space-y-4">
-                        <p className="text-sm text-muted-foreground">Set custom pricing for each video format this client can order.</p>
+                        <p className="text-sm text-muted-foreground">Set custom pricing and choose which video formats are visible to this client.</p>
                         {VIDEO_TYPES_LABELS.map((type) => (
                             <div key={type} className="flex items-center justify-between p-4 rounded-lg border border-border bg-muted/30">
-                                <p className="text-sm font-semibold text-foreground">{type}</p>
+                                <div className="flex items-center gap-3">
+                                    <input
+                                        type="checkbox"
+                                        checked={editingAllowedFormats[type] === true}
+                                        onChange={(e) => setEditingAllowedFormats({
+                                            ...editingAllowedFormats,
+                                            [type]: e.target.checked
+                                        })}
+                                        className="h-4 w-4 rounded border-border text-primary focus:ring-primary/40 cursor-pointer"
+                                    />
+                                    <div>
+                                        <p className="text-sm font-semibold text-foreground">{type}</p>
+                                        <p className="text-[11px] text-muted-foreground">{editingAllowedFormats[type] === true ? 'Visible to client' : 'Hidden from client'}</p>
+                                    </div>
+                                </div>
                                 <div className="flex items-center gap-2">
                                     <span className="text-sm text-muted-foreground">₹</span>
                                     <input
@@ -378,7 +394,8 @@ export function SalesDashboard() {
                                         min="0"
                                         value={editingPrices[type] || 0}
                                         onChange={(e) => setEditingPrices({...editingPrices, [type]: Number(e.target.value)})}
-                                        className="h-10 w-24 px-3 text-right border border-border rounded-lg bg-background text-sm focus:outline-none focus:ring-2 focus:ring-primary/40 tabular-nums"
+                                        disabled={editingAllowedFormats[type] !== true}
+                                        className="h-10 w-24 px-3 text-right border border-border rounded-lg bg-background text-sm focus:outline-none focus:ring-2 focus:ring-primary/40 tabular-nums disabled:opacity-50"
                                     />
                                 </div>
                             </div>
@@ -859,6 +876,14 @@ export function SalesDashboard() {
                                                                         "Podcast Edit": 1000,
                                                                         "Motion Graphic": 1500,
                                                                         "Cinematic Event": 2000
+                                                                    });
+                                                                    setEditingAllowedFormats(client.allowedFormats || {
+                                                                        "Reel Format": false,
+                                                                        "Long Video": false,
+                                                                        "Documentary": false,
+                                                                        "Podcast Edit": false,
+                                                                        "Motion Graphic": false,
+                                                                        "Cinematic Event": false
                                                                     });
                                                                 }}
                                                                 className="text-sm cursor-pointer"
