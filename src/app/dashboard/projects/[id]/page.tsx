@@ -76,6 +76,7 @@ export default function ProjectDetailsPage() {
     const [isDownloading, setIsDownloading] = useState(false);
     const [assignedPM, setAssignedPM] = useState<User | null>(null);
     const [assignedEditor, setAssignedEditor] = useState<User | null>(null);
+    const [assignedSE, setAssignedSE] = useState<User | null>(null);
 
     const handleAssetUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
         if (!e.target.files || !e.target.files[0] || !project) return;
@@ -164,7 +165,7 @@ export default function ProjectDetailsPage() {
         const shouldFetch = user.role === 'admin' || 
                           user.role === 'project_manager' || 
                           user.role === 'editor' || 
-                          (user.role === 'client' && (project.assignedPMId || project.assignedEditorId));
+                          (user.role === 'client' && (project.assignedPMId || project.assignedEditorId || project.assignedSEId || user?.managedBy));
 
         if (shouldFetch) {
             getAllUsers().then(res => {
@@ -187,10 +188,17 @@ export default function ProjectDetailsPage() {
                         const ed = allUsers.find(u => u.uid === project.assignedEditorId);
                         if (ed) setAssignedEditor(ed);
                     }
+
+                    // Resolve Assigned Sales Executive
+                    const seId = project.assignedSEId || user?.managedBy;
+                    if (seId) {
+                        const se = allUsers.find(u => u.uid === seId);
+                        if (se) setAssignedSE(se);
+                    }
                 }
             });
         }
-    }, [user, project?.assignedPMId, project?.assignedEditorId]);
+    }, [user, project?.assignedPMId, project?.assignedEditorId, project?.assignedSEId, user?.managedBy]);
 
     const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false);
     const [isAssignModalOpen, setIsAssignModalOpen] = useState(false);
@@ -203,6 +211,7 @@ export default function ProjectDetailsPage() {
     const [isSubmittingRating, setIsSubmittingRating] = useState(false);
     const [pendingDownloadId, setPendingDownloadId] = useState<string | null>(null);
     const [isChatOpen, setIsChatOpen] = useState(false);
+    const [isTimelineModalOpen, setIsTimelineModalOpen] = useState(false);
     const [assignmentTimeRemaining, setAssignmentTimeRemaining] = useState<number | null>(null);
     const [isAssignmentExpired, setIsAssignmentExpired] = useState(false);
 
@@ -1064,6 +1073,7 @@ export default function ProjectDetailsPage() {
                         <div className="space-y-4">
                             <DetailRow label="Client Account" value={project.brand || project.clientName || 'N/A'} />
                             {assignedPM && <DetailRow label="Project Manager" value={assignedPM.displayName || "Assigned PM"} />}
+                            {assignedSE && <DetailRow label="Sales Executive" value={assignedSE.displayName || "Assigned SE"} />}
                             {assignedEditor && <DetailRow label="Primary Editor" value={assignedEditor.displayName || "Assigned Editor"} />}
                             {(project as any).videoFormat && <DetailRow label="Video Format" value={(project as any).videoFormat} />}
                             {(project as any).aspectRatio && <DetailRow label="Aspect Ratio" value={(project as any).aspectRatio} />}
@@ -1077,6 +1087,54 @@ export default function ProjectDetailsPage() {
                             </div>
                         </div>
                     </div>
+
+                    {(isClient || project.ownerId === user?.uid) && (assignedPM || assignedSE) && (
+                        <div className="enterprise-card p-6 md:p-8 space-y-6">
+                            <div className="flex items-center justify-between">
+                                <h3 className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Project Team</h3>
+                                <button
+                                    onClick={() => setIsChatOpen(true)}
+                                    className="h-9 px-3 rounded-lg bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-[10px] font-bold uppercase tracking-widest hover:bg-emerald-500/20 transition-all"
+                                >
+                                    Open Chat
+                                </button>
+                            </div>
+
+                            <div className="space-y-3">
+                                {assignedPM && (
+                                    <div className="flex items-center justify-between rounded-xl border border-border bg-muted/30 p-4">
+                                        <div className="min-w-0">
+                                            <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Project Manager</p>
+                                            <p className="text-sm font-bold text-foreground truncate mt-1">{assignedPM.displayName || 'Assigned PM'}</p>
+                                            {assignedPM.email && <p className="text-xs text-muted-foreground truncate">{assignedPM.email}</p>}
+                                        </div>
+                                        <button
+                                            onClick={() => setIsChatOpen(true)}
+                                            className="h-9 px-3 rounded-lg bg-muted border border-border text-muted-foreground hover:text-foreground hover:border-primary/30 transition-all text-[10px] font-bold uppercase tracking-widest"
+                                        >
+                                            Chat PM
+                                        </button>
+                                    </div>
+                                )}
+
+                                {assignedSE && (
+                                    <div className="flex items-center justify-between rounded-xl border border-border bg-muted/30 p-4">
+                                        <div className="min-w-0">
+                                            <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Sales Executive</p>
+                                            <p className="text-sm font-bold text-foreground truncate mt-1">{assignedSE.displayName || 'Assigned SE'}</p>
+                                            {assignedSE.email && <p className="text-xs text-muted-foreground truncate">{assignedSE.email}</p>}
+                                        </div>
+                                        <button
+                                            onClick={() => setIsChatOpen(true)}
+                                            className="h-9 px-3 rounded-lg bg-muted border border-border text-muted-foreground hover:text-foreground hover:border-primary/30 transition-all text-[10px] font-bold uppercase tracking-widest"
+                                        >
+                                            Chat SE
+                                        </button>
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+                    )}
 
                     {/* Technical Assets */}
                     <div className="enterprise-card p-6 md:p-8 space-y-8">
@@ -1231,7 +1289,15 @@ export default function ProjectDetailsPage() {
                     <div className="enterprise-card p-6 md:p-8 space-y-8">
                         <div className="flex justify-between items-center">
                             <h3 className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Project Timeline</h3>
-                            <Activity className="h-3 w-3 text-muted-foreground" />
+                            <div className="flex items-center gap-2">
+                                <button
+                                    onClick={() => setIsTimelineModalOpen(true)}
+                                    className="h-8 px-3 rounded-lg bg-muted/50 border border-border text-[9px] font-bold uppercase tracking-widest text-muted-foreground hover:text-foreground hover:border-primary/30 transition-all"
+                                >
+                                    View Timeline
+                                </button>
+                                <Activity className="h-3 w-3 text-muted-foreground" />
+                            </div>
                         </div>
                         <div className="space-y-8 relative px-2">
                             <div className="absolute left-[13px] top-4 bottom-4 w-[1px] bg-muted/50" />
@@ -1301,6 +1367,31 @@ export default function ProjectDetailsPage() {
                     </div>
                 </div>
         </Modal>
+
+
+            {/* Timeline Modal */}
+            <Modal
+                isOpen={isTimelineModalOpen}
+                onClose={() => setIsTimelineModalOpen(false)}
+                title="Project Timeline"
+            >
+                <div className="space-y-6">
+                    <p className="text-sm text-muted-foreground">Track each stage of your project in one place.</p>
+                    <div className="space-y-8 relative px-2 py-2">
+                        <div className="absolute left-[13px] top-4 bottom-4 w-[1px] bg-muted/50" />
+                        <Milestone label="Project Started" date="Validated" active />
+                        <Milestone label="Editing" date={revisions.length > 0 ? "Active" : "Pending"} active={revisions.length > 0} />
+                        <Milestone label="Client Review" date={revisions.length > 0 ? "Ready" : "Scheduled"} active={revisions.length > 0} />
+                        <Milestone label="Final Delivery" date={project.status === 'completed' ? "Delivered" : "Pending"} active={project.status === 'completed'} />
+                    </div>
+                    <button
+                        onClick={() => setIsTimelineModalOpen(false)}
+                        className="w-full h-11 rounded-lg bg-primary text-primary-foreground text-[11px] font-bold uppercase tracking-widest hover:bg-primary/90 transition-all"
+                    >
+                        Close
+                    </button>
+                </div>
+            </Modal>
 
             {/* Rating Modal */}
             <Modal
