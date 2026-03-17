@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
 import { useAuth } from "@/lib/context/auth-context";
 import { 
     Loader2, 
@@ -30,10 +31,11 @@ import {
     ChevronRight,
     Download,
     Star,
-    Sparkles
+    Sparkles,
+    MessageSquare
 } from "lucide-react";
 import { db } from "@/lib/firebase/config";
-import { collection, query, orderBy, onSnapshot, updateDoc, doc, where } from "firebase/firestore";
+import { collection, query, orderBy, onSnapshot, updateDoc, doc, where, getDocs, limit } from "firebase/firestore";
 import { Project, User } from "@/types/schema";
 import { 
     assignEditor,
@@ -169,6 +171,8 @@ export function ProjectManagerDashboard() {
     // Project Detail Modal
     const [inspectProject, setInspectProject] = useState<Project | null>(null);
     const [isProjectDetailModalOpen, setIsProjectDetailModalOpen] = useState(false);
+    const [reviewLoading, setReviewLoading] = useState(false);
+    const router = useRouter();
 
     useEffect(() => {
         setLoading(true);
@@ -296,6 +300,29 @@ export function ProjectManagerDashboard() {
         
         if(res.success) toast.success("All payments settled");
         else toast.error("Failed to settle payments");
+    };
+
+    const handleOpenReview = async (projectId: string) => {
+        setReviewLoading(true);
+        try {
+            const q = query(
+                collection(db, "revisions"),
+                where("projectId", "==", projectId),
+                orderBy("version", "desc"),
+                limit(1)
+            );
+            const snap = await getDocs(q);
+            if (snap.empty) {
+                toast.error("No revisions uploaded yet for this project.");
+                return;
+            }
+            const revisionId = snap.docs[0].id;
+            router.push(`/dashboard/projects/${projectId}/review/${revisionId}`);
+        } catch (err) {
+            toast.error("Failed to open review.");
+        } finally {
+            setReviewLoading(false);
+        }
     };
 
     const handleDeleteProject = async (projectId: string) => {
@@ -1327,6 +1354,18 @@ export function ProjectManagerDashboard() {
                                         </span>
                                     </div>
                                 </div>
+                                <button
+                                    onClick={() => handleOpenReview(inspectProject.id)}
+                                    disabled={reviewLoading}
+                                    className="shrink-0 flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground rounded-lg text-sm font-medium hover:bg-primary/90 transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
+                                >
+                                    {reviewLoading ? (
+                                        <Loader2 className="h-4 w-4 animate-spin" />
+                                    ) : (
+                                        <MessageSquare className="h-4 w-4" />
+                                    )}
+                                    Review
+                                </button>
                             </div>
 
                             {/* Specs Grid */}
