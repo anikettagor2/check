@@ -1390,6 +1390,14 @@ export function ProjectManagerDashboard() {
                                 </div>
                             </div>
 
+                            {/* Description */}
+                            {inspectProject.description && (
+                                <div className="bg-muted/30 border border-border rounded-lg p-4">
+                                    <p className="text-xs text-muted-foreground mb-2">Description</p>
+                                    <p className="text-sm text-foreground leading-relaxed">{inspectProject.description}</p>
+                                </div>
+                            )}
+
                             {/* Review Button */}
                             <button
                                 onClick={() => handleOpenReview(inspectProject.id)}
@@ -1403,14 +1411,6 @@ export function ProjectManagerDashboard() {
                                 )}
                                 Open Review & Comments
                             </button>
-
-                            {/* Description */}
-                            {inspectProject.description && (
-                                <div className="bg-muted/30 border border-border rounded-lg p-4">
-                                    <p className="text-xs text-muted-foreground mb-2">Description</p>
-                                    <p className="text-sm text-foreground leading-relaxed">{inspectProject.description}</p>
-                                </div>
-                            )}
 
                             {/* Decline Reason */}
                             {inspectProject.assignmentStatus === 'rejected' && inspectProject.editorDeclineReason && (
