@@ -98,18 +98,20 @@ export function SalesDashboard() {
     const [phone, setPhone] = useState("");
     const [payLaterEligible, setPayLaterEligible] = useState(false);
     const [customRates, setCustomRates] = useState<Record<string, number>>({
-        "Short Videos": 500,
-        "Long Videos": 1000,
-        "Reels": 500,
-        "Graphics Videos": 1500,
-        "Ads/UGC Videos": 2000
+        "Reel Format": 500,
+        "Long Video": 1000,
+        "Documentary": 1200,
+        "Podcast Edit": 1000,
+        "Motion Graphic": 1500,
+        "Cinematic Event": 2000
     });
     const [allowedFormats, setAllowedFormats] = useState<Record<string, boolean>>({
-        "Short Videos": false,
-        "Long Videos": false,
-        "Reels": false,
-        "Graphics Videos": false,
-        "Ads/UGC Videos": false
+        "Reel Format": false,
+        "Long Video": false,
+        "Documentary": false,
+        "Podcast Edit": false,
+        "Motion Graphic": false,
+        "Cinematic Event": false
     });
     const [pendingClients, setPendingClients] = useState<any[]>([]);
     const [searchQuery, setSearchQuery] = useState("");
@@ -117,7 +119,7 @@ export function SalesDashboard() {
     const [assignedPM, setAssignedPM] = useState<string>("automatic");
 
     const VIDEO_TYPES_LABELS = [
-        "Short Videos", "Long Videos", "Reels", "Graphics Videos", "Ads/UGC Videos"
+        "Reel Format", "Long Video", "Documentary", "Podcast Edit", "Motion Graphic", "Cinematic Event"
     ];
 
     // Fetch Clients

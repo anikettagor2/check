@@ -74,6 +74,29 @@ const VIDEO_TYPES = [
     { key: "Cinematic Event", label: "Cinematic Event", desc: "High production value event coverage" }
 ];
 
+const VIDEO_TYPE_ALIASES: Record<string, string[]> = {
+    "Reel Format": ["Reel Format", "Reels", "Short Videos"],
+    "Long Video": ["Long Video", "Long Videos"],
+    "Documentary": ["Documentary", "Long Videos"],
+    "Podcast Edit": ["Podcast Edit", "Long Videos"],
+    "Motion Graphic": ["Motion Graphic", "Graphics Videos"],
+    "Cinematic Event": ["Cinematic Event", "Ads/UGC Videos"]
+};
+
+function getResolvedClientRate(customRates: Record<string, number> | undefined, videoType: string) {
+    const aliases = VIDEO_TYPE_ALIASES[videoType] || [videoType];
+    for (const alias of aliases) {
+        if (customRates?.[alias] !== undefined) return customRates[alias];
+    }
+    return BASE_PROJECT_PRICE;
+}
+
+function isVideoTypeAllowed(allowedFormats: Record<string, boolean> | undefined, videoType: string) {
+    if (!allowedFormats || Object.keys(allowedFormats).length === 0) return true;
+    const aliases = VIDEO_TYPE_ALIASES[videoType] || [videoType];
+    return aliases.some((alias) => allowedFormats[alias] === true);
+}
+
 const ASPECT_RATIOS = [
     { key: "9:16", label: "9:16", desc: "Reels / Shorts" },
     { key: "1:1", label: "1:1", desc: "Instagram Post" },
@@ -113,7 +136,8 @@ export default function NewProjectPage() {
     const wordCount = description.trim() === "" ? 0 : description.trim().split(/\s+/).length;
     
     // Dynamic pricing calculation
-    const basePrice = user?.customRates?.[videoType] || BASE_PROJECT_PRICE;
+    const availableVideoTypes = VIDEO_TYPES.filter((vt) => isVideoTypeAllowed(user?.allowedFormats, vt.key));
+    const basePrice = getResolvedClientRate(user?.customRates, videoType);
     const urgentExtraCost = urgency === 'urgent' ? DEFAULT_URGENT_PRICE : 0;
     const finalCost = basePrice + urgentExtraCost;
 
@@ -125,6 +149,13 @@ export default function NewProjectPage() {
     const pendingDues = user?.pendingDues || 0;
     const canUsePayLater = canPayLater && (pendingDues + finalCost <= creditLimit);
     const remainingCredit = Math.max(0, creditLimit - pendingDues);
+
+    useEffect(() => {
+        if (availableVideoTypes.length === 0) return;
+        if (!availableVideoTypes.some((vt) => vt.key === videoType)) {
+            setVideoType(availableVideoTypes[0].key);
+        }
+    }, [availableVideoTypes, videoType]);
 
     // Check if all files are uploaded
     const allFilesUploaded = [...rawFiles, ...scriptFiles, ...referenceFiles].every(
@@ -647,9 +678,9 @@ export default function NewProjectPage() {
                             <div className="space-y-3">
                                 <Label className="text-xs font-bold uppercase tracking-widest text-muted-foreground ml-1">Video Type Format</Label>
                                 <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
-                                    {VIDEO_TYPES.map(vt => {
-                                        const price = user?.customRates?.[vt.key] || BASE_PROJECT_PRICE;
-                                        const hasCustomRate = user?.customRates?.[vt.key] !== undefined;
+                                    {availableVideoTypes.map(vt => {
+                                        const price = getResolvedClientRate(user?.customRates, vt.key);
+                                        const hasCustomRate = price !== BASE_PROJECT_PRICE;
                                         const isSelected = videoType === vt.key;
                                         
                                         return (

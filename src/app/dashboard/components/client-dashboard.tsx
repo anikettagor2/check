@@ -23,7 +23,9 @@ import {
     MessageCircle,
     ArrowRight,
     FileVideo,
-    Sparkles
+    Sparkles,
+    IndianRupee,
+    ShieldCheck
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import Link from "next/link";
@@ -35,6 +37,38 @@ import {
     DropdownMenuSeparator
 } from "@/components/ui/dropdown-menu";
 import { motion, AnimatePresence } from "framer-motion";
+
+const CLIENT_VIDEO_TYPE_ALIASES: Record<string, string[]> = {
+    "Reel Format": ["Reel Format", "Reels", "Short Videos"],
+    "Long Video": ["Long Video", "Long Videos"],
+    "Documentary": ["Documentary", "Long Videos"],
+    "Podcast Edit": ["Podcast Edit", "Long Videos"],
+    "Motion Graphic": ["Motion Graphic", "Graphics Videos"],
+    "Cinematic Event": ["Cinematic Event", "Ads/UGC Videos"]
+};
+
+const CLIENT_VIDEO_TYPES = [
+    "Reel Format",
+    "Long Video",
+    "Documentary",
+    "Podcast Edit",
+    "Motion Graphic",
+    "Cinematic Event"
+];
+
+function getClientVisibleRate(customRates: Record<string, number> | undefined, videoType: string) {
+    const aliases = CLIENT_VIDEO_TYPE_ALIASES[videoType] || [videoType];
+    for (const alias of aliases) {
+        if (customRates?.[alias] !== undefined) return customRates[alias];
+    }
+    return 1000;
+}
+
+function isClientAllowedFormat(allowedFormats: Record<string, boolean> | undefined, videoType: string) {
+    if (!allowedFormats || Object.keys(allowedFormats).length === 0) return true;
+    const aliases = CLIENT_VIDEO_TYPE_ALIASES[videoType] || [videoType];
+    return aliases.some((alias) => allowedFormats[alias] === true);
+}
 
 export function ClientDashboard() {
     const { user } = useAuth();
@@ -93,6 +127,12 @@ export function ClientDashboard() {
 
     const creditLimit = user?.creditLimit || 5000;
     const isOverLimit = pendingPayment >= creditLimit && (user?.payLater || false);
+    const visiblePricing = CLIENT_VIDEO_TYPES
+        .filter((videoType) => isClientAllowedFormat(user?.allowedFormats, videoType))
+        .map((videoType) => ({
+            videoType,
+            price: getClientVisibleRate(user?.customRates, videoType)
+        }));
 
     return (
         <div className="max-w-7xl mx-auto px-4 sm:px-6 py-8 space-y-8">
@@ -363,6 +403,34 @@ export function ClientDashboard() {
                                 </p>
                             </div>
                         )}
+                    </div>
+
+                    {/* Pricing Card */}
+                    <div className="bg-card border border-border rounded-xl p-5">
+                        <div className="flex items-center justify-between mb-4">
+                            <div>
+                                <h3 className="font-semibold text-foreground">Your Agreed Pricing</h3>
+                                <p className="text-xs text-muted-foreground mt-1">Prices fixed for your account by the sales executive.</p>
+                            </div>
+                            <div className="h-10 w-10 rounded-lg bg-primary/10 flex items-center justify-center">
+                                <IndianRupee className="h-5 w-5 text-primary" />
+                            </div>
+                        </div>
+                        <div className="space-y-2">
+                            {visiblePricing.length === 0 ? (
+                                <div className="text-sm text-muted-foreground">Pricing will be assigned soon.</div>
+                            ) : (
+                                visiblePricing.map((item) => (
+                                    <div key={item.videoType} className="flex items-center justify-between px-3 py-2 rounded-lg bg-muted/40 border border-border">
+                                        <div className="flex items-center gap-2">
+                                            <ShieldCheck className="h-4 w-4 text-emerald-500" />
+                                            <span className="text-sm font-medium text-foreground">{item.videoType}</span>
+                                        </div>
+                                        <span className="text-sm font-bold text-primary tabular-nums">₹{item.price.toLocaleString()}</span>
+                                    </div>
+                                ))
+                            )}
+                        </div>
                     </div>
 
                     {/* Quick Actions */}
