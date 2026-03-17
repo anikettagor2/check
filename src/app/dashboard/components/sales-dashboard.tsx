@@ -21,7 +21,9 @@ import {
     UserCog,
     Wifi,
     WifiOff,
-    Moon
+    Moon,
+    X,
+    Loader2
 } from "lucide-react";
 import { toast } from "sonner";
 import { db } from "@/lib/firebase/config";
@@ -117,6 +119,11 @@ export function SalesDashboard() {
     const [searchQuery, setSearchQuery] = useState("");
     const [projectManagers, setProjectManagers] = useState<User[]>([]);
     const [assignedPM, setAssignedPM] = useState<string>("automatic");
+    
+    // Edit Pricing State
+    const [editingClientId, setEditingClientId] = useState<string | null>(null);
+    const [editingPrices, setEditingPrices] = useState<Record<string, number>>({});
+    const [isEditingSaving, setIsEditingSaving] = useState(false);
 
     const VIDEO_TYPES_LABELS = [
         "Reel Format", "Long Video", "Documentary", "Podcast Edit", "Motion Graphic", "Cinematic Event"
@@ -319,6 +326,84 @@ export function SalesDashboard() {
             toast.error("Failed to request deletion");
         }
     };
+
+    // If editing pricing, show edit panel
+    if (editingClientId) {
+        const handleSavePricing = async () => {
+            setIsEditingSaving(true);
+            try {
+                const res = await fetch('/api/sales/update-client-pricing', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        clientId: editingClientId,
+                        customRates: editingPrices
+                    })
+                });
+                const data = await res.json();
+                if (!res.ok) throw new Error(data.error || "Update failed");
+                toast.success("Pricing updated successfully");
+                setEditingClientId(null);
+            } catch (err: any) {
+                toast.error(err.message || "Failed to update pricing");
+            } finally {
+                setIsEditingSaving(false);
+            }
+        };
+        const editingClient = [...myClients, ...pendingClients].find(c => c.id === editingClientId);
+        return (
+            <div className="max-w-7xl mx-auto px-4 py-8 space-y-6">
+                <div className="bg-card border border-border rounded-xl p-6">
+                    <div className="flex items-center justify-between mb-6">
+                        <div>
+                            <h2 className="text-2xl font-bold text-foreground">Edit Client Pricing</h2>
+                            <p className="text-muted-foreground mt-1">{editingClient?.displayName || editingClient?.email}</p>
+                        </div>
+                        <button
+                            onClick={() => setEditingClientId(null)}
+                            className="h-10 w-10 rounded-lg hover:bg-muted flex items-center justify-center text-muted-foreground hover:text-foreground transition-colors"
+                        >
+                            <X className="h-5 w-5" />
+                        </button>
+                    </div>
+                    <div className="space-y-4">
+                        <p className="text-sm text-muted-foreground">Set custom pricing for each video format this client can order.</p>
+                        {VIDEO_TYPES_LABELS.map((type) => (
+                            <div key={type} className="flex items-center justify-between p-4 rounded-lg border border-border bg-muted/30">
+                                <p className="text-sm font-semibold text-foreground">{type}</p>
+                                <div className="flex items-center gap-2">
+                                    <span className="text-sm text-muted-foreground">₹</span>
+                                    <input
+                                        type="number"
+                                        min="0"
+                                        value={editingPrices[type] || 0}
+                                        onChange={(e) => setEditingPrices({...editingPrices, [type]: Number(e.target.value)})}
+                                        className="h-10 w-24 px-3 text-right border border-border rounded-lg bg-background text-sm focus:outline-none focus:ring-2 focus:ring-primary/40 tabular-nums"
+                                    />
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+                    <div className="flex items-center gap-3 mt-8 pt-6 border-t border-border">
+                        <button
+                            onClick={() => setEditingClientId(null)}
+                            className="flex-1 px-4 py-2.5 border border-border rounded-lg text-sm font-medium text-foreground hover:bg-muted transition-colors"
+                        >
+                            Cancel
+                        </button>
+                        <button
+                            onClick={handleSavePricing}
+                            disabled={isEditingSaving}
+                            className="flex-1 px-4 py-2.5 bg-primary text-primary-foreground rounded-lg text-sm font-medium hover:bg-primary/90 transition-colors disabled:opacity-60 flex items-center justify-center gap-2"
+                        >
+                            {isEditingSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : <CheckCircle2 className="h-4 w-4" />}
+                            {isEditingSaving ? "Saving..." : "Save Pricing"}
+                        </button>
+                    </div>
+                </div>
+            </div>
+        );
+    }
 
     return (
         <div className="space-y-8 max-w-[1600px] mx-auto pb-16">
@@ -763,6 +848,22 @@ export function SalesDashboard() {
                                                             <DropdownMenuSeparator />
                                                             <DropdownMenuItem className="text-sm cursor-pointer">
                                                                 <Briefcase className="mr-2 h-4 w-4" /> View History
+                                                            </DropdownMenuItem>
+                                                            <DropdownMenuItem
+                                                                onClick={() => {
+                                                                    setEditingClientId(client.id);
+                                                                    setEditingPrices(client.customRates || {
+                                                                        "Reel Format": 500,
+                                                                        "Long Video": 1000,
+                                                                        "Documentary": 1200,
+                                                                        "Podcast Edit": 1000,
+                                                                        "Motion Graphic": 1500,
+                                                                        "Cinematic Event": 2000
+                                                                    });
+                                                                }}
+                                                                className="text-sm cursor-pointer"
+                                                            >
+                                                                <IndianRupee className="mr-2 h-4 w-4" /> Edit Pricing
                                                             </DropdownMenuItem>
                                                             <DropdownMenuSeparator />
                                                             <DropdownMenuItem 
