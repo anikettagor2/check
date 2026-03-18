@@ -1291,20 +1291,32 @@ export default function ProjectDetailsPage() {
                                                                 </div>
                                                             )}
 
-                                                            {/* File Info */}
+                                                            {/* File Info & Actions */}
                                                             <div className="flex items-center justify-between gap-3">
                                                                 <div className="flex-1 min-w-0">
                                                                     <p className="text-xs font-bold text-muted-foreground truncate group-hover:text-foreground">{file.name}</p>
                                                                     <p className="text-[10px] text-muted-foreground/60 mt-0.5">Uploaded by: Project Manager</p>
                                                                 </div>
-                                                                {!isImage && !isVideo && (
-                                                                    <button 
-                                                                        onClick={() => setPreviewFileUrl(file.url)} 
-                                                                        className="h-8 px-3 rounded bg-muted hover:bg-primary/20 hover:text-primary text-muted-foreground text-[9px] font-bold uppercase tracking-widest transition-all flex-shrink-0"
+                                                                <div className="flex items-center gap-2 flex-shrink-0">
+                                                                    {!isImage && !isVideo && (
+                                                                        <button 
+                                                                            onClick={() => setPreviewFileUrl(file.url)} 
+                                                                            className="h-8 px-3 rounded bg-muted hover:bg-primary/20 hover:text-primary text-muted-foreground text-[9px] font-bold uppercase tracking-widest transition-all"
+                                                                        >
+                                                                            Preview
+                                                                        </button>
+                                                                    )}
+                                                                    <a 
+                                                                        href={file.url} 
+                                                                        download={file.name}
+                                                                        target="_blank"
+                                                                        rel="noopener noreferrer"
+                                                                        className="h-8 w-8 rounded bg-muted hover:bg-primary/20 hover:text-primary text-muted-foreground flex items-center justify-center transition-all"
+                                                                        title="Download file"
                                                                     >
-                                                                        Preview
-                                                                    </button>
-                                                                )}
+                                                                        <Download className="h-3.5 w-3.5" />
+                                                                    </a>
+                                                                </div>
                                                             </div>
                                                         </div>
                                                     );
