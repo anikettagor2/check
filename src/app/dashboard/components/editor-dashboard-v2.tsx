@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import { useAuth } from "@/lib/context/auth-context";
 import { db } from "@/lib/firebase/config";
-import { collection, query, where, orderBy, onSnapshot, doc, updateDoc } from "firebase/firestore";
+import { collection, query, where, orderBy, onSnapshot, doc, updateDoc, getDocs, limit } from "firebase/firestore";
 import { Project } from "@/types/schema";
 import { cn } from "@/lib/utils";
 import { 
@@ -36,6 +36,7 @@ export function EditorDashboardV2() {
     const [allUsers, setAllUsers] = useState<any>({});
     const [isUploadModalOpen, setIsUploadModalOpen] = useState(false);
     const [selectedUploadProject, setSelectedUploadProject] = useState<Project | null>(null);
+    const [projectRevisions, setProjectRevisions] = useState<Record<string, any>>({});
 
     useEffect(() => {
         if (!user) return;
@@ -51,10 +52,38 @@ export function EditorDashboardV2() {
 
         const unsubscribe = onSnapshot(q, (snapshot) => {
             const fetchedProjects: Project[] = [];
+            const revisionsMap: Record<string, any> = {};
+            
             snapshot.forEach((doc) => {
-                fetchedProjects.push({ id: doc.id, ...doc.data() } as Project);
+                const project = { id: doc.id, ...doc.data() } as Project;
+                fetchedProjects.push(project);
+                
+                // Fetch latest revision for this project
+                const revisionsRef = collection(db, "revisions");
+                const revQ = query(
+                    revisionsRef,
+                    where("projectId", "==", project.id),
+                    orderBy("version", "desc"),
+                    limit(1)
+                );
+                
+                getDocs(revQ).then(revSnap => {
+                    if (!revSnap.empty) {
+                        const latestRev = revSnap.docs[0];
+                        revisionsMap[project.id] = {
+                            id: latestRev.id,
+                            ...latestRev.data()
+                        };
+                        setProjectRevisions(prev => ({
+                            ...prev,
+                            [project.id]: revisionsMap[project.id]
+                        }));
+                    }
+                });
             });
+            
             setProjects(fetchedProjects);
+            setProjectRevisions(revisionsMap);
             setLoading(false);
         });
 
@@ -681,6 +710,15 @@ export function EditorDashboardV2() {
                                                             <CheckCircle2 className="h-4 w-4" />
                                                             Project Details
                                                         </button>
+                                                    ) : projectRevisions[project.id] ? (
+                                                        <a
+                                                            href={`/review/${project.id}/${projectRevisions[project.id].id}`}
+                                                            className="h-9 px-4 inline-flex items-center justify-center gap-2 rounded-lg bg-blue-500/20 border border-blue-500/40 text-blue-500 hover:bg-blue-500/30 text-[10px] font-bold uppercase tracking-widest transition-all whitespace-nowrap"
+                                                            title="Review uploaded draft"
+                                                        >
+                                                            <Eye className="h-4 w-4" />
+                                                            Review
+                                                        </a>
                                                     ) : (
                                                         <div className="flex items-center gap-2 flex-wrap">
                                                             <button
