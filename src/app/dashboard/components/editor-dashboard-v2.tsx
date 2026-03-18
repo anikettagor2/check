@@ -22,6 +22,7 @@ import {
 import { toast } from "sonner";
 import { motion, AnimatePresence } from "framer-motion";
 import { X } from "lucide-react";
+import { UploadDraftModal } from "./upload-draft-modal";
 
 export function EditorDashboardV2() {
     const { user } = useAuth();
@@ -33,6 +34,8 @@ export function EditorDashboardV2() {
     const [selectedProjectAssets, setSelectedProjectAssets] = useState<any>(null);
     const [selectedProjectDetails, setSelectedProjectDetails] = useState<Project | null>(null);
     const [allUsers, setAllUsers] = useState<any>({});
+    const [isUploadModalOpen, setIsUploadModalOpen] = useState(false);
+    const [selectedUploadProject, setSelectedUploadProject] = useState<Project | null>(null);
 
     useEffect(() => {
         if (!user) return;
@@ -691,12 +694,16 @@ export function EditorDashboardV2() {
                                                         </button>
 
                                                         <a
-                                                            href={isAccepted ? `/dashboard/projects/${project.id}/upload` : undefined}
                                                             onClick={(e) => {
-                                                                if (!isAccepted) e.preventDefault();
+                                                                e.preventDefault();
+                                                                e.stopPropagation();
+                                                                if (isAccepted) {
+                                                                    setSelectedUploadProject(project);
+                                                                    setIsUploadModalOpen(true);
+                                                                }
                                                             }}
                                                             className={cn(
-                                                                "h-8 px-3 inline-flex items-center justify-center gap-1 rounded-lg border text-[10px] font-bold uppercase tracking-widest transition-all whitespace-nowrap",
+                                                                "h-8 px-3 inline-flex items-center justify-center gap-1 rounded-lg border text-[10px] font-bold uppercase tracking-widest transition-all whitespace-nowrap cursor-pointer",
                                                                 isAccepted
                                                                     ? "bg-amber-500/10 border-amber-500/20 text-amber-500 hover:bg-amber-500/20"
                                                                     : "bg-muted/20 border-border text-muted-foreground cursor-not-allowed"
@@ -739,6 +746,21 @@ export function EditorDashboardV2() {
                     </div>
                 )}
             </div>
+
+            {/* Upload Draft Modal */}
+            <UploadDraftModal
+                isOpen={isUploadModalOpen}
+                projectId={selectedUploadProject?.id || ""}
+                projectName={selectedUploadProject?.name || ""}
+                onClose={() => {
+                    setIsUploadModalOpen(false);
+                    setSelectedUploadProject(null);
+                }}
+                onSuccess={() => {
+                    // Refresh projects after upload
+                    setProjects([...projects]);
+                }}
+            />
         </>
     );
 }
