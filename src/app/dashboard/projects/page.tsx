@@ -3,7 +3,7 @@
 
 import { useAuth } from "@/lib/context/auth-context";
 import { ClientDashboard } from "@/app/dashboard/components/client-dashboard";
-import { EditorDashboard } from "@/app/dashboard/components/editor-dashboard";
+import { EditorDashboardV2 } from "@/app/dashboard/components/editor-dashboard-v2";
 import { AdminDashboard } from "@/app/dashboard/components/admin-dashboard";
 import { Loader2 } from "lucide-react";
 
@@ -30,7 +30,7 @@ export default function ProjectsPage() {
     <div>
         {user.role === 'admin' && <AdminDashboard />}
         {user.role === 'client' && <ClientDashboard />}
-        {user.role === 'editor' && <EditorDashboard />}
+        {user.role === 'editor' && <EditorDashboardV2 />}
     </div>
   );
 }
