@@ -191,6 +191,8 @@ export function ProjectManagerDashboard() {
     const [reviewLoading, setReviewLoading] = useState(false);
     const [isUploadingPMFile, setIsUploadingPMFile] = useState(false);
     const [pmFileInput, setPmFileInput] = useState<HTMLInputElement | null>(null);
+    const [previewFile, setPreviewFile] = useState<{url: string; name: string} | null>(null);
+    const [isPreviewModalOpen, setIsPreviewModalOpen] = useState(false);
     const router = useRouter();
 
     useEffect(() => {
@@ -1465,13 +1467,25 @@ export function ProjectManagerDashboard() {
                                                 className="flex items-center justify-between gap-3 p-2 rounded-md bg-card border border-border hover:border-primary/40 transition-colors"
                                             >
                                                 <span className="text-xs font-medium text-foreground truncate">{file.name || `Raw File ${idx + 1}`}</span>
-                                                <button
-                                                    onClick={() => handleDirectDownload(file.url, file.name || `raw-file-${idx + 1}`)}
-                                                    className="h-8 w-8 rounded-md bg-muted hover:bg-primary/20 hover:text-primary text-muted-foreground flex items-center justify-center transition-all"
-                                                    title="Download file"
-                                                >
-                                                    <Download className="h-3.5 w-3.5" />
-                                                </button>
+                                                <div className="flex items-center gap-2">
+                                                    <button
+                                                        onClick={() => {
+                                                            setPreviewFile({url: file.url, name: file.name || `Raw File ${idx + 1}`});
+                                                            setIsPreviewModalOpen(true);
+                                                        }}
+                                                        className="h-8 w-8 rounded-md bg-muted hover:bg-primary/20 hover:text-primary text-muted-foreground flex items-center justify-center transition-all"
+                                                        title="Preview file"
+                                                    >
+                                                        <Eye className="h-3.5 w-3.5" />
+                                                    </button>
+                                                    <button
+                                                        onClick={() => handleDirectDownload(file.url, file.name || `raw-file-${idx + 1}`)}
+                                                        className="h-8 w-8 rounded-md bg-muted hover:bg-primary/20 hover:text-primary text-muted-foreground flex items-center justify-center transition-all"
+                                                        title="Download file"
+                                                    >
+                                                        <Download className="h-3.5 w-3.5" />
+                                                    </button>
+                                                </div>
                                             </div>
                                         ))}
                                     </div>
@@ -1637,6 +1651,85 @@ export function ProjectManagerDashboard() {
                                 </div>
                             </div>
                         </div>
+                    </div>
+                )}
+            </Modal>
+
+            {/* File Preview Modal */}
+            <Modal 
+                isOpen={isPreviewModalOpen} 
+                onClose={() => {
+                    setIsPreviewModalOpen(false);
+                    setPreviewFile(null);
+                }}
+                title={previewFile?.name || "File Preview"}
+                maxWidth="max-w-4xl"
+            >
+                {previewFile && (
+                    <div className="mt-4 flex flex-col items-center justify-center min-h-[500px] bg-muted/30 border border-border rounded-lg overflow-hidden">
+                        {previewFile.url ? (
+                            <>
+                                {/* Determine file type and render appropriate viewer */}
+                                {previewFile.url.toLowerCase().match(/\.(mp4|webm|mov|avi|mkv)(\?|$)/i) ? (
+                                    // Video Player
+                                    <video 
+                                        controls 
+                                        className="w-full h-full max-h-[500px] object-contain"
+                                        src={previewFile.url}
+                                    >
+                                        Your browser does not support the video tag.
+                                    </video>
+                                ) : previewFile.url.toLowerCase().match(/\.pdf(\?|$)/i) ? (
+                                    // PDF Viewer
+                                    <iframe 
+                                        src={`${previewFile.url}#toolbar=1`} 
+                                        className="w-full h-[500px]"
+                                        title="PDF Viewer"
+                                    />
+                                ) : previewFile.url.toLowerCase().match(/\.(jpg|jpeg|png|gif|webp|svg)(\?|$)/i) ? (
+                                    // Image Viewer
+                                    <div className="flex items-center justify-center w-full h-[500px] p-4">
+                                        <img 
+                                            src={previewFile.url} 
+                                            alt={previewFile.name}
+                                            className="max-w-full max-h-full object-contain rounded-lg"
+                                        />
+                                    </div>
+                                ) : previewFile.url.toLowerCase().match(/\.(txt|md|json|csv|xml|js|ts|jsx|tsx|css|html)(\?|$)/i) ? (
+                                    // Text File Viewer
+                                    <div className="w-full h-[500px] flex flex-col bg-card border border-border rounded">
+                                        <div className="flex-1 overflow-auto p-4">
+                                            <iframe 
+                                                src={previewFile.url}
+                                                className="w-full h-full border-none"
+                                                title="Text Viewer"
+                                            />
+                                        </div>
+                                    </div>
+                                ) : (
+                                    // Default: Show file icon and download button
+                                    <div className="flex flex-col items-center justify-center gap-6 p-8">
+                                        <FileVideo className="h-20 w-20 text-muted-foreground/40" />
+                                        <div className="text-center">
+                                            <p className="text-foreground font-semibold mb-2">{previewFile.name}</p>
+                                            <p className="text-sm text-muted-foreground mb-6">Preview not available for this file type</p>
+                                        </div>
+                                        <button
+                                            onClick={() => handleDirectDownload(previewFile.url, previewFile.name)}
+                                            className="px-6 py-3 bg-primary text-primary-foreground rounded-lg text-sm font-semibold hover:bg-primary/90 transition-colors flex items-center gap-2"
+                                        >
+                                            <Download className="h-4 w-4" />
+                                            Download File
+                                        </button>
+                                    </div>
+                                )}
+                            </>
+                        ) : (
+                            <div className="flex flex-col items-center justify-center gap-4 p-8">
+                                <AlertCircle className="h-12 w-12 text-red-500" />
+                                <p className="text-muted-foreground">Unable to load file preview</p>
+                            </div>
+                        )}
                     </div>
                 )}
             </Modal>
