@@ -641,30 +641,38 @@ export function ProjectManagerDashboard() {
                                             
                                             {/* Editor Dropdown with Profile View */}
                                             <td className="px-4 py-3">
-                                                <DropdownMenu>
-                                                    <DropdownMenuTrigger asChild>
-                                                        <button className={cn(
-                                                            "flex items-center gap-2 px-3 py-2 rounded-lg border text-xs font-medium transition-all min-w-[140px] max-w-[160px]",
-                                                            project.assignedEditorId 
-                                                                ? "bg-primary/10 border-primary/30 text-foreground hover:bg-primary/20" 
-                                                                : "bg-muted border-border text-muted-foreground hover:bg-muted/80 hover:text-foreground"
-                                                        )}>
-                                                            {project.assignedEditorId ? (
-                                                                <>
-                                                                    <div className="h-5 w-5 rounded-full bg-primary/20 flex items-center justify-center text-[10px] font-bold text-primary shrink-0">
-                                                                        {editors.find(e => e.uid === project.assignedEditorId)?.displayName?.[0] || 'E'}
-                                                                    </div>
-                                                                    <span className="truncate">{editors.find(e => e.uid === project.assignedEditorId)?.displayName || 'Editor'}</span>
-                                                                </>
-                                                            ) : (
-                                                                <>
-                                                                    <UserIcon className="h-4 w-4 shrink-0" />
-                                                                    <span>Unassigned</span>
-                                                                </>
-                                                            )}
-                                                            <ChevronDown className="h-3.5 w-3.5 ml-auto shrink-0 opacity-50" />
-                                                        </button>
-                                                    </DropdownMenuTrigger>
+                                                <div className="space-y-1">
+                                                    <DropdownMenu>
+                                                        <DropdownMenuTrigger asChild>
+                                                            <button className={cn(
+                                                                "flex items-center gap-2 px-3 py-2 rounded-lg border text-xs font-medium transition-all min-w-[140px] max-w-[160px]",
+                                                                project.assignmentStatus === 'rejected'
+                                                                    ? "bg-red-500/10 border-red-500/30 text-red-600 hover:bg-red-500/20"
+                                                                    : project.assignedEditorId 
+                                                                    ? "bg-primary/10 border-primary/30 text-foreground hover:bg-primary/20" 
+                                                                    : "bg-muted border-border text-muted-foreground hover:bg-muted/80 hover:text-foreground"
+                                                            )}>
+                                                                {project.assignmentStatus === 'rejected' ? (
+                                                                    <>
+                                                                        <AlertCircle className="h-4 w-4 shrink-0" />
+                                                                        <span>Rejected</span>
+                                                                    </>
+                                                                ) : project.assignedEditorId ? (
+                                                                    <>
+                                                                        <div className="h-5 w-5 rounded-full bg-primary/20 flex items-center justify-center text-[10px] font-bold text-primary shrink-0">
+                                                                            {editors.find(e => e.uid === project.assignedEditorId)?.displayName?.[0] || 'E'}
+                                                                        </div>
+                                                                        <span className="truncate">{editors.find(e => e.uid === project.assignedEditorId)?.displayName || 'Editor'}</span>
+                                                                    </>
+                                                                ) : (
+                                                                    <>
+                                                                        <UserIcon className="h-4 w-4 shrink-0" />
+                                                                        <span>Unassigned</span>
+                                                                    </>
+                                                                )}
+                                                                <ChevronDown className="h-3.5 w-3.5 ml-auto shrink-0 opacity-50" />
+                                                            </button>
+                                                        </DropdownMenuTrigger>
                                                     <DropdownMenuContent align="start" className="w-[320px] p-2">
                                                         <DropdownMenuLabel className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground px-2 pb-2">
                                                             Select Editor
@@ -802,8 +810,14 @@ export function ProjectManagerDashboard() {
                                                         </div>
                                                     </DropdownMenuContent>
                                                 </DropdownMenu>
+                                                {/* Rejection Reason Display */}
+                                                {project.assignmentStatus === 'rejected' && project.editorDeclineReason && (
+                                                    <p className="text-[10px] text-red-500 mt-1.5 p-2 bg-red-500/10 rounded border border-red-500/20 line-clamp-2">
+                                                        {project.editorDeclineReason}
+                                                    </p>
+                                                )}
+                                            </div>
                                             </td>
-                                            
                                             {/* Editor Price */}
                                             <td className="px-4 py-3">
                                                 <div className="flex items-center gap-1">
