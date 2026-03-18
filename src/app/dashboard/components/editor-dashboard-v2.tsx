@@ -1,6 +1,5 @@
 "use client";
 
-import Link from "next/link";
 import { useState, useEffect } from "react";
 import { useAuth } from "@/lib/context/auth-context";
 import { db } from "@/lib/firebase/config";
@@ -33,6 +32,7 @@ export function EditorDashboardV2() {
     const [clockNow, setClockNow] = useState(Date.now());
     const [userData, setUserData] = useState<any>(null);
     const [selectedProjectAssets, setSelectedProjectAssets] = useState<any>(null);
+    const [selectedProjectDetails, setSelectedProjectDetails] = useState<Project | null>(null);
     const [allUsers, setAllUsers] = useState<any>({});
 
     useEffect(() => {
@@ -204,6 +204,31 @@ export function EditorDashboardV2() {
         return `${minutes}:${seconds.toString().padStart(2, '0')}`;
     };
 
+    const triggerDirectDownload = async (url: string, fileName?: string) => {
+        try {
+            const response = await fetch(url);
+            if (!response.ok) throw new Error("Failed to fetch file");
+
+            const blob = await response.blob();
+            const blobUrl = window.URL.createObjectURL(blob);
+            const anchor = document.createElement("a");
+            anchor.href = blobUrl;
+            anchor.download = fileName || "download";
+            document.body.appendChild(anchor);
+            anchor.click();
+            anchor.remove();
+            window.URL.revokeObjectURL(blobUrl);
+        } catch {
+            const anchor = document.createElement("a");
+            anchor.href = url;
+            anchor.download = fileName || "download";
+            anchor.target = "_blank";
+            document.body.appendChild(anchor);
+            anchor.click();
+            anchor.remove();
+        }
+    };
+
     if (loading) {
         return (
             <div className="flex h-[calc(100vh-12rem)] items-center justify-center">
@@ -326,6 +351,195 @@ export function EditorDashboardV2() {
                                         <p className="text-muted-foreground">No video assets uploaded yet</p>
                                     </div>
                                 )}
+                            </div>
+                        </motion.div>
+                    </motion.div>
+                )}
+            </AnimatePresence>
+
+            {/* Project Details Modal */}
+            <AnimatePresence>
+                {selectedProjectDetails && (
+                    <motion.div
+                        key="project-details-modal"
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        exit={{ opacity: 0 }}
+                        className="fixed inset-0 z-[9997] bg-black/60 backdrop-blur-md flex items-center justify-center p-4 pointer-events-auto"
+                        onClick={() => setSelectedProjectDetails(null)}
+                    >
+                        <motion.div
+                            initial={{ scale: 0.96, y: 16 }}
+                            animate={{ scale: 1, y: 0 }}
+                            exit={{ scale: 0.96, y: 16 }}
+                            className="relative w-full max-w-6xl max-h-[88vh] overflow-y-auto bg-card border border-border rounded-2xl shadow-2xl"
+                            onClick={(e) => e.stopPropagation()}
+                        >
+                            <div className="sticky top-0 z-20 bg-card/95 backdrop-blur border-b border-border p-5 flex items-center justify-between">
+                                <div>
+                                    <h3 className="text-xl font-bold text-foreground">{selectedProjectDetails.name}</h3>
+                                    <p className="text-xs text-muted-foreground mt-1">Project Details</p>
+                                </div>
+                                <button
+                                    onClick={() => setSelectedProjectDetails(null)}
+                                    className="h-9 w-9 rounded-lg bg-muted/40 hover:bg-muted/70 text-muted-foreground hover:text-foreground flex items-center justify-center transition-all"
+                                >
+                                    <XIcon className="h-4 w-4" />
+                                </button>
+                            </div>
+
+                            <div className="p-5 grid grid-cols-1 lg:grid-cols-3 gap-5">
+                                <div className="lg:col-span-2 space-y-4">
+                                    <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                                        <div className="p-3 rounded-lg border border-border bg-muted/20">
+                                            <p className="text-[10px] text-muted-foreground uppercase tracking-widest font-bold">Type</p>
+                                            <p className="text-sm font-semibold mt-1">{selectedProjectDetails.videoType || 'Video'}</p>
+                                        </div>
+                                        <div className="p-3 rounded-lg border border-border bg-muted/20">
+                                            <p className="text-[10px] text-muted-foreground uppercase tracking-widest font-bold">Format</p>
+                                            <p className="text-sm font-semibold mt-1">{selectedProjectDetails.videoFormat || '—'}</p>
+                                        </div>
+                                        <div className="p-3 rounded-lg border border-border bg-muted/20">
+                                            <p className="text-[10px] text-muted-foreground uppercase tracking-widest font-bold">Aspect Ratio</p>
+                                            <p className="text-sm font-semibold mt-1">{selectedProjectDetails.aspectRatio || '—'}</p>
+                                        </div>
+                                        <div className="p-3 rounded-lg border border-border bg-muted/20">
+                                            <p className="text-[10px] text-muted-foreground uppercase tracking-widest font-bold">Duration</p>
+                                            <p className="text-sm font-semibold mt-1">{selectedProjectDetails.duration ? `${selectedProjectDetails.duration}m` : '—'}</p>
+                                        </div>
+                                    </div>
+
+                                    <div className="bg-muted/30 border border-border rounded-lg p-4 space-y-3">
+                                        <p className="text-xs text-muted-foreground font-bold uppercase tracking-widest">Project Files</p>
+
+                                        {selectedProjectDetails.footageLink && (
+                                            <div className="flex items-center justify-between gap-3 p-2 rounded-md bg-card border border-border">
+                                                <span className="text-xs font-medium truncate">Raw Footage Drive Link</span>
+                                                <button
+                                                    onClick={() => window.open(selectedProjectDetails.footageLink, '_blank')}
+                                                    className="h-8 w-8 rounded-md bg-muted hover:bg-primary/20 hover:text-primary text-muted-foreground flex items-center justify-center transition-all"
+                                                    title="Open link"
+                                                >
+                                                    <Eye className="h-3.5 w-3.5" />
+                                                </button>
+                                            </div>
+                                        )}
+
+                                        {selectedProjectDetails.rawFiles && selectedProjectDetails.rawFiles.length > 0 && (
+                                            <div className="space-y-2">
+                                                <p className="text-[10px] text-muted-foreground uppercase tracking-widest font-bold">Client Assets</p>
+                                                {selectedProjectDetails.rawFiles.map((file: any, idx: number) => (
+                                                    <div key={`raw-${idx}`} className="flex items-center justify-between gap-3 p-2 rounded-md bg-card border border-border">
+                                                        <span className="text-xs font-medium truncate">{file.name}</span>
+                                                        <div className="flex items-center gap-2">
+                                                            <button
+                                                                onClick={() => setPreviewVideoUrl(file.url)}
+                                                                className="h-8 w-8 rounded-md bg-muted hover:bg-primary/20 hover:text-primary text-muted-foreground flex items-center justify-center transition-all"
+                                                                title="Preview"
+                                                            >
+                                                                <Eye className="h-3.5 w-3.5" />
+                                                            </button>
+                                                            <button
+                                                                onClick={() => triggerDirectDownload(file.url, file.name)}
+                                                                className="h-8 w-8 rounded-md bg-muted hover:bg-primary/20 hover:text-primary text-muted-foreground flex items-center justify-center transition-all"
+                                                                title="Download"
+                                                            >
+                                                                <Upload className="h-3.5 w-3.5" />
+                                                            </button>
+                                                        </div>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        )}
+
+                                        {selectedProjectDetails.referenceFiles && selectedProjectDetails.referenceFiles.length > 0 && (
+                                            <div className="space-y-2">
+                                                <p className="text-[10px] text-muted-foreground uppercase tracking-widest font-bold">Manager References</p>
+                                                {selectedProjectDetails.referenceFiles.map((file: any, idx: number) => (
+                                                    <div key={`ref-${idx}`} className="flex items-center justify-between gap-3 p-2 rounded-md bg-card border border-border">
+                                                        <div className="min-w-0 flex-1">
+                                                            <p className="text-xs font-medium truncate">{file.name}</p>
+                                                            <p className="text-[10px] text-muted-foreground">Uploaded by Project Manager</p>
+                                                        </div>
+                                                        <button
+                                                            onClick={() => triggerDirectDownload(file.url, file.name)}
+                                                            className="h-8 w-8 rounded-md bg-muted hover:bg-primary/20 hover:text-primary text-muted-foreground flex items-center justify-center transition-all"
+                                                            title="Download"
+                                                        >
+                                                            <Upload className="h-3.5 w-3.5" />
+                                                        </button>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        )}
+                                    </div>
+
+                                    <div className="bg-muted/30 border border-border rounded-lg p-4">
+                                        <p className="text-xs text-muted-foreground font-bold uppercase tracking-widest mb-3">Project Timeline & Updates</p>
+                                        {selectedProjectDetails.logs && selectedProjectDetails.logs.length > 0 ? (
+                                            <div className="space-y-3 max-h-[240px] overflow-y-auto">
+                                                {[...selectedProjectDetails.logs].reverse().slice(0, 12).map((log: any, idx: number) => (
+                                                    <div key={idx} className="flex items-start gap-3 pb-3 border-b border-border last:border-0 last:pb-0">
+                                                        <div className="h-2 w-2 mt-1.5 rounded-full bg-primary" />
+                                                        <div className="min-w-0 flex-1">
+                                                            <p className="text-xs font-semibold text-foreground">{String(log.event || '').replace(/_/g, ' ')}</p>
+                                                            {log.details && <p className="text-xs text-muted-foreground mt-0.5">{log.details}</p>}
+                                                            <p className="text-[10px] text-muted-foreground mt-1">{log.userName || 'System'} • {new Date(log.timestamp).toLocaleString()}</p>
+                                                        </div>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        ) : (
+                                            <p className="text-xs text-muted-foreground">No updates recorded yet.</p>
+                                        )}
+                                    </div>
+                                </div>
+
+                                <div className="space-y-4">
+                                    <div className="bg-muted/30 border border-border rounded-lg p-4">
+                                        <p className="text-xs text-muted-foreground font-bold uppercase tracking-widest mb-3">Assigned Manager</p>
+                                        <p className="text-sm font-semibold text-foreground">
+                                            {selectedProjectDetails.assignedPMId && allUsers[selectedProjectDetails.assignedPMId]
+                                                ? allUsers[selectedProjectDetails.assignedPMId].displayName || 'Project Manager'
+                                                : 'Not Assigned'}
+                                        </p>
+                                        <p className="text-xs text-muted-foreground mt-1">
+                                            {selectedProjectDetails.assignedPMId && allUsers[selectedProjectDetails.assignedPMId]
+                                                ? allUsers[selectedProjectDetails.assignedPMId].email || ''
+                                                : ''}
+                                        </p>
+
+                                        <button
+                                            onClick={() => {
+                                                const pmNumber = getPMWhatsAppNumber(selectedProjectDetails as any);
+                                                if (!pmNumber) return;
+                                                const link = buildWhatsAppLink(pmNumber);
+                                                if (link) window.open(link, '_blank');
+                                            }}
+                                            disabled={!getPMWhatsAppNumber(selectedProjectDetails as any)}
+                                            className="mt-3 h-8 w-full inline-flex items-center justify-center gap-1 rounded-lg bg-green-500/10 border border-green-500/20 text-green-500 hover:bg-green-500/20 disabled:opacity-50 disabled:cursor-not-allowed text-[10px] font-bold uppercase tracking-widest transition-all"
+                                        >
+                                            <MessageCircle className="h-3.5 w-3.5" />
+                                            Chat with Project Manager
+                                        </button>
+                                    </div>
+
+                                    <div className="bg-muted/30 border border-border rounded-lg p-4 space-y-2">
+                                        <p className="text-xs text-muted-foreground font-bold uppercase tracking-widest mb-2">Project Snapshot</p>
+                                        <div className="flex items-center justify-between text-xs">
+                                            <span className="text-muted-foreground">Client</span>
+                                            <span className="font-semibold text-foreground">{selectedProjectDetails.clientName || 'N/A'}</span>
+                                        </div>
+                                        <div className="flex items-center justify-between text-xs">
+                                            <span className="text-muted-foreground">Editor Share</span>
+                                            <span className="font-semibold text-foreground">₹{(selectedProjectDetails.editorPrice || 0).toLocaleString()}</span>
+                                        </div>
+                                        <div className="flex items-center justify-between text-xs">
+                                            <span className="text-muted-foreground">Status</span>
+                                            <span className="font-semibold text-foreground">{getStatusLabel(selectedProjectDetails.status)}</span>
+                                        </div>
+                                    </div>
+                                </div>
                             </div>
                         </motion.div>
                     </motion.div>
@@ -490,6 +704,15 @@ export function EditorDashboardV2() {
                                                                 )}
 
                                                                 <button
+                                                                    onClick={() => setSelectedProjectDetails(project)}
+                                                                    className="h-8 w-full inline-flex items-center justify-center gap-1 rounded-lg bg-primary/10 border border-primary/20 text-primary hover:bg-primary/20 text-[10px] font-bold uppercase tracking-widest transition-all"
+                                                                    title="View complete project details"
+                                                                >
+                                                                    <Eye className="h-3.5 w-3.5" />
+                                                                    Project Details
+                                                                </button>
+
+                                                                <button
                                                                     onClick={() => handleAcceptProject(project.id)}
                                                                     disabled={isExpired}
                                                                     className="h-8 w-full inline-flex items-center justify-center gap-1 rounded-lg bg-emerald-500/10 border border-emerald-500/20 text-emerald-500 hover:bg-emerald-500/20 disabled:opacity-50 disabled:cursor-not-allowed text-[10px] font-bold uppercase tracking-widest transition-all"
@@ -536,12 +759,13 @@ export function EditorDashboardV2() {
                                                             </>
                                                         ) : (
                                                             <>
-                                                                <Link
-                                                                    href={`/dashboard/projects/${project.id}`}
-                                                                    className="h-8 w-full inline-flex items-center justify-center rounded-lg bg-primary/10 border border-primary/20 text-primary hover:bg-primary/20 text-[10px] font-bold uppercase tracking-widest transition-all"
+                                                                <button
+                                                                    onClick={() => setSelectedProjectDetails(project)}
+                                                                    className="h-8 w-full inline-flex items-center justify-center gap-1 rounded-lg bg-primary/10 border border-primary/20 text-primary hover:bg-primary/20 text-[10px] font-bold uppercase tracking-widest transition-all"
                                                                 >
-                                                                    View Details
-                                                                </Link>
+                                                                    <Eye className="h-3.5 w-3.5" />
+                                                                    Project Details
+                                                                </button>
 
                                                                 <button
                                                                     onClick={() => {
