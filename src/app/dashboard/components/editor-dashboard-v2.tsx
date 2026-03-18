@@ -30,6 +30,7 @@ export function EditorDashboardV2() {
     const [loading, setLoading] = useState(true);
     const [previewVideoUrl, setPreviewVideoUrl] = useState<string | null>(null);
     const [searchQuery, setSearchQuery] = useState("");
+    const [clockNow, setClockNow] = useState(Date.now());
     const [userData, setUserData] = useState<any>(null);
     const [selectedProjectAssets, setSelectedProjectAssets] = useState<any>(null);
     const [allUsers, setAllUsers] = useState<any>({});
@@ -80,6 +81,11 @@ export function EditorDashboardV2() {
             unsubscribeUsers();
         };
     }, [user]);
+
+    useEffect(() => {
+        const interval = setInterval(() => setClockNow(Date.now()), 1000);
+        return () => clearInterval(interval);
+    }, []);
 
     const editorStatus = userData?.availabilityStatus || "offline";
 
@@ -189,6 +195,13 @@ export function EditorDashboardV2() {
         return project.editorPaid 
             ? { label: 'Paid', color: 'text-emerald-500 font-bold' }
             : { label: 'Unpaid', color: 'text-amber-500 font-bold' };
+    };
+
+    const formatCountdown = (remainingMs: number) => {
+        const totalSeconds = Math.max(0, Math.floor(remainingMs / 1000));
+        const minutes = Math.floor(totalSeconds / 60);
+        const seconds = totalSeconds % 60;
+        return `${minutes}:${seconds.toString().padStart(2, '0')}`;
     };
 
     if (loading) {
@@ -414,6 +427,10 @@ export function EditorDashboardV2() {
                                         const pmWhatsApp = getPMWhatsAppNumber(project);
                                         const hasAssets = project.rawFiles && project.rawFiles.length > 0;
                                         const isAccepted = project.assignmentStatus === "accepted";
+                                        const assignmentExpiresAt = (project as any).assignmentExpiresAt as number | undefined;
+                                        const hasCountdown = isPending && typeof assignmentExpiresAt === 'number';
+                                        const remainingMs = hasCountdown ? assignmentExpiresAt - clockNow : 0;
+                                        const isExpired = hasCountdown ? remainingMs <= 0 : false;
 
                                         return (
                                             <tr key={project.id} className="hover:bg-muted/20 transition-colors">
@@ -460,53 +477,62 @@ export function EditorDashboardV2() {
                                                     <div className="w-[240px] space-y-2">
                                                         {isPending ? (
                                                             <>
-                                                                <div className="grid grid-cols-2 gap-2">
-                                                                    <button
-                                                                        onClick={() => handleAcceptProject(project.id)}
-                                                                        className="h-8 inline-flex items-center justify-center gap-1 rounded-lg bg-emerald-500/10 border border-emerald-500/20 text-emerald-500 hover:bg-emerald-500/20 text-[10px] font-bold uppercase tracking-widest transition-all"
-                                                                        title="Accept this project assignment"
-                                                                    >
-                                                                        <Check className="h-3.5 w-3.5" />
-                                                                        Accept
-                                                                    </button>
-                                                                    <button
-                                                                        onClick={() => handleRejectProject(project.id)}
-                                                                        className="h-8 inline-flex items-center justify-center gap-1 rounded-lg bg-red-500/10 border border-red-500/20 text-red-500 hover:bg-red-500/20 text-[10px] font-bold uppercase tracking-widest transition-all"
-                                                                        title="Reject this project assignment"
-                                                                    >
-                                                                        <XIcon className="h-3.5 w-3.5" />
-                                                                        Reject
-                                                                    </button>
-                                                                </div>
+                                                                {hasCountdown && (
+                                                                    <div className={cn(
+                                                                        "h-8 px-3 rounded-lg border flex items-center justify-between text-[10px] font-bold uppercase tracking-widest",
+                                                                        isExpired
+                                                                            ? "bg-red-500/10 border-red-500/20 text-red-500"
+                                                                            : "bg-amber-500/10 border-amber-500/20 text-amber-500"
+                                                                    )}>
+                                                                        <span>Assignment Response Time</span>
+                                                                        <span>{isExpired ? "Expired" : formatCountdown(remainingMs)}</span>
+                                                                    </div>
+                                                                )}
 
-                                                                <div className="grid grid-cols-2 gap-2">
+                                                                <button
+                                                                    onClick={() => handleAcceptProject(project.id)}
+                                                                    disabled={isExpired}
+                                                                    className="h-8 w-full inline-flex items-center justify-center gap-1 rounded-lg bg-emerald-500/10 border border-emerald-500/20 text-emerald-500 hover:bg-emerald-500/20 disabled:opacity-50 disabled:cursor-not-allowed text-[10px] font-bold uppercase tracking-widest transition-all"
+                                                                    title="Accept this project assignment"
+                                                                >
+                                                                    <Check className="h-3.5 w-3.5" />
+                                                                    Accept Assignment
+                                                                </button>
+
+                                                                <button
+                                                                    onClick={() => handleRejectProject(project.id)}
+                                                                    className="h-8 w-full inline-flex items-center justify-center gap-1 rounded-lg bg-red-500/10 border border-red-500/20 text-red-500 hover:bg-red-500/20 text-[10px] font-bold uppercase tracking-widest transition-all"
+                                                                    title="Reject this project assignment"
+                                                                >
+                                                                    <XIcon className="h-3.5 w-3.5" />
+                                                                    Reject Assignment
+                                                                </button>
+
+                                                                <button
+                                                                    onClick={() => {
+                                                                        if (pmWhatsApp) {
+                                                                            const link = buildWhatsAppLink(pmWhatsApp);
+                                                                            if (link) window.open(link, '_blank');
+                                                                        }
+                                                                    }}
+                                                                    disabled={!pmWhatsApp}
+                                                                    className="h-8 w-full inline-flex items-center justify-center gap-1 rounded-lg bg-green-500/10 border border-green-500/20 text-green-500 hover:bg-green-500/20 disabled:opacity-50 disabled:cursor-not-allowed text-[10px] font-bold uppercase tracking-widest transition-all"
+                                                                    title="Chat with PM on WhatsApp"
+                                                                >
+                                                                    <MessageCircle className="h-3.5 w-3.5" />
+                                                                    Chat with Project Manager
+                                                                </button>
+
+                                                                {hasAssets && (
                                                                     <button
-                                                                        onClick={() => {
-                                                                            if (pmWhatsApp) {
-                                                                                const link = buildWhatsAppLink(pmWhatsApp);
-                                                                                if (link) window.open(link, '_blank');
-                                                                            }
-                                                                        }}
-                                                                        disabled={!pmWhatsApp}
-                                                                        className="h-8 inline-flex items-center justify-center gap-1 rounded-lg bg-green-500/10 border border-green-500/20 text-green-500 hover:bg-green-500/20 disabled:opacity-50 disabled:cursor-not-allowed text-[10px] font-bold uppercase tracking-widest transition-all"
-                                                                        title="Chat with PM on WhatsApp"
+                                                                        onClick={() => setSelectedProjectAssets(project)}
+                                                                        className="h-8 w-full inline-flex items-center justify-center gap-1 rounded-lg bg-blue-500/10 border border-blue-500/20 text-blue-500 hover:bg-blue-500/20 text-[10px] font-bold uppercase tracking-widest transition-all"
+                                                                        title="View client uploaded video assets"
                                                                     >
-                                                                        <MessageCircle className="h-3.5 w-3.5" />
-                                                                        Chat PM
+                                                                        <Film className="h-3.5 w-3.5" />
+                                                                        Project Assets ({(project.rawFiles || []).length})
                                                                     </button>
-                                                                    {hasAssets ? (
-                                                                        <button
-                                                                            onClick={() => setSelectedProjectAssets(project)}
-                                                                            className="h-8 inline-flex items-center justify-center gap-1 rounded-lg bg-blue-500/10 border border-blue-500/20 text-blue-500 hover:bg-blue-500/20 text-[10px] font-bold uppercase tracking-widest transition-all"
-                                                                            title="View client uploaded video assets"
-                                                                        >
-                                                                            <Film className="h-3.5 w-3.5" />
-                                                                            Assets ({(project.rawFiles || []).length})
-                                                                        </button>
-                                                                    ) : (
-                                                                        <div className="h-8 rounded-lg border border-border bg-muted/20" />
-                                                                    )}
-                                                                </div>
+                                                                )}
                                                             </>
                                                         ) : (
                                                             <>
@@ -517,34 +543,31 @@ export function EditorDashboardV2() {
                                                                     View Details
                                                                 </Link>
 
-                                                                <div className="grid grid-cols-2 gap-2">
+                                                                <button
+                                                                    onClick={() => {
+                                                                        if (pmWhatsApp) {
+                                                                            const link = buildWhatsAppLink(pmWhatsApp);
+                                                                            if (link) window.open(link, '_blank');
+                                                                        }
+                                                                    }}
+                                                                    disabled={!pmWhatsApp}
+                                                                    className="h-8 w-full inline-flex items-center justify-center gap-1 rounded-lg bg-green-500/10 border border-green-500/20 text-green-500 hover:bg-green-500/20 disabled:opacity-50 disabled:cursor-not-allowed text-[10px] font-bold uppercase tracking-widest transition-all"
+                                                                    title="Chat with PM on WhatsApp"
+                                                                >
+                                                                    <MessageCircle className="h-3.5 w-3.5" />
+                                                                    Chat with Project Manager
+                                                                </button>
+
+                                                                {hasAssets && (
                                                                     <button
-                                                                        onClick={() => {
-                                                                            if (pmWhatsApp) {
-                                                                                const link = buildWhatsAppLink(pmWhatsApp);
-                                                                                if (link) window.open(link, '_blank');
-                                                                            }
-                                                                        }}
-                                                                        disabled={!pmWhatsApp}
-                                                                        className="h-8 inline-flex items-center justify-center gap-1 rounded-lg bg-green-500/10 border border-green-500/20 text-green-500 hover:bg-green-500/20 disabled:opacity-50 disabled:cursor-not-allowed text-[10px] font-bold uppercase tracking-widest transition-all"
-                                                                        title="Chat with PM on WhatsApp"
+                                                                        onClick={() => setSelectedProjectAssets(project)}
+                                                                        className="h-8 w-full inline-flex items-center justify-center gap-1 rounded-lg bg-blue-500/10 border border-blue-500/20 text-blue-500 hover:bg-blue-500/20 text-[10px] font-bold uppercase tracking-widest transition-all"
+                                                                        title="View client uploaded video assets"
                                                                     >
-                                                                        <MessageCircle className="h-3.5 w-3.5" />
-                                                                        Chat
+                                                                        <Film className="h-3.5 w-3.5" />
+                                                                        Project Assets
                                                                     </button>
-                                                                    {hasAssets ? (
-                                                                        <button
-                                                                            onClick={() => setSelectedProjectAssets(project)}
-                                                                            className="h-8 inline-flex items-center justify-center gap-1 rounded-lg bg-blue-500/10 border border-blue-500/20 text-blue-500 hover:bg-blue-500/20 text-[10px] font-bold uppercase tracking-widest transition-all"
-                                                                            title="View client uploaded video assets"
-                                                                        >
-                                                                            <Film className="h-3.5 w-3.5" />
-                                                                            Assets
-                                                                        </button>
-                                                                    ) : (
-                                                                        <div className="h-8 rounded-lg border border-border bg-muted/20" />
-                                                                    )}
-                                                                </div>
+                                                                )}
 
                                                                 {isAccepted && (
                                                                     <button
