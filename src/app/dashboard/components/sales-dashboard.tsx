@@ -123,8 +123,10 @@ export function SalesDashboard() {
     // Edit Pricing State
     const [editingClientId, setEditingClientId] = useState<string | null>(null);
     const [editingPrices, setEditingPrices] = useState<Record<string, number>>({});
+    const [editingMultiTierPrices, setEditingMultiTierPrices] = useState<Record<string, { label?: string; price: number }[]>>({});
     const [editingAllowedFormats, setEditingAllowedFormats] = useState<Record<string, boolean>>({});
     const [isEditingSaving, setIsEditingSaving] = useState(false);
+    const [expandedFormat, setExpandedFormat] = useState<string | null>(null);
 
     const VIDEO_TYPES_LABELS = [
         "Reel Format", "Long Video", "Documentary", "Podcast Edit", "Motion Graphic", "Cinematic Event"
@@ -339,6 +341,7 @@ export function SalesDashboard() {
                     body: JSON.stringify({
                         clientId: editingClientId,
                         customRates: editingPrices,
+                        multiTierRates: editingMultiTierPrices,
                         allowedFormats: editingAllowedFormats
                     })
                 });
@@ -352,9 +355,31 @@ export function SalesDashboard() {
                 setIsEditingSaving(false);
             }
         };
+
+        const handleAddPrice = (format: string) => {
+            setEditingMultiTierPrices(prev => ({
+                ...prev,
+                [format]: [...(prev[format] || []), { label: "", price: 0 }]
+            }));
+        };
+
+        const handleRemovePrice = (format: string, index: number) => {
+            setEditingMultiTierPrices(prev => ({
+                ...prev,
+                [format]: prev[format].filter((_, i) => i !== index)
+            }));
+        };
+
+        const handleUpdatePrice = (format: string, index: number, field: 'label' | 'price', value: any) => {
+            setEditingMultiTierPrices(prev => ({
+                ...prev,
+                [format]: prev[format].map((p, i) => i === index ? { ...p, [field]: value } : p)
+            }));
+        };
+
         const editingClient = [...myClients, ...pendingClients].find(c => c.id === editingClientId);
         return (
-            <div className="max-w-7xl mx-auto px-4 py-8 space-y-6">
+            <div className="max-w-4xl mx-auto px-4 py-8 space-y-6">
                 <div className="bg-card border border-border rounded-xl p-6">
                     <div className="flex items-center justify-between mb-6">
                         <div>
@@ -368,42 +393,87 @@ export function SalesDashboard() {
                             <X className="h-5 w-5" />
                         </button>
                     </div>
-                    <div className="space-y-4">
-                        <p className="text-sm text-muted-foreground">Set custom pricing and choose which video formats are visible to this client.</p>
+                    <div className="space-y-6">
+                        <p className="text-sm text-muted-foreground">Set multiple pricing tiers for each video format that the client can choose from when creating projects.</p>
                         {VIDEO_TYPES_LABELS.map((type) => (
-                            <div key={type} className="flex items-center justify-between p-4 rounded-lg border border-border bg-muted/30">
-                                <div className="flex items-center gap-3">
-                                    <input
-                                        type="checkbox"
-                                        checked={editingAllowedFormats[type] === true}
-                                        onChange={(e) => setEditingAllowedFormats({
-                                            ...editingAllowedFormats,
-                                            [type]: e.target.checked
-                                        })}
-                                        className="h-4 w-4 rounded border-border text-primary focus:ring-primary/40 cursor-pointer"
-                                    />
-                                    <div>
-                                        <p className="text-sm font-semibold text-foreground">{type}</p>
-                                        <p className="text-[11px] text-muted-foreground">{editingAllowedFormats[type] === true ? 'Visible to client' : 'Hidden from client'}</p>
+                            <div key={type} className="border border-border rounded-lg p-4 bg-muted/50">
+                                <div className="flex items-center justify-between mb-4">
+                                    <div className="flex items-center gap-3">
+                                        <input
+                                            type="checkbox"
+                                            checked={editingAllowedFormats[type] === true}
+                                            onChange={(e) => setEditingAllowedFormats({
+                                                ...editingAllowedFormats,
+                                                [type]: e.target.checked
+                                            })}
+                                            className="h-4 w-4 rounded border-border text-primary focus:ring-primary/40 cursor-pointer"
+                                        />
+                                        <div>
+                                            <p className="text-sm font-semibold text-foreground">{type}</p>
+                                            <p className="text-[11px] text-muted-foreground">{editingAllowedFormats[type] === true ? 'Visible to client' : 'Hidden from client'}</p>
+                                        </div>
                                     </div>
+                                    <button
+                                        onClick={() => setExpandedFormat(expandedFormat === type ? null : type)}
+                                        className="text-xs px-3 py-1 rounded-lg border border-border bg-background hover:bg-muted text-foreground transition-colors"
+                                    >
+                                        {expandedFormat === type ? 'Collapse' : 'Expand'}
+                                    </button>
                                 </div>
-                                <div className="flex items-center gap-2">
-                                    <span className="text-sm text-muted-foreground">₹</span>
-                                    <input
-                                        type="number"
-                                        min="0"
-                                        value={editingPrices[type] || 0}
-                                        onChange={(e) => setEditingPrices({...editingPrices, [type]: Number(e.target.value)})}
-                                        disabled={editingAllowedFormats[type] !== true}
-                                        className="h-10 w-24 px-3 text-right border border-border rounded-lg bg-background text-sm focus:outline-none focus:ring-2 focus:ring-primary/40 tabular-nums disabled:opacity-50"
-                                    />
-                                </div>
+
+                                {expandedFormat === type && editingAllowedFormats[type] && (
+                                    <div className="space-y-3 bg-background rounded-lg p-4 border border-border/50">
+                                        {(editingMultiTierPrices[type] || []).map((priceOption, idx) => (
+                                            <div key={idx} className="flex items-end gap-2">
+                                                <div className="flex-1">
+                                                    <label className="text-[10px] uppercase text-muted-foreground font-bold block mb-1">Option Name</label>
+                                                    <input
+                                                        type="text"
+                                                        placeholder="e.g., Standard, Premium, Express"
+                                                        value={priceOption.label || ""}
+                                                        onChange={(e) => handleUpdatePrice(type, idx, 'label', e.target.value)}
+                                                        className="h-9 w-full px-3 border border-border rounded-lg bg-muted/30 text-sm focus:outline-none focus:ring-2 focus:ring-primary/40"
+                                                    />
+                                                </div>
+                                                <div className="flex-1">
+                                                    <label className="text-[10px] uppercase text-muted-foreground font-bold block mb-1">Price</label>
+                                                    <div className="flex items-center gap-1">
+                                                        <span className="text-sm text-muted-foreground">₹</span>
+                                                        <input
+                                                            type="number"
+                                                            min="0"
+                                                            value={priceOption.price}
+                                                            onChange={(e) => handleUpdatePrice(type, idx, 'price', Number(e.target.value))}
+                                                            className="h-9 flex-1 px-3 border border-border rounded-lg bg-muted/30 text-sm focus:outline-none focus:ring-2 focus:ring-primary/40 tabular-nums"
+                                                        />
+                                                    </div>
+                                                </div>
+                                                <button
+                                                    onClick={() => handleRemovePrice(type, idx)}
+                                                    className="h-9 px-3 rounded-lg border border-red-500/30 bg-red-500/10 text-red-600 text-sm font-medium hover:bg-red-500/20 transition-colors"
+                                                >
+                                                    Remove
+                                                </button>
+                                            </div>
+                                        ))}
+                                        <button
+                                            onClick={() => handleAddPrice(type)}
+                                            className="w-full h-9 rounded-lg border border-dashed border-primary/30 text-primary text-sm font-medium hover:bg-primary/5 transition-colors flex items-center justify-center gap-2"
+                                        >
+                                            <Plus className="h-4 w-4" />
+                                            Add Price Option
+                                        </button>
+                                    </div>
+                                )}
                             </div>
                         ))}
                     </div>
                     <div className="flex items-center gap-3 mt-8 pt-6 border-t border-border">
                         <button
-                            onClick={() => setEditingClientId(null)}
+                            onClick={() => {
+                                setEditingClientId(null);
+                                setExpandedFormat(null);
+                            }}
                             className="flex-1 px-4 py-2.5 border border-border rounded-lg text-sm font-medium text-foreground hover:bg-muted transition-colors"
                         >
                             Cancel
@@ -877,6 +947,7 @@ export function SalesDashboard() {
                                                                         "Motion Graphic": 1500,
                                                                         "Cinematic Event": 2000
                                                                     });
+                                                                    setEditingMultiTierPrices(client.multiTierRates || {});
                                                                     setEditingAllowedFormats(client.allowedFormats || {
                                                                         "Reel Format": false,
                                                                         "Long Video": false,
@@ -885,6 +956,7 @@ export function SalesDashboard() {
                                                                         "Motion Graphic": false,
                                                                         "Cinematic Event": false
                                                                     });
+                                                                    setExpandedFormat(null);
                                                                 }}
                                                                 className="text-sm cursor-pointer"
                                                             >

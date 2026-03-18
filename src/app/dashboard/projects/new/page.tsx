@@ -120,6 +120,7 @@ export default function NewProjectPage() {
     const [aspectRatio, setAspectRatio] = useState<string>("9:16");
     const [urgency, setUrgency] = useState<'24hrs' | 'urgent'>('24hrs');
     const [description, setDescription] = useState("");
+    const [selectedPriceIndex, setSelectedPriceIndex] = useState<number>(0); // Index of selected price from multiTierRates
 
     // Step 3: Files with immediate upload tracking
     const [rawFiles, setRawFiles] = useState<FileWithProgress[]>([]);
@@ -135,9 +136,15 @@ export default function NewProjectPage() {
     // Derived Logic
     const wordCount = description.trim() === "" ? 0 : description.trim().split(/\s+/).length;
     
-    // Dynamic pricing calculation
+    // Dynamic pricing calculation with multi-tier support
     const availableVideoTypes = VIDEO_TYPES.filter((vt) => isVideoTypeAllowed(user?.allowedFormats, vt.key));
-    const basePrice = getResolvedClientRate(user?.customRates, videoType);
+    
+    // Get available prices for the selected video type
+    const availablePrices = user?.multiTierRates?.[videoType] || [];
+    const basePrice = availablePrices.length > 0 
+        ? availablePrices[Math.min(selectedPriceIndex, availablePrices.length - 1)].price 
+        : getResolvedClientRate(user?.customRates, videoType);
+    
     const urgentExtraCost = urgency === 'urgent' ? DEFAULT_URGENT_PRICE : 0;
     const finalCost = basePrice + urgentExtraCost;
 
@@ -155,6 +162,8 @@ export default function NewProjectPage() {
         if (!availableVideoTypes.some((vt) => vt.key === videoType)) {
             setVideoType(availableVideoTypes[0].key);
         }
+        // Reset selected price when video type changes
+        setSelectedPriceIndex(0);
     }, [availableVideoTypes, videoType]);
 
     // Check if all files are uploaded
@@ -361,6 +370,13 @@ export default function NewProjectPage() {
 
         const { uploadedRawFiles, uploadedScripts, uploadedReferences } = getUploadedFiles();
 
+        // Prepare pricing tier info
+        const pricingTierInfo = availablePrices.length > 0 ? {
+            selectedPricingTier: selectedPriceIndex,
+            pricingTierLabel: availablePrices[selectedPriceIndex].label || `Option ${selectedPriceIndex + 1}`,
+            pricingTierPrice: availablePrices[selectedPriceIndex].price
+        } : {};
+
         const projectData = {
             name,
             videoType,
@@ -390,7 +406,8 @@ export default function NewProjectPage() {
             ownerId: user.uid,
             clientId: user.uid,
             isPayLaterRequest: paymentOption === 'pay_later',
-            clientName: user.displayName || 'Anonymous Client'
+            clientName: user.displayName || 'Anonymous Client',
+            ...pricingTierInfo
         };
 
         const projectRef = await addDoc(collection(db, "projects"), projectData);
@@ -679,9 +696,11 @@ export default function NewProjectPage() {
                                 <Label className="text-xs font-bold uppercase tracking-widest text-muted-foreground ml-1">Video Type Format</Label>
                                 <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
                                     {availableVideoTypes.map(vt => {
-                                        const price = getResolvedClientRate(user?.customRates, vt.key);
-                                        const hasCustomRate = price !== BASE_PROJECT_PRICE;
+                                        const tieredPrices = user?.multiTierRates?.[vt.key];
+                                        const fallbackPrice = getResolvedClientRate(user?.customRates, vt.key);
                                         const isSelected = videoType === vt.key;
+                                        const displayPrice = tieredPrices ? tieredPrices[0].price : fallbackPrice;
+                                        const hasMultipleTiers = tieredPrices && tieredPrices.length > 1;
                                         
                                         return (
                                             <button
@@ -698,7 +717,10 @@ export default function NewProjectPage() {
                                                 <div className="flex flex-col w-full">
                                                     <div className="flex items-center justify-between mb-1 gap-1">
                                                         <span className={cn("text-xs font-bold", isSelected ? "text-primary" : "text-foreground")}>{vt.label}</span>
-                                                        <span className={cn("text-[10px] font-mono font-bold", hasCustomRate ? "text-amber-500" : "text-emerald-500")}>₹{price}</span>
+                                                        <div className="flex items-center gap-1">
+                                                            <span className={cn("text-[10px] font-mono font-bold", tieredPrices ? "text-amber-500" : "text-emerald-500")}>₹{displayPrice}</span>
+                                                            {hasMultipleTiers && <span className={cn("text-[8px] font-bold px-1.5 py-0.5 rounded-full", isSelected ? "bg-primary/20 text-primary" : "bg-muted text-muted-foreground")}>+{tieredPrices.length - 1}</span>}
+                                                        </div>
                                                     </div>
                                                     <span className="text-[9px] text-muted-foreground line-clamp-1">{vt.desc}</span>
                                                 </div>
@@ -707,6 +729,30 @@ export default function NewProjectPage() {
                                     })}
                                 </div>
                             </div>
+
+                            {availablePrices.length > 1 && (
+                                <div className="space-y-3 p-4 bg-amber-500/10 border border-amber-500/20 rounded-lg">
+                                    <Label className="text-xs font-bold uppercase tracking-widest text-amber-600 ml-1">Select Pricing Tier</Label>
+                                    <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2">
+                                        {availablePrices.map((option, idx) => (
+                                            <button
+                                                key={idx}
+                                                type="button"
+                                                onClick={() => setSelectedPriceIndex(idx)}
+                                                className={cn(
+                                                    "flex flex-col items-center p-3 rounded-lg border transition-all text-sm font-medium",
+                                                    selectedPriceIndex === idx
+                                                        ? "bg-amber-500 border-amber-600 text-white shadow-lg" 
+                                                        : "bg-background border-border text-foreground hover:border-amber-500/50"
+                                                )}
+                                            >
+                                                <span className="text-xs opacity-75">{option.label || `Option ${idx + 1}`}</span>
+                                                <span className="text-lg font-bold mt-1">₹{option.price}</span>
+                                            </button>
+                                        ))}
+                                    </div>
+                                </div>
+                            )}
 
                             <div className="space-y-3 pt-6 border-t border-border">
                                 <Label className="text-xs font-bold uppercase tracking-widest text-muted-foreground ml-1">Select Aspect Ratio</Label>

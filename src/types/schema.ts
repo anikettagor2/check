@@ -14,7 +14,8 @@ export interface User {
     companyName?: string; // Optional company name for clients
     websiteUrl?: string; // Additional profile links for clients
     clientCategory?: 'Retainer' | 'One-time' | 'Premium' | string; // Client category
-    customRates?: Record<string, number>; // Custom video rates for this specific client
+    customRates?: Record<string, number>; // Custom video rates for this specific client (legacy - use multiTierRates for multiple prices)
+    multiTierRates?: Record<string, { label?: string; price: number }[]>; // Multiple price tiers per video format (new - replaces customRates when set)
     allowedFormats?: Record<string, boolean>; // Which video formats are visible
     initialPassword?: string; // Temp password for new users
     createdBy?: string; // UID of sales exec or admin who created this user
@@ -77,6 +78,9 @@ export interface Project {
     referenceFiles?: { name: string; url: string; size?: number; type?: string; uploadedAt?: number }[];
     budget?: number;
     totalCost?: number; // Calculated cost
+    selectedPricingTier?: number; // Index of selected pricing tier from client's multiTierRates
+    pricingTierLabel?: string; // Label of selected pricing tier (e.g., "Standard", "Premium")
+    pricingTierPrice?: number; // Final price of selected tier
     amountPaid?: number; // Upfront + Final
     paymentStatus?: string; // 'half_paid', 'full_paid'
     assignedEditorId?: string;
