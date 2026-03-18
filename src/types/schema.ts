@@ -121,6 +121,14 @@ export interface Project {
     }[];
     revisionsCount?: number; // Total revisions handled
     completedAt?: number; // When the project was marked as completed/approved
+
+    // Retention lifecycle
+    downloadRetentionStartedAt?: number; // first successful client download timestamp
+    assetsCleanupAfter?: number; // scheduled assets purge timestamp (first download + 24h)
+    assetsPurgedAt?: number; // when raw/reference/script assets were purged
+    finalDownloadCount?: number; // total download count tracked at project level
+    finalVideoPurged?: boolean; // true after final video cleanup
+    finalVideoPurgedAt?: number; // when final video objects were purged
 }
 
 export type ProjectAssignmentStatus = 'pending' | 'accepted' | 'rejected';
@@ -138,6 +146,7 @@ export interface Revision {
     uploadedBy: string; // User UID
     createdAt: number;
     downloadCount?: number; // Track downloads by client for limits
+    videoDeletedAt?: number; // Track when revision video object was deleted by lifecycle policy
 }
 
 export type CommentStatus = 'open' | 'resolved';

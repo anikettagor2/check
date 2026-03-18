@@ -36,7 +36,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.onRevisionCreated = exports.composeRawUpload = exports.onUserCreated = exports.onProjectStatusChanged = exports.onCommentCreated = void 0;
+exports.onRevisionCreated = exports.composeRawUpload = exports.onUserCreated = exports.onProjectStatusChanged = exports.onCommentCreated = exports.cleanupProjectAssetsAfterClientDownload = void 0;
 const functions = __importStar(require("firebase-functions/v1"));
 const admin = __importStar(require("firebase-admin"));
 const path = __importStar(require("path"));
@@ -50,6 +50,32 @@ fluent_ffmpeg_1.default.setFfmpegPath(ffmpeg_1.default.path);
 const AISENSY_URL = "https://backend.aisensy.com/campaign/t1/api/v2";
 function sanitizeFileName(fileName) {
     return fileName.replace(/[^a-zA-Z0-9._-]/g, "_");
+}
+function extractStoragePathFromUrl(url) {
+    var _a;
+    if (!url)
+        return null;
+    if (url.startsWith("gs://")) {
+        const noScheme = url.replace("gs://", "");
+        const slashIdx = noScheme.indexOf("/");
+        return slashIdx >= 0 ? noScheme.slice(slashIdx + 1) : null;
+    }
+    if (url.includes("/o/")) {
+        const encoded = (_a = url.split("/o/")[1]) === null || _a === void 0 ? void 0 : _a.split("?")[0];
+        return encoded ? decodeURIComponent(encoded) : null;
+    }
+    return null;
+}
+async function deleteStorageObjectByUrl(url) {
+    const path = extractStoragePathFromUrl(url);
+    if (!path)
+        return;
+    try {
+        await admin.storage().bucket().file(path).delete({ ignoreNotFound: true });
+    }
+    catch (_a) {
+        // Ignore object-level failures to keep cleanup resilient.
+    }
 }
 async function composeManyParts(params) {
     const { bucket, sourcePaths, destinationPath, tempPrefix } = params;
@@ -136,6 +162,37 @@ async function sendAccountCreatedWhatsApp(params) {
         console.error("[WhatsApp] account-created send failed:", response.status, text);
     }
 }
+// ---------------------------------------------------------------------------
+// Scheduled cleanup: purge project assets 24h after first client download
+// ---------------------------------------------------------------------------
+exports.cleanupProjectAssetsAfterClientDownload = functions.pubsub
+    .schedule("every 60 minutes")
+    .onRun(async () => {
+    const now = Date.now();
+    const dueSnap = await admin.firestore()
+        .collection("projects")
+        .where("assetsCleanupAfter", "<=", now)
+        .get();
+    for (const projectDoc of dueSnap.docs) {
+        const project = projectDoc.data();
+        if (project.assetsPurgedAt)
+            continue;
+        const rawUrls = (project.rawFiles || []).map((f) => f === null || f === void 0 ? void 0 : f.url).filter(Boolean);
+        const referenceUrls = (project.referenceFiles || []).map((f) => f === null || f === void 0 ? void 0 : f.url).filter(Boolean);
+        const scriptUrls = (project.scripts || []).map((f) => f === null || f === void 0 ? void 0 : f.url).filter(Boolean);
+        const footageUrl = project.footageLink;
+        const allUrls = [...rawUrls, ...referenceUrls, ...scriptUrls, footageUrl].filter(Boolean);
+        await Promise.all(allUrls.map((url) => deleteStorageObjectByUrl(url)));
+        await projectDoc.ref.update({
+            rawFiles: [],
+            referenceFiles: [],
+            scripts: [],
+            assetsPurgedAt: now,
+            updatedAt: now,
+        });
+    }
+    return null;
+});
 // ---------------------------------------------------------------------------
 // Helper – run an ffmpeg command and return a Promise
 // ---------------------------------------------------------------------------

@@ -5,6 +5,87 @@ import { Project, Revision } from "@/types/schema";
 import { revalidatePath } from "next/cache";
 import { FieldValue } from "firebase-admin/firestore";
 
+const DOWNLOAD_LIMIT = 3;
+const ASSET_PURGE_DELAY_MS = 24 * 60 * 60 * 1000;
+
+function extractStoragePathFromUrl(url?: string): string | null {
+    if (!url) return null;
+
+    if (url.startsWith("gs://")) {
+        const noScheme = url.replace("gs://", "");
+        const slashIdx = noScheme.indexOf("/");
+        return slashIdx >= 0 ? noScheme.slice(slashIdx + 1) : null;
+    }
+
+    if (url.includes("/o/")) {
+        const encoded = url.split("/o/")[1]?.split("?")[0];
+        return encoded ? decodeURIComponent(encoded) : null;
+    }
+
+    return null;
+}
+
+async function deleteStorageFileByUrl(url?: string): Promise<void> {
+    const path = extractStoragePathFromUrl(url);
+    if (!path) return;
+
+    try {
+        await adminStorage.bucket().file(path).delete({ ignoreNotFound: true });
+    } catch {
+        // Ignore storage deletion failures to keep lifecycle job resilient.
+    }
+}
+
+async function purgeProjectAssets(projectId: string, projectData: any): Promise<void> {
+    const rawUrls = (projectData.rawFiles || []).map((f: any) => f?.url).filter(Boolean);
+    const referenceUrls = (projectData.referenceFiles || []).map((f: any) => f?.url).filter(Boolean);
+    const scriptUrls = (projectData.scripts || []).map((f: any) => f?.url).filter(Boolean);
+    const footageUrl = projectData.footageLink;
+
+    const allUrls = [...rawUrls, ...referenceUrls, ...scriptUrls, footageUrl].filter(Boolean);
+    await Promise.all(allUrls.map((u) => deleteStorageFileByUrl(u)));
+
+    await adminDb.collection("projects").doc(projectId).update({
+        rawFiles: [],
+        referenceFiles: [],
+        scripts: [],
+        assetsPurgedAt: Date.now(),
+        updatedAt: Date.now(),
+    });
+}
+
+async function purgeProjectRevisionVideos(projectId: string): Promise<void> {
+    const revisionsSnap = await adminDb
+        .collection("revisions")
+        .where("projectId", "==", projectId)
+        .get();
+
+    const now = Date.now();
+    const batch = adminDb.batch();
+
+    for (const revisionDoc of revisionsSnap.docs) {
+        const revision = revisionDoc.data() as Revision;
+        if (revision.videoUrl) {
+            await deleteStorageFileByUrl(revision.videoUrl);
+        }
+
+        batch.update(revisionDoc.ref, {
+            videoUrl: "",
+            videoDeletedAt: now,
+            status: "archived",
+            description: `${revision.description || ""} [Auto Purged After Download Limit]`.trim(),
+            updatedAt: now,
+        });
+    }
+
+    await batch.commit();
+    await adminDb.collection("projects").doc(projectId).update({
+        finalVideoPurged: true,
+        finalVideoPurgedAt: now,
+        updatedAt: now,
+    });
+}
+
 /**
  * Registers a download attempt for a revision, enforcing a download limit.
  */
@@ -13,41 +94,63 @@ export async function registerDownload(projectId: string, revisionId: string) {
     try {
         const docRef = adminDb.collection('revisions').doc(revisionId);
         const snap = await docRef.get();
+        const projectRef = adminDb.collection('projects').doc(projectId);
+        const projectSnap = await projectRef.get();
 
         if (!snap.exists) {
             console.error(`[registerDownload] Revision not found: ${revisionId}`);
             return { success: false, error: "Revision not found" };
         }
 
+        if (!projectSnap.exists) {
+            console.error(`[registerDownload] Project not found: ${projectId}`);
+            return { success: false, error: "Project not found" };
+        }
+
         const data = snap.data() as Revision;
+        const projectData = projectSnap.data() as Project;
         const currentCount = data.downloadCount || 0;
-        const DOWNLOAD_LIMIT = 10; // Increased from 3
 
         console.log(`[registerDownload] Current count: ${currentCount}/${DOWNLOAD_LIMIT}`);
 
-        // If limit reached, mark as archived and return error
+        // If limit reached, ensure final videos are purged and block further downloads.
         if (currentCount >= DOWNLOAD_LIMIT) {
             console.warn(`[registerDownload] Limit reached for revision: ${revisionId}`);
-            if (data.status !== 'archived') {
-                await docRef.update({
-                    status: 'archived',
-                    description: (data.description || "") + " [Download Limit Reached]"
-                });
+            if (!projectData.finalVideoPurged) {
+                await purgeProjectRevisionVideos(projectId);
             }
             return { success: false, error: "Download limit reached for this revision." };
         }
 
-        // Increment count
+        const now = Date.now();
+        const nextCount = currentCount + 1;
+
+        // Increment per-revision count.
         await docRef.update({
-            downloadCount: currentCount + 1
+            downloadCount: nextCount
         });
 
-        // Update project status to track download
-        await adminDb.collection('projects').doc(projectId).update({
+        const projectUpdate: any = {
             clientHasDownloaded: true,
-            downloadedAt: Date.now(),
-            updatedAt: Date.now()
-        });
+            downloadedAt: now,
+            finalDownloadCount: nextCount,
+            status: 'completed',
+            updatedAt: now,
+        };
+
+        // First successful client download starts retention timer for project assets.
+        if (!projectData.downloadRetentionStartedAt) {
+            projectUpdate.downloadRetentionStartedAt = now;
+            projectUpdate.assetsCleanupAfter = now + ASSET_PURGE_DELAY_MS;
+        }
+
+        await projectRef.update(projectUpdate);
+
+        // If assets cleanup timer has elapsed and not purged yet, purge assets now.
+        const cleanupDue = (projectData.assetsCleanupAfter || 0) <= now;
+        if (cleanupDue && !projectData.assetsPurgedAt) {
+            await purgeProjectAssets(projectId, projectData);
+        }
 
         // Return a signed URL with force-download headers
         let downloadUrl = data.videoUrl || "";
@@ -64,8 +167,6 @@ export async function registerDownload(projectId: string, revisionId: string) {
                     const file = bucket.file(fullPath);
 
                     // Fetch project name for the filename
-                    const projectSnap = await adminDb.collection('projects').doc(projectId).get();
-                    const projectData = projectSnap.exists ? (projectSnap.data() as Project) : null;
                     const projectName = projectData?.name || "Video";
                     const safeName = projectName.replace(/[^a-z0-9]/gi, '_').toLowerCase();
                     const filename = `${safeName}_v${data.version || '1'}.mp4`;
@@ -94,8 +195,13 @@ export async function registerDownload(projectId: string, revisionId: string) {
             return { success: false, error: "No video file found for this revision." };
         }
 
+        // On final allowed download, purge all revision videos to keep only metadata/history.
+        if (nextCount >= DOWNLOAD_LIMIT && !projectData.finalVideoPurged) {
+            await purgeProjectRevisionVideos(projectId);
+        }
+
         revalidatePath(`/dashboard/projects/${projectId}`);
-        return { success: true, count: currentCount + 1, remaining: DOWNLOAD_LIMIT - (currentCount + 1), downloadUrl };
+        return { success: true, count: nextCount, remaining: Math.max(0, DOWNLOAD_LIMIT - nextCount), downloadUrl };
 
     } catch (error: any) {
         console.error("[registerDownload] Fatal error:", error);

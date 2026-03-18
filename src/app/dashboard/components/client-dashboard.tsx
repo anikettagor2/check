@@ -25,10 +25,14 @@ import {
     FileVideo,
     Sparkles,
     IndianRupee,
-    ShieldCheck
+    ShieldCheck,
+    Download,
+    Link as LinkIcon,
+    X
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import Link from "next/link";
+import { Modal } from "@/components/ui/modal";
 import { 
     DropdownMenu, 
     DropdownMenuContent, 
@@ -87,6 +91,8 @@ export function ClientDashboard() {
     const [searchQuery, setSearchQuery] = useState("");
     const [statusFilter, setStatusFilter] = useState<string>("all");
     const [allUsers, setAllUsers] = useState<User[]>([]);
+    const [selectedProject, setSelectedProject] = useState<Project | null>(null);
+    const [isProjectModalOpen, setIsProjectModalOpen] = useState(false);
 
     useEffect(() => {
         if (!user?.uid) return;
@@ -139,6 +145,39 @@ export function ClientDashboard() {
         }));
 
     const pmWhatsAppLink = buildWhatsAppLink(assignedPM?.whatsappNumber || assignedPM?.phoneNumber);
+
+    const selectedProjectPM = selectedProject?.assignedPMId
+        ? allUsers.find(u => u.uid === selectedProject.assignedPMId)
+        : null;
+
+    const selectedProjectPMWhatsapp = buildWhatsAppLink(
+        selectedProjectPM?.whatsappNumber || selectedProjectPM?.phoneNumber
+    );
+
+    const triggerDirectDownload = async (url: string, fileName?: string) => {
+        try {
+            const response = await fetch(url);
+            if (!response.ok) throw new Error("Failed to fetch file");
+
+            const blob = await response.blob();
+            const blobUrl = window.URL.createObjectURL(blob);
+            const anchor = document.createElement("a");
+            anchor.href = blobUrl;
+            anchor.download = fileName || "download";
+            document.body.appendChild(anchor);
+            anchor.click();
+            anchor.remove();
+            window.URL.revokeObjectURL(blobUrl);
+        } catch {
+            const anchor = document.createElement("a");
+            anchor.href = url;
+            anchor.download = fileName || "download";
+            anchor.target = "_blank";
+            document.body.appendChild(anchor);
+            anchor.click();
+            anchor.remove();
+        }
+    };
 
     return (
         <div className="max-w-7xl mx-auto px-4 sm:px-6 py-8 space-y-8">
@@ -340,11 +379,15 @@ export function ClientDashboard() {
                                                                 </button>
                                                             </DropdownMenuTrigger>
                                                             <DropdownMenuContent align="end">
-                                                                <DropdownMenuItem asChild>
-                                                                    <Link href={`/dashboard/projects/${project.id}`} className="flex items-center gap-2">
-                                                                        <Eye className="h-4 w-4" />
-                                                                        View Details
-                                                                    </Link>
+                                                                <DropdownMenuItem
+                                                                    onClick={() => {
+                                                                        setSelectedProject(project);
+                                                                        setIsProjectModalOpen(true);
+                                                                    }}
+                                                                    className="flex items-center gap-2"
+                                                                >
+                                                                    <Eye className="h-4 w-4" />
+                                                                    Project Details
                                                                 </DropdownMenuItem>
                                                             </DropdownMenuContent>
                                                         </DropdownMenu>
@@ -515,6 +558,170 @@ export function ClientDashboard() {
                     )}
                 </div>
             </div>
+
+            <Modal
+                isOpen={isProjectModalOpen}
+                onClose={() => setIsProjectModalOpen(false)}
+                title="Project Details"
+                maxWidth="max-w-5xl"
+            >
+                {selectedProject && (
+                    <div className="mt-4 grid grid-cols-1 lg:grid-cols-3 gap-6 max-h-[75vh] overflow-y-auto pr-2">
+                        <div className="lg:col-span-2 space-y-5">
+                            <div className="p-4 rounded-xl bg-muted/30 border border-border">
+                                <h3 className="text-lg font-bold text-foreground">{selectedProject.name}</h3>
+                                <div className="mt-2 flex items-center gap-3">
+                                    <ProjectStatus status={selectedProject.status} />
+                                    <span className="text-xs text-muted-foreground">
+                                        Created {new Date(selectedProject.createdAt).toLocaleDateString()}
+                                    </span>
+                                </div>
+                            </div>
+
+                            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                                <div className="p-3 rounded-lg border border-border bg-muted/20">
+                                    <p className="text-[10px] text-muted-foreground uppercase tracking-widest font-bold">Type</p>
+                                    <p className="text-sm font-semibold mt-1">{selectedProject.videoType || 'Video'}</p>
+                                </div>
+                                <div className="p-3 rounded-lg border border-border bg-muted/20">
+                                    <p className="text-[10px] text-muted-foreground uppercase tracking-widest font-bold">Format</p>
+                                    <p className="text-sm font-semibold mt-1">{selectedProject.videoFormat || '—'}</p>
+                                </div>
+                                <div className="p-3 rounded-lg border border-border bg-muted/20">
+                                    <p className="text-[10px] text-muted-foreground uppercase tracking-widest font-bold">Ratio</p>
+                                    <p className="text-sm font-semibold mt-1">{selectedProject.aspectRatio || '—'}</p>
+                                </div>
+                                <div className="p-3 rounded-lg border border-border bg-muted/20">
+                                    <p className="text-[10px] text-muted-foreground uppercase tracking-widest font-bold">Duration</p>
+                                    <p className="text-sm font-semibold mt-1">{selectedProject.duration ? `${selectedProject.duration}m` : '—'}</p>
+                                </div>
+                            </div>
+
+                            <div className="bg-muted/30 border border-border rounded-lg p-4 space-y-3">
+                                <p className="text-xs text-muted-foreground font-bold uppercase tracking-widest">Project Files</p>
+
+                                {selectedProject.rawFiles && selectedProject.rawFiles.length > 0 ? (
+                                    <div className="space-y-2">
+                                        {selectedProject.rawFiles.map((file: any, idx: number) => (
+                                            <div key={`raw-${idx}`} className="flex items-center justify-between gap-3 p-2 rounded-md bg-card border border-border">
+                                                <span className="text-xs font-medium truncate">{file.name}</span>
+                                                <button
+                                                    onClick={() => triggerDirectDownload(file.url, file.name)}
+                                                    className="h-8 w-8 rounded-md bg-muted hover:bg-primary/20 hover:text-primary text-muted-foreground flex items-center justify-center transition-all"
+                                                    title="Download"
+                                                >
+                                                    <Download className="h-3.5 w-3.5" />
+                                                </button>
+                                            </div>
+                                        ))}
+                                    </div>
+                                ) : (
+                                    <p className="text-xs text-muted-foreground">No client raw files available.</p>
+                                )}
+
+                                {selectedProject.referenceFiles && selectedProject.referenceFiles.length > 0 && (
+                                    <div className="space-y-2 pt-2 border-t border-border">
+                                        <p className="text-[10px] text-muted-foreground uppercase tracking-widest font-bold">Manager References</p>
+                                        {selectedProject.referenceFiles.map((file: any, idx: number) => (
+                                            <div key={`ref-${idx}`} className="flex items-center justify-between gap-3 p-2 rounded-md bg-card border border-border">
+                                                <div className="min-w-0 flex-1">
+                                                    <p className="text-xs font-medium truncate">{file.name}</p>
+                                                    <p className="text-[10px] text-muted-foreground">Uploaded by Project Manager</p>
+                                                </div>
+                                                <button
+                                                    onClick={() => triggerDirectDownload(file.url, file.name)}
+                                                    className="h-8 w-8 rounded-md bg-muted hover:bg-primary/20 hover:text-primary text-muted-foreground flex items-center justify-center transition-all"
+                                                    title="Download"
+                                                >
+                                                    <Download className="h-3.5 w-3.5" />
+                                                </button>
+                                            </div>
+                                        ))}
+                                    </div>
+                                )}
+
+                                {selectedProject.referenceLink && (
+                                    <a
+                                        href={selectedProject.referenceLink.startsWith('http') ? selectedProject.referenceLink : `https://${selectedProject.referenceLink}`}
+                                        target="_blank"
+                                        rel="noreferrer"
+                                        className="inline-flex items-center gap-2 text-xs text-primary hover:underline"
+                                    >
+                                        <LinkIcon className="h-3.5 w-3.5" /> Open External Reference
+                                    </a>
+                                )}
+                            </div>
+
+                            <div className="bg-muted/30 border border-border rounded-lg p-4">
+                                <p className="text-xs text-muted-foreground font-bold uppercase tracking-widest mb-3">Project Timeline & Updates</p>
+                                {selectedProject.logs && selectedProject.logs.length > 0 ? (
+                                    <div className="space-y-3 max-h-[220px] overflow-y-auto">
+                                        {[...selectedProject.logs].reverse().slice(0, 12).map((log: any, idx: number) => (
+                                            <div key={idx} className="flex items-start gap-3 pb-3 border-b border-border last:border-0 last:pb-0">
+                                                <div className="h-2 w-2 mt-1.5 rounded-full bg-primary" />
+                                                <div className="min-w-0 flex-1">
+                                                    <p className="text-xs font-semibold text-foreground">{String(log.event || '').replace(/_/g, ' ')}</p>
+                                                    {log.details && <p className="text-xs text-muted-foreground mt-0.5">{log.details}</p>}
+                                                    <p className="text-[10px] text-muted-foreground mt-1">{log.userName || 'System'} • {new Date(log.timestamp).toLocaleString()}</p>
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                ) : (
+                                    <p className="text-xs text-muted-foreground">No updates recorded yet.</p>
+                                )}
+                            </div>
+                        </div>
+
+                        <div className="space-y-5">
+                            <div className="bg-muted/30 border border-border rounded-lg p-4">
+                                <p className="text-xs text-muted-foreground font-bold uppercase tracking-widest mb-4">Assigned Manager</p>
+                                <div className="space-y-3">
+                                    <p className="text-sm font-semibold text-foreground">{selectedProjectPM?.displayName || 'Not Assigned'}</p>
+                                    {selectedProjectPM?.email && <p className="text-xs text-muted-foreground break-all">{selectedProjectPM.email}</p>}
+                                    {(selectedProjectPM?.phoneNumber || selectedProjectPM?.whatsappNumber) && (
+                                        <p className="text-xs text-muted-foreground">{selectedProjectPM.whatsappNumber || selectedProjectPM.phoneNumber}</p>
+                                    )}
+                                    {selectedProjectPMWhatsapp ? (
+                                        <a
+                                            href={selectedProjectPMWhatsapp}
+                                            target="_blank"
+                                            rel="noreferrer"
+                                            className="w-full inline-flex items-center justify-center gap-2 px-3 py-2 rounded-lg bg-emerald-500/10 border border-emerald-500/20 text-emerald-600 text-xs font-bold uppercase tracking-widest hover:bg-emerald-500/20 transition-all"
+                                        >
+                                            <MessageCircle className="h-3.5 w-3.5" /> Chat
+                                        </a>
+                                    ) : (
+                                        <button
+                                            type="button"
+                                            disabled
+                                            className="w-full inline-flex items-center justify-center gap-2 px-3 py-2 rounded-lg bg-muted text-muted-foreground text-xs font-bold uppercase tracking-widest cursor-not-allowed"
+                                        >
+                                            <MessageCircle className="h-3.5 w-3.5" /> Chat Unavailable
+                                        </button>
+                                    )}
+                                </div>
+                            </div>
+
+                            <div className="bg-muted/30 border border-border rounded-lg p-4 space-y-3">
+                                <p className="text-xs text-muted-foreground font-bold uppercase tracking-widest">Project Snapshot</p>
+                                <div className="flex items-center justify-between text-xs">
+                                    <span className="text-muted-foreground">Client</span>
+                                    <span className="font-semibold text-foreground">{user?.displayName || 'Client'}</span>
+                                </div>
+                                <div className="flex items-center justify-between text-xs">
+                                    <span className="text-muted-foreground">Primary Editor</span>
+                                    <span className="font-semibold text-foreground">{allUsers.find(u => u.uid === selectedProject.assignedEditorId)?.displayName || 'Not Assigned'}</span>
+                                </div>
+                                <div className="flex items-center justify-between text-xs">
+                                    <span className="text-muted-foreground">Budget</span>
+                                    <span className="font-semibold text-foreground">₹{(selectedProject.totalCost || 0).toLocaleString()}</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                )}
+            </Modal>
         </div>
     );
 }
