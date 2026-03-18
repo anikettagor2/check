@@ -313,12 +313,13 @@ export function ClientDashboard() {
                                 <table className="w-full">
                                     <thead>
                                         <tr className="border-b border-border bg-muted/30">
-                                            <th className="text-left text-xs font-medium text-muted-foreground px-4 py-3">Project</th>
-                                            <th className="text-left text-xs font-medium text-muted-foreground px-4 py-3 hidden sm:table-cell">Type</th>
-                                            <th className="text-left text-xs font-medium text-muted-foreground px-4 py-3 hidden md:table-cell">Editor</th>
-                                            <th className="text-right text-xs font-medium text-muted-foreground px-4 py-3">Status</th>
-                                            <th className="text-right text-xs font-medium text-muted-foreground px-4 py-3 hidden sm:table-cell">Price</th>
-                                            <th className="w-10"></th>
+                                            <th className="text-left text-xs font-medium text-muted-foreground px-4 py-3 w-12">SR.No</th>
+                                            <th className="text-left text-xs font-medium text-muted-foreground px-4 py-3">Project Name</th>
+                                            <th className="text-left text-xs font-medium text-muted-foreground px-4 py-3 hidden sm:table-cell">Cost</th>
+                                            <th className="text-left text-xs font-medium text-muted-foreground px-4 py-3 hidden md:table-cell">Project Manager</th>
+                                            <th className="text-center text-xs font-medium text-muted-foreground px-4 py-3">Status</th>
+                                            <th className="text-center text-xs font-medium text-muted-foreground px-4 py-3 hidden sm:table-cell">Payment</th>
+                                            <th className="text-center text-xs font-medium text-muted-foreground px-4 py-3 w-20">Action</th>
                                         </tr>
                                     </thead>
                                     <tbody>
@@ -332,65 +333,53 @@ export function ClientDashboard() {
                                                     transition={{ delay: idx * 0.03 }}
                                                     className="border-b border-border last:border-0 hover:bg-muted/30 transition-colors group"
                                                 >
+                                                    <td className="px-4 py-3 text-sm font-medium text-muted-foreground">
+                                                        {idx + 1}
+                                                    </td>
                                                     <td className="px-4 py-3">
-                                                        <Link href={`/dashboard/projects/${project.id}`} className="block">
-                                                            <p className="font-medium text-foreground group-hover:text-primary transition-colors line-clamp-1">
-                                                                {project.name}
-                                                            </p>
-                                                            <p className="text-xs text-muted-foreground mt-0.5">
-                                                                {project.createdAt ? new Date(project.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : ''}
-                                                            </p>
-                                                        </Link>
+                                                        <p className="font-medium text-foreground group-hover:text-primary transition-colors line-clamp-1">
+                                                            {project.name}
+                                                        </p>
+                                                        <p className="text-xs text-muted-foreground mt-1">
+                                                            {project.videoType || 'Video'} • {project.createdAt ? new Date(project.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : ''}
+                                                        </p>
                                                     </td>
                                                     <td className="px-4 py-3 hidden sm:table-cell">
-                                                        <span className="text-sm text-muted-foreground capitalize">
-                                                            {project.videoType?.replace('_', ' ') || 'Video'}
-                                                        </span>
-                                                    </td>
-                                                    <td className="px-4 py-3 hidden md:table-cell">
-                                                        {project.assignedEditorId ? (
-                                                            <div className="flex items-center gap-2">
-                                                                <div className="h-6 w-6 rounded-full bg-primary/10 flex items-center justify-center">
-                                                                    <span className="text-xs font-medium text-primary">
-                                                                        {allUsers.find(u => u.uid === project.assignedEditorId)?.displayName?.[0] || 'E'}
-                                                                    </span>
-                                                                </div>
-                                                                <span className="text-sm text-muted-foreground">
-                                                                    {allUsers.find(u => u.uid === project.assignedEditorId)?.displayName?.split(' ')[0] || 'Editor'}
-                                                                </span>
-                                                            </div>
-                                                        ) : (
-                                                            <span className="text-sm text-muted-foreground">Assigning...</span>
-                                                        )}
-                                                    </td>
-                                                    <td className="px-4 py-3 text-right">
-                                                        <ProjectStatus status={project.status} />
-                                                    </td>
-                                                    <td className="px-4 py-3 text-right hidden sm:table-cell">
-                                                        <span className="font-medium text-foreground">
+                                                        <span className="font-semibold text-foreground">
                                                             ₹{(project.totalCost || 0).toLocaleString()}
                                                         </span>
                                                     </td>
-                                                    <td className="px-2 py-3">
-                                                        <DropdownMenu>
-                                                            <DropdownMenuTrigger asChild>
-                                                                <button className="h-8 w-8 rounded-lg hover:bg-muted flex items-center justify-center text-muted-foreground hover:text-foreground transition-colors">
-                                                                    <MoreHorizontal className="h-4 w-4" />
-                                                                </button>
-                                                            </DropdownMenuTrigger>
-                                                            <DropdownMenuContent align="end">
-                                                                <DropdownMenuItem
-                                                                    onClick={() => {
-                                                                        setSelectedProject(project);
-                                                                        setIsProjectModalOpen(true);
-                                                                    }}
-                                                                    className="flex items-center gap-2"
-                                                                >
-                                                                    <Eye className="h-4 w-4" />
-                                                                    Project Details
-                                                                </DropdownMenuItem>
-                                                            </DropdownMenuContent>
-                                                        </DropdownMenu>
+                                                    <td className="px-4 py-3 hidden md:table-cell">
+                                                        <span className="text-sm text-foreground">
+                                                            {assignedPM?.displayName || 'Not Assigned'}
+                                                        </span>
+                                                    </td>
+                                                    <td className="px-4 py-3 text-center">
+                                                        <ProjectStatus status={project.status} />
+                                                    </td>
+                                                    <td className="px-4 py-3 text-center hidden sm:table-cell">
+                                                        <span className={cn(
+                                                            "inline-flex items-center px-2 py-1 rounded-full text-[10px] font-bold border",
+                                                            project.paymentStatus === 'full_paid' 
+                                                                ? "bg-emerald-500/10 text-emerald-600 border-emerald-500/20"
+                                                                : project.paymentStatus === 'half_paid'
+                                                                    ? "bg-amber-500/10 text-amber-600 border-amber-500/20"
+                                                                    : "bg-red-500/10 text-red-600 border-red-500/20"
+                                                        )}>
+                                                            {project.paymentStatus === 'full_paid' ? 'Paid' : project.paymentStatus === 'half_paid' ? 'Partial' : 'Pending'}
+                                                        </span>
+                                                    </td>
+                                                    <td className="px-4 py-3 text-center">
+                                                        <button
+                                                            onClick={() => {
+                                                                setSelectedProject(project);
+                                                                setIsProjectModalOpen(true);
+                                                            }}
+                                                            className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg bg-primary/10 text-primary text-xs font-medium hover:bg-primary/20 transition-colors"
+                                                        >
+                                                            <Eye className="h-3.5 w-3.5" />
+                                                            Details
+                                                        </button>
                                                     </td>
                                                 </motion.tr>
                                             ))}
@@ -467,7 +456,8 @@ export function ClientDashboard() {
                         )}
                     </div>
 
-                    {/* Pricing Card */}
+                    {/* Pricing Card - Hidden from dashboard, available in settings */}
+                    {/* 
                     <div className="bg-card border border-border rounded-xl p-5">
                         <div className="flex items-center justify-between mb-4">
                             <div>
@@ -494,6 +484,7 @@ export function ClientDashboard() {
                             )}
                         </div>
                     </div>
+                    */}
 
                     {/* Quick Actions */}
                     <div className="bg-card border border-border rounded-xl p-5">
