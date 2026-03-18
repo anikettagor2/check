@@ -665,14 +665,14 @@ export function EditorDashboardV2() {
                                                     </div>
                                                 </td>
                                                 <td className="px-4 py-4">
-                                                    <div className="w-[240px] space-y-2">
+                                                    <div className="flex items-center gap-2 flex-wrap">
                                                         <button
                                                             onClick={() => setSelectedProjectDetails(project)}
-                                                            className="h-8 w-full inline-flex items-center justify-center gap-1 rounded-lg bg-primary/10 border border-primary/20 text-primary hover:bg-primary/20 text-[10px] font-bold uppercase tracking-widest transition-all"
+                                                            className="h-8 px-3 inline-flex items-center justify-center gap-1 rounded-lg bg-primary/10 border border-primary/20 text-primary hover:bg-primary/20 text-[10px] font-bold uppercase tracking-widest transition-all whitespace-nowrap"
                                                             title="View complete project details"
                                                         >
                                                             <Eye className="h-3.5 w-3.5" />
-                                                            Project Details
+                                                            Details
                                                         </button>
 
                                                         <button
@@ -683,11 +683,11 @@ export function EditorDashboardV2() {
                                                                 }
                                                             }}
                                                             disabled={!pmWhatsApp}
-                                                            className="h-8 w-full inline-flex items-center justify-center gap-1 rounded-lg bg-green-500/10 border border-green-500/20 text-green-500 hover:bg-green-500/20 disabled:opacity-50 disabled:cursor-not-allowed text-[10px] font-bold uppercase tracking-widest transition-all"
+                                                            className="h-8 px-3 inline-flex items-center justify-center gap-1 rounded-lg bg-green-500/10 border border-green-500/20 text-green-500 hover:bg-green-500/20 disabled:opacity-50 disabled:cursor-not-allowed text-[10px] font-bold uppercase tracking-widest transition-all whitespace-nowrap"
                                                             title="Chat with PM on WhatsApp"
                                                         >
                                                             <MessageCircle className="h-3.5 w-3.5" />
-                                                            Chat with Project Manager
+                                                            Chat PM
                                                         </button>
 
                                                         <a
@@ -696,7 +696,7 @@ export function EditorDashboardV2() {
                                                                 if (!isAccepted) e.preventDefault();
                                                             }}
                                                             className={cn(
-                                                                "h-8 w-full inline-flex items-center justify-center gap-1 rounded-lg border text-[10px] font-bold uppercase tracking-widest transition-all",
+                                                                "h-8 px-3 inline-flex items-center justify-center gap-1 rounded-lg border text-[10px] font-bold uppercase tracking-widest transition-all whitespace-nowrap",
                                                                 isAccepted
                                                                     ? "bg-amber-500/10 border-amber-500/20 text-amber-500 hover:bg-amber-500/20"
                                                                     : "bg-muted/20 border-border text-muted-foreground cursor-not-allowed"
@@ -704,7 +704,7 @@ export function EditorDashboardV2() {
                                                             title={isAccepted ? "Upload draft files for this project" : "Accept assignment to upload draft"}
                                                         >
                                                             <Upload className="h-3.5 w-3.5" />
-                                                            Upload Draft
+                                                            Upload
                                                         </a>
                                                     </div>
                                                 </td>
