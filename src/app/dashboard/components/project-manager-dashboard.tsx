@@ -137,6 +137,19 @@ function StatusBadge({ status, size = "sm" }: { status: string; size?: "sm" | "m
     );
 }
 
+// Status Select Styling Helper
+function getStatusSelectColor(status: string): string {
+    const colorMap: Record<string, string> = {
+        pending_assignment: "bg-amber-500/15 border-amber-500/50 text-amber-600",
+        active: "bg-blue-500/15 border-blue-500/50 text-blue-600",
+        in_review: "bg-purple-500/15 border-purple-500/50 text-purple-600",
+        completed: "bg-emerald-500/15 border-emerald-500/50 text-emerald-600",
+        approved: "bg-emerald-500/15 border-emerald-500/50 text-emerald-600",
+        archived: "bg-zinc-500/15 border-zinc-500/50 text-zinc-500"
+    };
+    return colorMap[status] || "bg-muted border-border text-foreground";
+}
+
 // Payment Badge Component
 function PaymentBadge({ type, paid }: { type: "client" | "editor"; paid: boolean }) {
     return (
@@ -616,7 +629,7 @@ export function ProjectManagerDashboard() {
                                                 <select 
                                                     value={project.status} 
                                                     onChange={(e) => handleUpdateProjectInline(project.id, 'status', e.target.value)}
-                                                    className="bg-muted border border-border text-xs font-medium px-2 py-1.5 rounded-md focus:outline-none focus:border-primary text-foreground"
+                                                    className={cn("text-xs font-medium px-3 py-1.5 rounded-md focus:outline-none focus:border-primary border", getStatusSelectColor(project.status))}
                                                 >
                                                     <option value="pending_assignment">Pending</option>
                                                     <option value="active">In Progress</option>
