@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { addDoc, collection, doc, getDoc, updateDoc, increment } from "firebase/firestore";
 import { ref, uploadBytesResumable, getDownloadURL } from "firebase/storage";
@@ -159,12 +159,23 @@ export default function NewProjectPage() {
 
     useEffect(() => {
         if (availableVideoTypes.length === 0) return;
-        if (!availableVideoTypes.some((vt) => vt.key === videoType)) {
+        
+        // Only reset price index if the current videoType is not available
+        const isCurrentTypeAvailable = availableVideoTypes.some((vt) => vt.key === videoType);
+        if (!isCurrentTypeAvailable) {
             setVideoType(availableVideoTypes[0].key);
+            setSelectedPriceIndex(0);
         }
-        // Reset selected price when video type changes
-        setSelectedPriceIndex(0);
-    }, [availableVideoTypes, videoType]);
+    }, [availableVideoTypes]);
+
+    // Separate effect to track when user intentionally changes video type
+    const prevVideoTypeRef = useRef(videoType);
+    useEffect(() => {
+        if (prevVideoTypeRef.current !== videoType) {
+            setSelectedPriceIndex(0);
+            prevVideoTypeRef.current = videoType;
+        }
+    }, [videoType]);
 
     // Check if all files are uploaded
     const allFilesUploaded = [...rawFiles, ...scriptFiles, ...referenceFiles].every(
