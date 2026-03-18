@@ -636,7 +636,11 @@ export function EditorDashboardV2() {
                                                     <div className="text-xs text-muted-foreground">{project.clientName || 'N/A'}</div>
                                                 </td>
                                                 <td className="px-4 py-4">
-                                                    <div className="text-sm font-medium text-foreground">{(project as any).assignedPMName || 'Project Manager'}</div>
+                                                    <div className="text-sm font-medium text-foreground">
+                                                        {project.assignedPMId && allUsers[project.assignedPMId]
+                                                            ? allUsers[project.assignedPMId].displayName || 'Project Manager'
+                                                            : 'Not Assigned'}
+                                                    </div>
                                                 </td>
                                                 <td className="px-4 py-4">
                                                     <div className="text-sm font-bold text-emerald-500 tabular-nums">
