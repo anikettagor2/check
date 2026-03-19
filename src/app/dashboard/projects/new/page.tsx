@@ -124,6 +124,7 @@ export default function NewProjectPage() {
 
     // Step 3: Files with immediate upload tracking
     const [rawFiles, setRawFiles] = useState<FileWithProgress[]>([]);
+    const [bRoleFiles, setBRoleFiles] = useState<FileWithProgress[]>([]);
     const [scriptFiles, setScriptFiles] = useState<FileWithProgress[]>([]);
     const [referenceFiles, setReferenceFiles] = useState<FileWithProgress[]>([]);
     const [scriptText, setScriptText] = useState("");
@@ -178,14 +179,14 @@ export default function NewProjectPage() {
     }, [videoType]);
 
     // Check if all files are uploaded
-    const allFilesUploaded = [...rawFiles, ...scriptFiles, ...referenceFiles].every(
+    const allFilesUploaded = [...rawFiles, ...bRoleFiles, ...scriptFiles, ...referenceFiles].every(
         f => f.status === 'complete'
     );
-    const hasUploadingFiles = [...rawFiles, ...scriptFiles, ...referenceFiles].some(
+    const hasUploadingFiles = [...rawFiles, ...bRoleFiles, ...scriptFiles, ...referenceFiles].some(
         f => f.status === 'uploading'
     );
     const totalUploadProgress = (() => {
-        const allFiles = [...rawFiles, ...scriptFiles, ...referenceFiles];
+        const allFiles = [...rawFiles, ...bRoleFiles, ...scriptFiles, ...referenceFiles];
         if (allFiles.length === 0) return 100;
         const total = allFiles.reduce((acc, f) => acc + f.progress, 0);
         return Math.round(total / allFiles.length);
@@ -237,12 +238,12 @@ export default function NewProjectPage() {
     // Handle file selection and immediate upload
     const handleFileUpload = useCallback((
         e: React.ChangeEvent<HTMLInputElement>, 
-        type: 'raw' | 'script' | 'reference'
+        type: 'raw' | 'brole' | 'script' | 'reference'
     ) => {
         if (!e.target.files || !user) return;
         
         const files = Array.from(e.target.files);
-        const path = type === 'raw' ? 'raw_footage' : type === 'script' ? 'scripts' : 'references';
+        const path = type === 'raw' ? 'raw_footage' : type === 'brole' ? 'brole_footage' : type === 'script' ? 'scripts' : 'references';
         
         const newFileEntries: FileWithProgress[] = files.map(file => ({
             file,
@@ -253,6 +254,8 @@ export default function NewProjectPage() {
         // Add files to state
         if (type === 'raw') {
             setRawFiles(prev => [...prev, ...newFileEntries]);
+        } else if (type === 'brole') {
+            setBRoleFiles(prev => [...prev, ...newFileEntries]);
         } else if (type === 'script') {
             setScriptFiles(prev => [...prev, ...newFileEntries]);
         } else {
@@ -261,7 +264,7 @@ export default function NewProjectPage() {
 
         // Start uploading each file
         files.forEach((file, index) => {
-            const setState = type === 'raw' ? setRawFiles : type === 'script' ? setScriptFiles : setReferenceFiles;
+            const setState = type === 'raw' ? setRawFiles : type === 'brole' ? setBRoleFiles : type === 'script' ? setScriptFiles : setReferenceFiles;
             
             // Find the index in the new combined array
             setTimeout(() => {
@@ -322,9 +325,11 @@ export default function NewProjectPage() {
         e.target.value = '';
     }, [user, uploadFileImmediately]);
 
-    const removeFile = (index: number, type: 'raw' | 'script' | 'reference') => {
+    const removeFile = (index: number, type: 'raw' | 'brole' | 'script' | 'reference') => {
         if (type === 'raw') {
             setRawFiles(prev => prev.filter((_, i) => i !== index));
+        } else if (type === 'brole') {
+            setBRoleFiles(prev => prev.filter((_, i) => i !== index));
         } else if (type === 'script') {
             setScriptFiles(prev => prev.filter((_, i) => i !== index));
         } else {
@@ -346,7 +351,7 @@ export default function NewProjectPage() {
             if (hasUploadingFiles) {
                 return toast.error("Please wait for all files to finish uploading.");
             }
-            const failedFiles = [...rawFiles, ...scriptFiles, ...referenceFiles].filter(f => f.status === 'error');
+            const failedFiles = [...rawFiles, ...bRoleFiles, ...scriptFiles, ...referenceFiles].filter(f => f.status === 'error');
             if (failedFiles.length > 0) {
                 return toast.error(`${failedFiles.length} file(s) failed to upload. Please remove and re-upload them.`);
             }
@@ -364,6 +369,10 @@ export default function NewProjectPage() {
             .filter(f => f.status === 'complete' && f.uploadedData)
             .map(f => f.uploadedData!);
         
+        const uploadedBRoleFiles = bRoleFiles
+            .filter(f => f.status === 'complete' && f.uploadedData)
+            .map(f => f.uploadedData!);
+        
         const uploadedScripts = scriptFiles
             .filter(f => f.status === 'complete' && f.uploadedData)
             .map(f => f.uploadedData!);
@@ -372,14 +381,14 @@ export default function NewProjectPage() {
             .filter(f => f.status === 'complete' && f.uploadedData)
             .map(f => f.uploadedData!);
 
-        return { uploadedRawFiles, uploadedScripts, uploadedReferences };
+        return { uploadedRawFiles, uploadedBRoleFiles, uploadedScripts, uploadedReferences };
     };
 
     // Create project in Firestore
     const createProject = async (paymentOption: 'pay_now' | 'pay_later', razorpayPaymentId?: string) => {
         if (!user) throw new Error("User not authenticated");
 
-        const { uploadedRawFiles, uploadedScripts, uploadedReferences } = getUploadedFiles();
+        const { uploadedRawFiles, uploadedBRoleFiles, uploadedScripts, uploadedReferences } = getUploadedFiles();
 
         // Prepare pricing tier info
         const pricingTierInfo = availablePrices.length > 0 ? {
@@ -402,6 +411,7 @@ export default function NewProjectPage() {
             deadline: null,
             footageLink, 
             rawFiles: uploadedRawFiles,
+            bRoleFiles: uploadedBRoleFiles,
             scripts: uploadedScripts,
             referenceFiles: uploadedReferences,
             referenceLink,
@@ -894,6 +904,75 @@ export default function NewProjectPage() {
                                                     <div className="h-1.5 bg-muted rounded-full overflow-hidden">
                                                         <div 
                                                             className="h-full bg-gradient-to-r from-primary to-primary/70 transition-all duration-300"
+                                                            style={{ width: `${fileItem.progress}%` }}
+                                                        />
+                                                    </div>
+                                                )}
+                                                {fileItem.status === 'error' && (
+                                                    <p className="text-[10px] text-red-500 mt-1">{fileItem.error || 'Upload failed'}</p>
+                                                )}
+                                            </div>
+                                        ))}
+                                    </div>
+                                )}
+                            </div>
+
+                            {/* B-Role Files */}
+                            <div className="space-y-3 pt-4 border-t border-border">
+                                <Label className="text-xs font-bold uppercase tracking-widest text-muted-foreground ml-1 flex items-center gap-2">
+                                    <FileVideo className="w-4 h-4 text-amber-500" /> 
+                                    B-Role Files (Optional)
+                                </Label>
+                                <div className="border-2 border-dashed border-border rounded-2xl p-8 hover:bg-muted/50 hover:border-amber-500/50 transition-all text-center relative overflow-hidden group">
+                                    <input 
+                                        type="file" 
+                                        multiple
+                                        accept="video/*,image/*,audio/*,.pdf,.doc,.docx,.txt"
+                                        onChange={(e) => handleFileUpload(e, 'brole')}
+                                        className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
+                                    />
+                                    <div className="flex flex-col items-center justify-center gap-3">
+                                        <div className="w-12 h-12 rounded-full bg-amber-500/10 text-amber-500 flex items-center justify-center group-hover:scale-110 transition-transform">
+                                            <UploadCloud className="w-6 h-6" />
+                                        </div>
+                                        <div className="space-y-1">
+                                            <p className="text-sm font-bold text-foreground">Click or drag files to upload</p>
+                                            <p className="text-xs text-muted-foreground font-medium tracking-tight">Support for videos, images, audio, and documents</p>
+                                        </div>
+                                    </div>
+                                </div>
+                                {/* B-Role Files List with Progress */}
+                                {bRoleFiles.length > 0 && (
+                                    <div className="space-y-2 mt-4">
+                                        {bRoleFiles.map((fileItem, i) => (
+                                            <div key={i} className="bg-muted/50 border border-border rounded-lg p-3 group">
+                                                <div className="flex items-center justify-between mb-2">
+                                                    <div className="flex items-center gap-2 min-w-0 flex-1">
+                                                        {fileItem.file.type.includes('image') ? <ImageIcon className="w-4 h-4 text-amber-500 shrink-0" /> : fileItem.file.type.includes('video') ? <FileVideo className="w-4 h-4 text-blue-500 shrink-0" /> : <FileText className="w-4 h-4 text-gray-500 shrink-0" />}
+                                                        <span className="text-xs text-foreground truncate font-medium">{fileItem.file.name}</span>
+                                                        <span className="text-[10px] text-muted-foreground">
+                                                            ({(fileItem.file.size / 1024 / 1024).toFixed(1)} MB)
+                                                        </span>
+                                                    </div>
+                                                    <div className="flex items-center gap-2 shrink-0">
+                                                        {fileItem.status === 'complete' && (
+                                                            <CheckCircle2 className="w-4 h-4 text-emerald-500" />
+                                                        )}
+                                                        {fileItem.status === 'error' && (
+                                                            <AlertCircle className="w-4 h-4 text-red-500" />
+                                                        )}
+                                                        {fileItem.status === 'uploading' && (
+                                                            <span className="text-[10px] text-amber-500 font-bold">{Math.round(fileItem.progress)}%</span>
+                                                        )}
+                                                        <button type="button" onClick={() => removeFile(i, 'brole')} className="opacity-0 group-hover:opacity-100 p-1 hover:bg-red-500/20 text-red-500 rounded transition-all">
+                                                            <X className="w-3.5 h-3.5" />
+                                                        </button>
+                                                    </div>
+                                                </div>
+                                                {(fileItem.status === 'uploading' || fileItem.status === 'pending') && (
+                                                    <div className="h-1.5 bg-muted rounded-full overflow-hidden">
+                                                        <div 
+                                                            className="h-full bg-gradient-to-r from-amber-500 to-amber-500/70 transition-all duration-300"
                                                             style={{ width: `${fileItem.progress}%` }}
                                                         />
                                                     </div>
