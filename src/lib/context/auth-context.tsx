@@ -161,6 +161,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         let email = normalizedIdentifier;
 
         // Handle Phone Number, WhatsApp Number or Username Login
+        // ⚠️ CRITICAL: Maintains auth integrity - users can login with:
+        //    1. Username (displayName) + password created during signup
+        //    2. Phone number (any format) + same password
+        //    3. WhatsApp number (any format) + same password
+        //    4. Email + password
+        // Password is always the SAME password set during signup.
         if (!normalizedIdentifier.includes("@")) {
           try {
               const { collection, query, where, getDocs } = await import("firebase/firestore");
@@ -203,6 +209,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             phoneCandidates.add(rawIdentifier);
 
             let resolvedUser: User | null = null;
+
+            // 🔐 INTEGRITY CHECK: All identifiers resolve to SAME email account
+            // Once we find the user by phone/username, we get their email,
+            // then authenticate using Firebase Auth (single password per email)
+            // This ensures: username + phone share the SAME password created during signup
 
             // Check phoneNumber field
             for (const candidate of phoneCandidates) {
@@ -247,6 +258,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
 
       try {
+          // 🔑 PASSWORD VERIFICATION: Single Firebase Auth Account
+          // Whether user logged in with username, phone, or WhatsApp,
+          // we now have their email. Firebase Auth uses email + password
+          // to verify identity. Same password works for all identifiers
+          // because they all resolve to the same Firebase Auth account.
           await signInWithEmailAndPassword(auth, email, password);
           router.push("/dashboard");
       } catch (error: any) {
