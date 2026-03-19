@@ -1,7 +1,9 @@
 "use client";
 
 import { useEffect, useRef, useState, use } from "react";
-import { VideoPlayer, VideoPlayerHandle } from "@/components/video-review/video-player";
+import AdaptiveVideoPlayer, { AdaptiveVideoPlayerRef } from "@/components/streaming/adaptive-video-player";
+import { QualitySelector, NetworkStatus, StreamingAnalytics } from "@/components/streaming/quality-selector";
+import { HLSQuality } from "@/lib/streaming/hls-quality-manager";
 import { CommentThread } from "@/components/video-review/comment-thread";
 import { TimelineComments } from "@/components/video-review/timeline-comments";
 import { GuestIdentityModal } from "@/components/video-review/guest-identity-modal";
@@ -38,7 +40,7 @@ import { motion, AnimatePresence } from "framer-motion";
 export default function ReviewPage(props: { params: Promise<{ id: string; revisionId: string }> }) {
   const params = use(props.params); 
   const { user } = useAuth();
-  const playerRef = useRef<VideoPlayerHandle>(null);
+  const playerRef = useRef<AdaptiveVideoPlayerRef>(null);
   
   // State
   const [currentTime, setCurrentTime] = useState(0);
@@ -50,6 +52,12 @@ export default function ReviewPage(props: { params: Promise<{ id: string; revisi
   // Guest State
   const [guestInfo, setGuestInfo] = useState<{name: string, email: string} | null>(null);
   const [isGuestModalOpen, setIsGuestModalOpen] = useState(false);
+
+  // Adaptive streaming states
+  const [currentQuality, setCurrentQuality] = useState<HLSQuality | null>(null);
+  const [availableQualities, setAvailableQualities] = useState<HLSQuality[]>([]);
+  const [networkQuality, setNetworkQuality] = useState<'poor' | 'fair' | 'good' | 'excellent'>('good');
+  const [showStreamingAnalytics, setShowStreamingAnalytics] = useState(false);
 
   // Real Data State
   const [revision, setRevision] = useState<Revision | null>(null);
@@ -157,6 +165,23 @@ export default function ReviewPage(props: { params: Promise<{ id: string; revisi
 
     return () => unsubscribe();
   }, [params.revisionId]);
+
+  // Initialize available qualities from player
+  useEffect(() => {
+    if (!playerRef.current) return;
+    
+    const timer = setTimeout(() => {
+      const qualities = playerRef.current?.getAvailableQualities() || [];
+      setAvailableQualities(qualities);
+      
+      const quality = playerRef.current?.getCurrentQuality();
+      if (quality) {
+        setCurrentQuality(quality);
+      }
+    }, 800);
+
+    return () => clearTimeout(timer);
+  }, []);
 
   const [isAddingComment, setIsAddingComment] = useState(false);
   const [draftTime, setDraftTime] = useState<number | null>(null);
@@ -353,6 +378,11 @@ export default function ReviewPage(props: { params: Promise<{ id: string; revisi
                                toast.error(res.error || "Download limit reached");
                                return;
                            }
+                           
+                           // Log quality info
+                           const quality = playerRef.current?.getCurrentQuality();
+                           console.log(`Downloading at quality: ${quality?.name}`);
+                           
                            if (revision) setRevision({ ...revision, downloadCount: (revision.downloadCount || 0) + 1 });
                            if (res.downloadUrl) {
                                await directDownload(res.downloadUrl, `${project?.name || 'video'}_v${revision?.version || 1}.mp4`);
@@ -406,11 +436,18 @@ export default function ReviewPage(props: { params: Promise<{ id: string; revisi
                 className="relative w-full max-w-[1200px] aspect-video glass-panel border-border rounded-[2rem] shadow-[0_40px_100px_rgba(0,0,0,0.6)] overflow-hidden"
              >
                 {revision && (
-                    <VideoPlayer 
-                        ref={playerRef}
-                        src={(revision as any).hlsUrl || revision.videoUrl} 
-                        onTimeUpdate={handleTimeUpdate}
-                        onDurationChange={setDuration}
+                    <AdaptiveVideoPlayer
+                      ref={playerRef}
+                      src={(revision as any).hlsUrl || revision.videoUrl}
+                      sourceResolution="4K"
+                      onTimeUpdate={handleTimeUpdate}
+                      onDurationChange={setDuration}
+                      onQualityChange={(quality) => {
+                        setCurrentQuality(quality);
+                        console.log(`Video quality changed to: ${quality.name}`);
+                      }}
+                      onNetworkStateChange={setNetworkQuality}
+                      autoQuality={true}
                     />
                 )}
                 
@@ -430,7 +467,7 @@ export default function ReviewPage(props: { params: Promise<{ id: string; revisi
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: 0.4 }}
-                className="mt-14 flex items-center gap-6"
+                className="mt-14 flex items-center gap-4 flex-wrap"
              >
                  <button 
                     onClick={handleAddCommentStart} 
@@ -445,7 +482,39 @@ export default function ReviewPage(props: { params: Promise<{ id: string; revisi
 
                  <div className="h-10 w-px bg-muted/50" />
 
+                 {/* Network Status Indicator */}
+                 <div className="flex items-center gap-2">
+                    <NetworkStatus 
+                      quality={networkQuality}
+                      bandwidth={playerRef.current?.getNetworkMetrics?.()?.bandwidth}
+                      compact={true}
+                    />
+                 </div>
+
+                 {/* Quality Selector */}
+                 <QualitySelector
+                    qualities={availableQualities}
+                    currentQuality={currentQuality}
+                    onQualitySelect={(quality) => {
+                      playerRef.current?.setQuality(quality);
+                      setCurrentQuality(quality);
+                    }}
+                    networkQuality={networkQuality}
+                    compact={true}
+                 />
+
+                 <div className="h-10 w-px bg-muted/50" />
+
                  <div className="flex items-center gap-3">
+                    {/* Optional: Analytics Toggle */}
+                    <button 
+                      onClick={() => setShowStreamingAnalytics(!showStreamingAnalytics)}
+                      className="h-12 w-12 rounded-xl bg-muted/50 border border-border flex items-center justify-center text-muted-foreground hover:text-foreground transition-all hover:border-primary/40"
+                      title="Show streaming analytics"
+                    >
+                      <Activity className="h-4 w-4" />
+                    </button>
+
                     <button className="h-12 w-12 rounded-xl bg-muted/50 border border-border flex items-center justify-center text-muted-foreground hover:text-foreground transition-all">
                         <Maximize2 className="h-4 w-4" />
                     </button>
@@ -460,6 +529,23 @@ export default function ReviewPage(props: { params: Promise<{ id: string; revisi
                     </button>
                  </div>
              </motion.div>
+
+             {/* Optional: Streaming Analytics Display */}
+             {showStreamingAnalytics && playerRef.current && (
+               <motion.div
+                 initial={{ opacity: 0, y: -10 }}
+                 animate={{ opacity: 1, y: 0 }}
+                 className="mt-8"
+               >
+                 <StreamingAnalytics
+                   totalBytesTransferred={playerRef.current?.getAnalytics?.()?.totalBytesTransferred || 0}
+                   averageBitrate={playerRef.current?.getAnalytics?.()?.averageBitrate || 0}
+                   qualityChangeCount={playerRef.current?.getAnalytics?.()?.qualityChanges?.length || 0}
+                   rebufferingCount={playerRef.current?.getAnalytics?.()?.rebufferingCount || 0}
+                   currentQuality={currentQuality}
+                 />
+               </motion.div>
+             )}
 
              {/* System Status Indicators */}
              <div className="absolute bottom-8 left-12 flex items-center gap-6 pointer-events-none">

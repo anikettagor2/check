@@ -338,7 +338,7 @@ export function EditorDashboardV2() {
                         >
                             <button 
                                 onClick={() => setPreviewVideoUrl(null)} 
-                                className="absolute top-6 right-6 h-12 w-12 bg-white/20 hover:bg-white/30 text-white rounded-full flex items-center justify-center backdrop-blur-md z-[10000] transition-all hover:bg-white/40"
+                                className="absolute top-6 right-6 h-12 w-12 bg-white/20 hover:bg-white/30 text-white rounded-full flex items-center justify-center backdrop-blur-md z-[10000] transition-all hover:bg-white/40 cursor-pointer active:scale-95"
                             >
                                 <X className="h-6 w-6" />
                             </button>
@@ -379,7 +379,7 @@ export function EditorDashboardV2() {
                                 </div>
                                 <button 
                                     onClick={() => setSelectedProjectAssets(null)} 
-                                    className="h-10 w-10 bg-muted/30 hover:bg-muted/50 text-foreground rounded-lg flex items-center justify-center transition-colors"
+                                    className="h-10 w-10 bg-muted/30 hover:bg-muted/50 text-foreground rounded-lg flex items-center justify-center transition-colors cursor-pointer active:scale-95"
                                 >
                                     <XIcon className="h-5 w-5" />
                                 </button>
@@ -646,6 +646,13 @@ export function EditorDashboardV2() {
                                             <span className="text-muted-foreground">Status</span>
                                             <span className="font-semibold text-foreground">{getStatusLabel(selectedProjectDetails.status)}</span>
                                         </div>
+                                    </div>
+
+                                    <div className="bg-primary/10 border border-primary/20 rounded-lg p-4 space-y-2">
+                                        <p className="text-xs text-muted-foreground font-bold uppercase tracking-widest mb-2">Manager Remarks</p>
+                                        <p className="text-sm text-foreground leading-relaxed whitespace-pre-wrap break-words">
+                                            {(selectedProjectDetails as any).pmRemarks || 'No remarks from the manager yet.'}
+                                        </p>
                                     </div>
                                 </div>
                             </div>

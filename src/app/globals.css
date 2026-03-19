@@ -295,3 +295,35 @@ body {
         transform: translateY(0);
     }
 }
+
+/* Button Push Animation */
+@keyframes button-push {
+    0% {
+        transform: scale(1);
+    }
+    50% {
+        transform: scale(0.95);
+    }
+    100% {
+        transform: scale(1);
+    }
+}
+
+.btn-push {
+    @apply cursor-pointer active:scale-[0.95] active:animate-pulse transition-all duration-100;
+}
+
+.btn-animated {
+    @apply cursor-pointer select-none transition-all duration-150 active:scale-[0.95];
+    user-select: none;
+}
+
+/* Cursor pointer utility for interactive elements */
+.interactive {
+    cursor: pointer;
+}
+
+/* For all button-like elements */
+button, a[role="button"], [role="button"] {
+    cursor: pointer;
+}

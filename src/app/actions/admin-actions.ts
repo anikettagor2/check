@@ -339,16 +339,24 @@ export async function respondToAssignment(projectId: string, response: 'accepted
 
         // Notify based on response
         if (response === 'accepted') {
-            // Notify client that editor accepted/production started
-            const { notifyClientEditorAccepted, notifyPMEditorAccepted } = await import('@/lib/whatsapp');
-            notifyClientEditorAccepted(projectId);
-            
-            // Notify PM that editor accepted
-            if (pmId) {
-                notifyPMEditorAccepted(projectId, pmId, editorName);
-            }
+            // Fire-and-forget WhatsApp notifications (non-blocking)
+            import('@/lib/whatsapp').then(({ notifyClientEditorAccepted, notifyPMEditorAccepted }) => {
+                try {
+                    notifyClientEditorAccepted(projectId);
+                } catch (err) {
+                    console.error('[WhatsApp] Failed to notify client:', err);
+                }
+                
+                if (pmId) {
+                    try {
+                        notifyPMEditorAccepted(projectId, pmId, editorName);
+                    } catch (err) {
+                        console.error('[WhatsApp] Failed to notify PM:', err);
+                    }
+                }
+            }).catch(err => console.error('[WhatsApp] Failed to import:', err));
         } else if (response === 'rejected') {
-            // Create in-app notification for PM about rejection
+            // Create in-app notification for PM about rejection (CRITICAL - must succeed)
             if (pmId) {
                 const notificationRef = adminDb.collection('notifications').doc();
                 await notificationRef.set({
@@ -362,14 +370,19 @@ export async function respondToAssignment(projectId: string, response: 'accepted
                     reason: reason?.trim() || 'No reason provided',
                     read: false,
                     link: `/dashboard?project=${projectId}`,
-                    createdAt: now
+                    createdAt: admin.firestore.FieldValue.serverTimestamp()
                 });
             }
             
-            // Also send WhatsApp notification
-            const { notifyPMEditorRejected } = await import('@/lib/whatsapp');
+            // Fire-and-forget WhatsApp notification (non-blocking)
             if (pmId) {
-                notifyPMEditorRejected(projectId, pmId, editorName, reason?.trim() || 'No reason provided');
+                import('@/lib/whatsapp').then(({ notifyPMEditorRejected }) => {
+                    try {
+                        notifyPMEditorRejected(projectId, pmId, editorName, reason?.trim() || 'No reason provided');
+                    } catch (err) {
+                        console.error('[WhatsApp] Failed to notify PM:', err);
+                    }
+                }).catch(err => console.error('[WhatsApp] Failed to import:', err));
             }
         }
 
@@ -653,11 +666,10 @@ export async function updateSystemSettings(settings: any) {
  */
 export async function getUnreadNotifications(userId: string) {
     try {
-        // Simple query without composite index
+        // Fetch ALL notifications, filter on client side
         const notificationsSnap = await adminDb
             .collection('notifications')
             .where('userId', '==', userId)
-            .where('read', '==', false)
             .limit(50)
             .get();
         
@@ -666,7 +678,12 @@ export async function getUnreadNotifications(userId: string) {
                 id: doc.id,
                 ...doc.data()
             }))
-            .sort((a: any, b: any) => (b.createdAt || 0) - (a.createdAt || 0))
+            .filter((n: any) => n.read !== true)  // Filter on client
+            .sort((a: any, b: any) => {
+                const aTime = a.createdAt?.toMillis?.() || 0;
+                const bTime = b.createdAt?.toMillis?.() || 0;
+                return bTime - aTime;
+            })
             .slice(0, 20);
         
         return { success: true, data: notifications };
@@ -696,15 +713,18 @@ export async function markNotificationAsRead(notificationId: string) {
  */
 export async function markAllNotificationsAsRead(userId: string) {
     try {
+        // Fetch all notifications for user, filter client side, then batch update
         const notificationsSnap = await adminDb
             .collection('notifications')
             .where('userId', '==', userId)
-            .where('read', '==', false)
             .get();
         
         const batch = adminDb.batch();
         notificationsSnap.docs.forEach(doc => {
-            batch.update(doc.ref, { read: true, readAt: Date.now() });
+            const data = doc.data();
+            if (data.read !== true) {  // Only update if not already read
+                batch.update(doc.ref, { read: true, readAt: Date.now() });
+            }
         });
         
         await batch.commit();

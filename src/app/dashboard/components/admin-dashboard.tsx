@@ -2812,7 +2812,7 @@ export function AdminDashboard() {
                                 {inspectProject.assignmentStatus === 'rejected' && inspectProject.editorDeclineReason && (
                                     <div className="p-4 rounded-xl bg-red-500/10 border border-red-500/20 text-red-500 space-y-1">
                                         <div className="text-[9px] font-black uppercase tracking-[0.2em] flex items-center gap-2">
-                                            <AlertCircle className="h-3.5 w-3.5" /> REJECTION_INCIDENT
+                                            <AlertCircle className="h-3.5 w-3.5" /> {users.find(u => u.uid === inspectProject.assignedEditorId)?.displayName || 'Editor'} Declined
                                         </div>
                                         <p className="text-xs text-red-400 font-bold italic">â€œ{inspectProject.editorDeclineReason}â€</p>
                                     </div>

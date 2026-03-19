@@ -191,8 +191,7 @@ export function ProjectManagerDashboard() {
     const [reviewLoading, setReviewLoading] = useState(false);
     const [isUploadingPMFile, setIsUploadingPMFile] = useState(false);
     const [pmFileInput, setPmFileInput] = useState<HTMLInputElement | null>(null);
-    const [previewFile, setPreviewFile] = useState<{url: string; name: string} | null>(null);
-    const [isPreviewModalOpen, setIsPreviewModalOpen] = useState(false);
+    const [openRejectionPopup, setOpenRejectionPopup] = useState<string | null>(null);
     const router = useRouter();
 
     useEffect(() => {
@@ -610,7 +609,7 @@ export function ProjectManagerDashboard() {
                                                 <div className="max-w-[180px]">
                                                     <button 
                                                         onClick={() => { setInspectProject(project); setIsProjectDetailModalOpen(true); }}
-                                                        className="text-sm font-medium text-foreground hover:text-primary transition-colors text-left truncate block"
+                                                        className="text-sm font-medium text-foreground hover:text-primary transition-colors text-left truncate block cursor-pointer active:scale-95"
                                                         title={project.name}
                                                     >
                                                         {project.name}
@@ -644,37 +643,38 @@ export function ProjectManagerDashboard() {
                                             {/* Editor Dropdown with Profile View */}
                                             <td className="px-4 py-3">
                                                 <div className="space-y-1">
-                                                    <DropdownMenu>
-                                                        <DropdownMenuTrigger asChild>
-                                                            <button className={cn(
-                                                                "flex items-center gap-2 px-3 py-2 rounded-lg border text-xs font-medium transition-all min-w-[140px] max-w-[160px]",
-                                                                project.assignmentStatus === 'rejected'
-                                                                    ? "bg-red-500/10 border-red-500/30 text-red-600 hover:bg-red-500/20"
-                                                                    : project.assignedEditorId 
-                                                                    ? "bg-primary/10 border-primary/30 text-foreground hover:bg-primary/20" 
-                                                                    : "bg-muted border-border text-muted-foreground hover:bg-muted/80 hover:text-foreground"
-                                                            )}>
-                                                                {project.assignmentStatus === 'rejected' ? (
-                                                                    <>
-                                                                        <AlertCircle className="h-4 w-4 shrink-0" />
-                                                                        <span>Rejected</span>
-                                                                    </>
-                                                                ) : project.assignedEditorId ? (
-                                                                    <>
-                                                                        <div className="h-5 w-5 rounded-full bg-primary/20 flex items-center justify-center text-[10px] font-bold text-primary shrink-0">
-                                                                            {editors.find(e => e.uid === project.assignedEditorId)?.displayName?.[0] || 'E'}
-                                                                        </div>
-                                                                        <span className="truncate">{editors.find(e => e.uid === project.assignedEditorId)?.displayName || 'Editor'}</span>
-                                                                    </>
-                                                                ) : (
-                                                                    <>
-                                                                        <UserIcon className="h-4 w-4 shrink-0" />
-                                                                        <span>Unassigned</span>
-                                                                    </>
-                                                                )}
-                                                                <ChevronDown className="h-3.5 w-3.5 ml-auto shrink-0 opacity-50" />
-                                                            </button>
-                                                        </DropdownMenuTrigger>
+                                                    <div className="flex items-center gap-2">
+                                                        <DropdownMenu>
+                                                            <DropdownMenuTrigger asChild>
+                                                                <button className={cn(
+                                                                    "flex items-center gap-2 px-3 py-2 rounded-lg border text-xs font-medium transition-all min-w-[140px] max-w-[160px] cursor-pointer active:scale-95",
+                                                                    project.assignmentStatus === 'rejected'
+                                                                        ? "bg-red-500/10 border-red-500/30 text-red-600 hover:bg-red-500/20"
+                                                                        : project.assignedEditorId 
+                                                                        ? "bg-primary/10 border-primary/30 text-foreground hover:bg-primary/20" 
+                                                                        : "bg-muted border-border text-muted-foreground hover:bg-muted/80 hover:text-foreground"
+                                                                )}>
+                                                                    {project.assignmentStatus === 'rejected' ? (
+                                                                        <>
+                                                                            <AlertCircle className="h-4 w-4 shrink-0" />
+                                                                            <span>Rejected</span>
+                                                                        </>
+                                                                    ) : project.assignedEditorId ? (
+                                                                        <>
+                                                                            <div className="h-5 w-5 rounded-full bg-primary/20 flex items-center justify-center text-[10px] font-bold text-primary shrink-0">
+                                                                                {editors.find(e => e.uid === project.assignedEditorId)?.displayName?.[0] || 'E'}
+                                                                            </div>
+                                                                            <span className="truncate">{editors.find(e => e.uid === project.assignedEditorId)?.displayName || 'Editor'}</span>
+                                                                        </>
+                                                                    ) : (
+                                                                        <>
+                                                                            <UserIcon className="h-4 w-4 shrink-0" />
+                                                                            <span>Unassigned</span>
+                                                                        </>
+                                                                    )}
+                                                                    <ChevronDown className="h-3.5 w-3.5 ml-auto shrink-0 opacity-50" />
+                                                                </button>
+                                                            </DropdownMenuTrigger>
                                                     <DropdownMenuContent align="start" className="w-[320px] p-2">
                                                         <DropdownMenuLabel className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground px-2 pb-2">
                                                             Select Editor
@@ -812,7 +812,31 @@ export function ProjectManagerDashboard() {
                                                         </div>
                                                     </DropdownMenuContent>
                                                 </DropdownMenu>
-                                            </div>
+                                                {/* Rejection Tooltip */}
+                                                {project.assignmentStatus === 'rejected' && project.editorDeclineReason && (
+                                                    <div className="relative">
+                                                        <button 
+                                                            onClick={() => setOpenRejectionPopup(openRejectionPopup === project.id ? null : project.id)}
+                                                            className="h-8 w-8 rounded-lg bg-red-500/10 border border-red-500/30 flex items-center justify-center text-red-600 hover:bg-red-500/20 transition-colors cursor-pointer active:scale-95"
+                                                            title="View rejection reason"
+                                                        >
+                                                            <AlertCircle className="h-4 w-4" />
+                                                        </button>
+                                                        {openRejectionPopup === project.id && (
+                                                            <>
+                                                                <div className="fixed inset-0 z-40" onClick={() => setOpenRejectionPopup(null)} />
+                                                                <div className="absolute left-full ml-2 bottom-0 z-50 w-72 p-3 bg-card border border-red-500/30 rounded-lg shadow-xl text-[11px]">
+                                                                    <p className="font-semibold text-red-600 mb-1">
+                                                                        {users.find(u => u.uid === project.assignedEditorId)?.displayName || 'Editor'} rejected
+                                                                    </p>
+                                                                    <p className="text-red-500/80 leading-relaxed">{project.editorDeclineReason}</p>
+                                                                </div>
+                                                            </>
+                                                        )}
+                                                    </div>
+                                                )}
+                                                    </div>
+                                                </div>
                                             </td>
                                             {/* Editor Price */}
                                             <td className="px-4 py-3">
@@ -860,14 +884,14 @@ export function ProjectManagerDashboard() {
                                                 <button
                                                     onClick={() => handleOpenReview(project.id)}
                                                     disabled={reviewLoading}
-                                                    className="h-8 flex items-center gap-1.5 px-3 rounded-md bg-primary/10 hover:bg-primary/20 text-primary text-xs font-semibold transition-colors disabled:opacity-50"
+                                                    className="h-8 flex items-center gap-1.5 px-3 rounded-md bg-primary/10 hover:bg-primary/20 text-primary text-xs font-semibold transition-colors disabled:opacity-50 cursor-pointer active:scale-95"
                                                 >
                                                     {reviewLoading ? <Loader2 className="h-3 w-3 animate-spin" /> : <MessageSquare className="h-3 w-3" />}
                                                     Review
                                                 </button>
                                                 <DropdownMenu>
                                                     <DropdownMenuTrigger asChild>
-                                                        <button className="h-8 w-8 flex items-center justify-center rounded-md hover:bg-muted text-muted-foreground hover:text-foreground transition-colors">
+                                                        <button className="h-8 w-8 flex items-center justify-center rounded-md hover:bg-muted text-muted-foreground hover:text-foreground transition-colors cursor-pointer active:scale-95">
                                                             <MoreHorizontal className="h-4 w-4" />
                                                         </button>
                                                     </DropdownMenuTrigger>
@@ -1010,7 +1034,7 @@ export function ProjectManagerDashboard() {
                             <button
                                 onClick={handleAutoAssign}
                                 disabled={isAutoAssigning || !editorPriceInput}
-                                className="px-6 py-3 bg-primary text-primary-foreground rounded-xl text-sm font-bold flex items-center gap-2 hover:bg-primary/90 transition-all disabled:opacity-50 disabled:cursor-not-allowed shadow-lg shadow-primary/20"
+                                className="px-6 py-3 bg-primary text-primary-foreground rounded-xl text-sm font-bold flex items-center gap-2 hover:bg-primary/90 transition-all disabled:opacity-50 disabled:cursor-not-allowed shadow-lg shadow-primary/20 cursor-pointer active:scale-95"
                             >
                                 {isAutoAssigning ? (
                                     <>
@@ -1461,25 +1485,13 @@ export function ProjectManagerDashboard() {
                                                 className="flex items-center justify-between gap-3 p-2 rounded-md bg-card border border-border hover:border-primary/40 transition-colors"
                                             >
                                                 <span className="text-xs font-medium text-foreground truncate">{file.name || `Raw File ${idx + 1}`}</span>
-                                                <div className="flex items-center gap-2">
-                                                    <button
-                                                        onClick={() => {
-                                                            setPreviewFile({url: file.url, name: file.name || `Raw File ${idx + 1}`});
-                                                            setIsPreviewModalOpen(true);
-                                                        }}
-                                                        className="h-8 w-8 rounded-md bg-muted hover:bg-primary/20 hover:text-primary text-muted-foreground flex items-center justify-center transition-all"
-                                                        title="Preview file"
-                                                    >
-                                                        <Eye className="h-3.5 w-3.5" />
-                                                    </button>
-                                                    <button
-                                                        onClick={() => handleDirectDownload(file.url, file.name || `raw-file-${idx + 1}`)}
-                                                        className="h-8 w-8 rounded-md bg-muted hover:bg-primary/20 hover:text-primary text-muted-foreground flex items-center justify-center transition-all"
-                                                        title="Download file"
-                                                    >
-                                                        <Download className="h-3.5 w-3.5" />
-                                                    </button>
-                                                </div>
+                                                <button
+                                                    onClick={() => handleDirectDownload(file.url, file.name || `raw-file-${idx + 1}`)}
+                                                    className="h-8 w-8 rounded-md bg-muted hover:bg-primary/20 hover:text-primary text-muted-foreground flex items-center justify-center transition-all"
+                                                    title="Download file"
+                                                >
+                                                    <Download className="h-3.5 w-3.5" />
+                                                </button>
                                             </div>
                                         ))}
                                     </div>
@@ -1559,7 +1571,7 @@ export function ProjectManagerDashboard() {
                             <button
                                 onClick={() => handleOpenReview(inspectProject.id)}
                                 disabled={reviewLoading}
-                                className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-primary text-primary-foreground rounded-lg text-sm font-semibold hover:bg-primary/90 transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
+                                className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-primary text-primary-foreground rounded-lg text-sm font-semibold hover:bg-primary/90 transition-colors disabled:opacity-60 disabled:cursor-not-allowed cursor-pointer active:scale-95"
                             >
                                 {reviewLoading ? (
                                     <Loader2 className="h-4 w-4 animate-spin" />
@@ -1569,7 +1581,18 @@ export function ProjectManagerDashboard() {
                                 Open Review & Comments
                             </button>
 
-
+                            {/* Decline Reason */}
+                            {inspectProject.assignmentStatus === 'rejected' && inspectProject.editorDeclineReason && (
+                                <div className="p-4 rounded-lg bg-red-500/10 border border-red-500/20">
+                                    <div className="flex items-center gap-2 text-red-500 mb-2">
+                                        <AlertCircle className="h-4 w-4" />
+                                        <p className="text-sm font-medium">
+                                            {users.find(u => u.uid === inspectProject.assignedEditorId)?.displayName || 'Editor'} Declined
+                                        </p>
+                                    </div>
+                                    <p className="text-sm text-red-500/80">{inspectProject.editorDeclineReason}</p>
+                                </div>
+                            )}
                         </div>
 
                         {/* Sidebar - Financials & History */}
@@ -1636,85 +1659,6 @@ export function ProjectManagerDashboard() {
                                 </div>
                             </div>
                         </div>
-                    </div>
-                )}
-            </Modal>
-
-            {/* File Preview Modal */}
-            <Modal 
-                isOpen={isPreviewModalOpen} 
-                onClose={() => {
-                    setIsPreviewModalOpen(false);
-                    setPreviewFile(null);
-                }}
-                title={previewFile?.name || "File Preview"}
-                maxWidth="max-w-4xl"
-            >
-                {previewFile && (
-                    <div className="mt-4 flex flex-col items-center justify-center min-h-[500px] bg-muted/30 border border-border rounded-lg overflow-hidden">
-                        {previewFile.url ? (
-                            <>
-                                {/* Determine file type and render appropriate viewer */}
-                                {previewFile.url.toLowerCase().match(/\.(mp4|webm|mov|avi|mkv)(\?|$)/i) ? (
-                                    // Video Player
-                                    <video 
-                                        controls 
-                                        className="w-full h-full max-h-[500px] object-contain"
-                                        src={previewFile.url}
-                                    >
-                                        Your browser does not support the video tag.
-                                    </video>
-                                ) : previewFile.url.toLowerCase().match(/\.pdf(\?|$)/i) ? (
-                                    // PDF Viewer
-                                    <iframe 
-                                        src={`${previewFile.url}#toolbar=1`} 
-                                        className="w-full h-[500px]"
-                                        title="PDF Viewer"
-                                    />
-                                ) : previewFile.url.toLowerCase().match(/\.(jpg|jpeg|png|gif|webp|svg)(\?|$)/i) ? (
-                                    // Image Viewer
-                                    <div className="flex items-center justify-center w-full h-[500px] p-4">
-                                        <img 
-                                            src={previewFile.url} 
-                                            alt={previewFile.name}
-                                            className="max-w-full max-h-full object-contain rounded-lg"
-                                        />
-                                    </div>
-                                ) : previewFile.url.toLowerCase().match(/\.(txt|md|json|csv|xml|js|ts|jsx|tsx|css|html)(\?|$)/i) ? (
-                                    // Text File Viewer
-                                    <div className="w-full h-[500px] flex flex-col bg-card border border-border rounded">
-                                        <div className="flex-1 overflow-auto p-4">
-                                            <iframe 
-                                                src={previewFile.url}
-                                                className="w-full h-full border-none"
-                                                title="Text Viewer"
-                                            />
-                                        </div>
-                                    </div>
-                                ) : (
-                                    // Default: Show file icon and download button
-                                    <div className="flex flex-col items-center justify-center gap-6 p-8">
-                                        <FileVideo className="h-20 w-20 text-muted-foreground/40" />
-                                        <div className="text-center">
-                                            <p className="text-foreground font-semibold mb-2">{previewFile.name}</p>
-                                            <p className="text-sm text-muted-foreground mb-6">Preview not available for this file type</p>
-                                        </div>
-                                        <button
-                                            onClick={() => handleDirectDownload(previewFile.url, previewFile.name)}
-                                            className="px-6 py-3 bg-primary text-primary-foreground rounded-lg text-sm font-semibold hover:bg-primary/90 transition-colors flex items-center gap-2"
-                                        >
-                                            <Download className="h-4 w-4" />
-                                            Download File
-                                        </button>
-                                    </div>
-                                )}
-                            </>
-                        ) : (
-                            <div className="flex flex-col items-center justify-center gap-4 p-8">
-                                <AlertCircle className="h-12 w-12 text-red-500" />
-                                <p className="text-muted-foreground">Unable to load file preview</p>
-                            </div>
-                        )}
                     </div>
                 )}
             </Modal>

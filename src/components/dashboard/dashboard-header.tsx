@@ -1,14 +1,10 @@
 "use client";
 
 import { useAuth } from "@/lib/context/auth-context";
-import { Bell, Search, Command, Activity, Zap, Terminal, Menu, X, CheckCircle2, AlertCircle } from "lucide-react";
+import { Bell, Search, Command, Activity, Zap, Terminal, Menu } from "lucide-react";
 import { ModeToggle } from "@/components/mode-toggle";
 import { motion } from "framer-motion";
 import { cn } from "@/lib/utils";
-import { useState, useEffect } from "react";
-import { getUnreadNotifications, markNotificationAsRead, markAllNotificationsAsRead } from "@/app/actions/admin-actions";
-import { db } from "@/lib/firebase/config";
-import { collection, query, where, onSnapshot } from "firebase/firestore";
 
 import Image from "next/image";
 import { useBranding } from "@/lib/context/branding-context";
@@ -20,74 +16,6 @@ interface DashboardHeaderProps {
 export function DashboardHeader({ onMenuClick }: DashboardHeaderProps) {
   const { user } = useAuth();
   const { logoUrl } = useBranding();
-  const [notifications, setNotifications] = useState<any[]>([]);
-  const [isNotificationOpen, setIsNotificationOpen] = useState(false);
-  const [loading, setLoading] = useState(false);
-  
-  useEffect(() => {
-    if (user?.uid) {
-      // Set up real-time listener for notifications
-      try {
-        const q = query(
-          collection(db, "notifications"),
-          where("userId", "==", user.uid),
-          where("read", "==", false)
-        );
-        
-        const unsubscribe = onSnapshot(q, (snapshot) => {
-          const newNotifications = snapshot.docs.map(doc => ({
-            id: doc.id,
-            ...doc.data()
-          })).sort((a: any, b: any) => (b.createdAt || 0) - (a.createdAt || 0));
-          
-          setNotifications(newNotifications);
-        }, (error) => {
-          console.error("Error listening to notifications:", error);
-          // Fallback to polling if real-time fails
-          fetchNotifications();
-        });
-        
-        return () => unsubscribe();
-      } catch (error) {
-        console.error("Error setting up notification listener:", error);
-        // Fallback to polling
-        fetchNotifications();
-        const interval = setInterval(fetchNotifications, 30000);
-        return () => clearInterval(interval);
-      }
-    }
-  }, [user?.uid]);
-  
-  const fetchNotifications = async () => {
-    if (!user?.uid) return;
-    try {
-      const result = await getUnreadNotifications(user.uid);
-      if (result.success) {
-        setNotifications(result.data || []);
-      } else {
-        console.error('Failed to fetch notifications:', result.error);
-      }
-    } catch (error) {
-      console.error('Failed to fetch notifications:', error);
-    }
-  };
-  
-  const handleNotificationClick = async (notification: any) => {
-    await markNotificationAsRead(notification.id);
-    setNotifications(notifications.filter(n => n.id !== notification.id));
-    if (notification.link) {
-      window.location.href = notification.link;
-    }
-  };
-  
-  const handleMarkAllAsRead = async () => {
-    if (user?.uid) {
-      await markAllNotificationsAsRead(user.uid);
-      setNotifications([]);
-    }
-  };
-  
-  const hasRejections = notifications.some(n => n.type === 'project_rejected');
   
   return (
     <header className="sticky top-0 z-30 flex h-20 w-full items-center justify-between border-b border-border bg-background/80 px-6 md:px-10 backdrop-blur-xl transition-all shrink-0">
@@ -164,126 +92,11 @@ export function DashboardHeader({ onMenuClick }: DashboardHeaderProps) {
 
          {/* Meta Actions */}
           <div className="flex items-center gap-3">
-            {/* Notifications Bell */}
-            <div className="relative">
-              <button 
-                onClick={() => setIsNotificationOpen(!isNotificationOpen)}
-                className={cn(
-                  "relative flex h-10 w-10 items-center justify-center rounded-lg border transition-all duration-300 active:scale-95 group",
-                  hasRejections
-                    ? "border-red-500/40 bg-red-500/10 text-red-500 hover:bg-red-500/20 hover:border-red-500/60"
-                    : "border-border bg-muted/30 text-muted-foreground hover:bg-accent hover:text-foreground hover:border-primary/40"
-                )}
-              >
-                  <Bell className={cn(
-                    "h-4 w-4 relative z-10 transition-transform group-hover:rotate-12",
-                    hasRejections && "animate-bounce"
-                  )} />
-                  {notifications.length > 0 && (
-                    <span className={cn(
-                      "absolute top-2.5 right-2.5 h-2 w-2 rounded-full z-20 border-2 border-background",
-                      hasRejections ? "bg-red-500 animate-pulse" : "bg-primary"
-                    )} />
-                  )}
-                  {notifications.length > 0 && (
-                    <span className={cn(
-                      "absolute -top-2 -right-2 h-5 w-5 rounded-full flex items-center justify-center text-[10px] font-bold z-20 border-2 border-background",
-                      hasRejections ? "bg-red-500 text-white" : "bg-primary text-primary-foreground"
-                    )}>
-                      {notifications.length}
-                    </span>
-                  )}
-                  <div className={cn(
-                    "absolute inset-0 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity",
-                    hasRejections ? "bg-red-500/10" : "bg-primary/5"
-                  )} />
-              </button>
-              
-              {/* Notifications Dropdown */}
-              {isNotificationOpen && (
-                <motion.div
-                  initial={{ opacity: 0, y: -10, scale: 0.95 }}
-                  animate={{ opacity: 1, y: 0, scale: 1 }}
-                  exit={{ opacity: 0, y: -10, scale: 0.95 }}
-                  className="absolute right-0 top-12 w-96 bg-card border border-border rounded-xl shadow-xl z-50"
-                >
-                  {/* Header */}
-                  <div className="flex items-center justify-between p-4 border-b border-border">
-                    <h3 className="text-sm font-semibold text-foreground">
-                      Notifications {notifications.length > 0 && `(${notifications.length})`}
-                    </h3>
-                    <button
-                      onClick={() => setIsNotificationOpen(false)}
-                      className="text-muted-foreground hover:text-foreground transition-colors"
-                    >
-                      <X className="h-4 w-4" />
-                    </button>
-                  </div>
-                  
-                  {/* Notifications List */}
-                  <div className="max-h-96 overflow-y-auto">
-                    {loading ? (
-                      <div className="p-8 text-center text-muted-foreground">Loading...</div>
-                    ) : notifications.length === 0 ? (
-                      <div className="p-8 text-center">
-                        <CheckCircle2 className="h-12 w-12 text-muted-foreground/30 mx-auto mb-2" />
-                        <p className="text-sm text-muted-foreground">All caught up!</p>
-                      </div>
-                    ) : (
-                      notifications.map(notification => (
-                        <motion.button
-                          key={notification.id}
-                          onClick={() => handleNotificationClick(notification)}
-                          className={cn(
-                            "w-full text-left p-4 border-b border-border/50 last:border-0 transition-all hover:bg-muted/50",
-                            notification.type === 'project_rejected' && "hover:bg-red-500/10"
-                          )}
-                        >
-                          <div className="flex items-start gap-3">
-                            {notification.type === 'project_rejected' && (
-                              <div className="mt-0.5 flex-shrink-0">
-                                <AlertCircle className="h-4 w-4 text-red-500" />
-                              </div>
-                            )}
-                            <div className="flex-1 min-w-0">
-                              <p className={cn(
-                                "text-sm font-medium",
-                                notification.type === 'project_rejected' ? "text-red-500" : "text-foreground"
-                              )}>
-                                {notification.title}
-                              </p>
-                              <p className="text-xs text-muted-foreground mt-0.5 line-clamp-3">
-                                {notification.message}
-                              </p>
-                              {notification.type === 'project_rejected' && notification.reason && (
-                                <p className="text-xs text-red-600 mt-2 p-2 bg-red-500/10 rounded border border-red-500/20">
-                                  <span className="font-semibold">Reason:</span> {notification.reason}
-                                </p>
-                              )}
-                              <p className="text-[10px] text-muted-foreground mt-1">
-                                {new Date(notification.createdAt).toLocaleString()}
-                              </p>
-                            </div>
-                          </div>
-                        </motion.button>
-                      ))
-                    )}
-                  </div>
-                  
-                  {/* Footer */}
-                  {notifications.length > 0 && (
-                    <div className="p-3 border-t border-border flex justify-end">
-                      <button
-                        onClick={handleMarkAllAsRead}
-                        className="text-xs font-medium text-primary hover:underline"
-                      >
-                        Mark all as read
-                      </button>
-                    </div>
-                  )}
-                </motion.div>
-              )}
-            </div>
+            <button className="relative flex h-10 w-10 items-center justify-center rounded-lg border border-border bg-muted/30 text-muted-foreground transition-all hover:bg-accent hover:text-foreground group duration-300 hover:border-primary/40 active:scale-95">
+                <Bell className="h-4 w-4 relative z-10 transition-transform group-hover:rotate-12" />
+                <span className="absolute top-2.5 right-2.5 h-1.5 w-1.5 rounded-full bg-primary z-20 border-2 border-background" />
+                <div className="absolute inset-0 bg-primary/5 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity" />
+            </button>
 
             <div className="h-6 w-px bg-border mx-2" />
             
