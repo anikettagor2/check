@@ -65,6 +65,7 @@ import {
 import { Modal } from "@/components/ui/modal";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Label } from "@/components/ui/label";
+import { FilePreview } from "@/components/file-preview";
 
 
 // Stats Card Component
@@ -1476,23 +1477,16 @@ export function ProjectManagerDashboard() {
 
                             {/* Client Raw Files */}
                             <div className="bg-muted/30 border border-border rounded-lg p-4">
-                                <p className="text-xs text-muted-foreground mb-3">Client Raw Files</p>
+                                <p className="text-xs text-muted-foreground mb-4 font-semibold">Client Raw Files</p>
                                 {inspectProject.rawFiles && inspectProject.rawFiles.length > 0 ? (
-                                    <div className="space-y-2">
+                                    <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
                                         {inspectProject.rawFiles.map((file: any, idx: number) => (
-                                            <div
+                                            <FilePreview
                                                 key={`${file.url}-${idx}`}
-                                                className="flex items-center justify-between gap-3 p-2 rounded-md bg-card border border-border hover:border-primary/40 transition-colors"
-                                            >
-                                                <span className="text-xs font-medium text-foreground truncate">{file.name || `Raw File ${idx + 1}`}</span>
-                                                <button
-                                                    onClick={() => handleDirectDownload(file.url, file.name || `raw-file-${idx + 1}`)}
-                                                    className="h-8 w-8 rounded-md bg-muted hover:bg-primary/20 hover:text-primary text-muted-foreground flex items-center justify-center transition-all"
-                                                    title="Download file"
-                                                >
-                                                    <Download className="h-3.5 w-3.5" />
-                                                </button>
-                                            </div>
+                                                file={file}
+                                                index={idx}
+                                                onDownload={handleDirectDownload}
+                                            />
                                         ))}
                                     </div>
                                 ) : (
@@ -1502,39 +1496,24 @@ export function ProjectManagerDashboard() {
 
                             {/* PM Reference/Upload Files */}
                             <div className="bg-muted/30 border border-border rounded-lg p-4">
-                                <div className="flex items-center justify-between mb-3">
-                                    <p className="text-xs text-muted-foreground">PM Reference Files</p>
+                                <div className="flex items-center justify-between mb-4">
+                                    <p className="text-xs text-muted-foreground font-semibold">PM Reference Files</p>
                                 </div>
                                 
                                 {/* File List */}
                                 {inspectProject.referenceFiles && inspectProject.referenceFiles.length > 0 ? (
-                                    <div className="space-y-2 mb-3">
+                                    <div className="grid grid-cols-2 md:grid-cols-3 gap-3 mb-4">
                                         {inspectProject.referenceFiles.map((file: any, idx: number) => (
-                                            <div
+                                            <FilePreview
                                                 key={`${file.url}-${idx}`}
-                                                className="flex items-center justify-between gap-3 p-2 rounded-md bg-card border border-border hover:border-primary/40 transition-colors group"
-                                            >
-                                                <div className="flex items-center gap-2 flex-1 min-w-0">
-                                                    <File className="h-4 w-4 text-primary flex-shrink-0" />
-                                                    <div className="min-w-0 flex-1">
-                                                        <p className="text-xs font-medium text-foreground truncate">{file.name}</p>
-                                                        <p className="text-[10px] text-muted-foreground mt-0.5">
-                                                            {file.size ? `${(file.size / (1024*1024)).toFixed(2)} MB` : ''}
-                                                        </p>
-                                                    </div>
-                                                </div>
-                                                <button
-                                                    onClick={() => handleDirectDownload(file.url, file.name || `pm-reference-${idx + 1}`)}
-                                                    className="h-8 w-8 rounded-md bg-muted hover:bg-primary/20 hover:text-primary text-muted-foreground flex items-center justify-center transition-all flex-shrink-0"
-                                                    title="Download file"
-                                                >
-                                                    <Download className="h-3.5 w-3.5" />
-                                                </button>
-                                            </div>
+                                                file={file}
+                                                index={idx}
+                                                onDownload={handleDirectDownload}
+                                            />
                                         ))}
                                     </div>
                                 ) : (
-                                    <p className="text-xs text-muted-foreground mb-3">No reference files uploaded yet.</p>
+                                    <p className="text-xs text-muted-foreground mb-4">No reference files uploaded yet.</p>
                                 )}
 
                                 {/* Upload Button */}
