@@ -608,6 +608,7 @@ export function ClientDashboard() {
                 onClose={() => setIsReviewModalOpen(false)}
                 project={selectedProject}
                 revision={selectedRevision}
+                userRole="client"
             />
         </div>
     );

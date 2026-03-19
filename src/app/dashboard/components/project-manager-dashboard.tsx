@@ -66,6 +66,7 @@ import { Modal } from "@/components/ui/modal";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Label } from "@/components/ui/label";
 import { FilePreview } from "@/components/file-preview";
+import { DraftReviewModal } from "./draft-review-modal";
 
 
 // Stats Card Component
@@ -193,6 +194,11 @@ export function ProjectManagerDashboard() {
     const [isUploadingPMFile, setIsUploadingPMFile] = useState(false);
     const [pmFileInput, setPmFileInput] = useState<HTMLInputElement | null>(null);
     const [openRejectionPopup, setOpenRejectionPopup] = useState<string | null>(null);
+    
+    // Draft Review Modal
+    const [selectedRevisionForReview, setSelectedRevisionForReview] = useState<any>(null);
+    const [isReviewModalOpen, setIsReviewModalOpen] = useState(false);
+    
     const router = useRouter();
 
     useEffect(() => {
@@ -338,7 +344,10 @@ export function ProjectManagerDashboard() {
             // Sort in memory by version (descending) and get the latest
             const revisions = snap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
             const latest = revisions.sort((a: any, b: any) => (b.version || 0) - (a.version || 0))[0];
-            router.push(`/dashboard/projects/${projectId}/review/${latest.id}`);
+            
+            // Set revision for modal instead of routing
+            setSelectedRevisionForReview(latest);
+            setIsReviewModalOpen(true);
         } catch (err) {
             console.error('Review error:', err);
             toast.error("Failed to open review.");
@@ -1642,6 +1651,14 @@ export function ProjectManagerDashboard() {
                     </div>
                 )}
             </Modal>
+
+            <DraftReviewModal
+                isOpen={isReviewModalOpen}
+                onClose={() => setIsReviewModalOpen(false)}
+                project={inspectProject}
+                revision={selectedRevisionForReview}
+                userRole="manager"
+            />
         </div>
     );
 }
