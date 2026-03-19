@@ -7,7 +7,6 @@ import {
   FileVideo, 
   FileAudio, 
   File,
-  Download,
   Eye,
   X
 } from "lucide-react";
@@ -20,10 +19,10 @@ interface FilePreviewProps {
     size?: number;
   };
   index: number;
-  onDownload: (url: string, name: string) => void;
+  onDownload?: (url: string, name: string) => void;
 }
 
-export function FilePreview({ file, index, onDownload }: FilePreviewProps) {
+export function FilePreview({ file, index }: FilePreviewProps) {
   const [showPreview, setShowPreview] = useState(false);
   const [previewError, setPreviewError] = useState(false);
 
@@ -146,14 +145,16 @@ export function FilePreview({ file, index, onDownload }: FilePreviewProps) {
                 Preview
               </button>
             )}
-            <button
-              onClick={() => onDownload(file.url, file.name)}
-              className="flex-1 flex items-center justify-center gap-1.5 px-2 py-2 text-xs font-bold bg-primary/10 text-primary hover:bg-primary/20 rounded-lg transition-all duration-200 active:scale-95"
-              title="Download file"
-            >
-              <Download className="h-3.5 w-3.5" />
-              Download
-            </button>
+            {(fileType !== 'image' && fileType !== 'video') && (
+              <button
+                onClick={() => setShowPreview(true)}
+                className="flex-1 flex items-center justify-center gap-1.5 px-2 py-2 text-xs font-bold text-foreground bg-muted/60 hover:bg-primary/20 hover:text-primary rounded-lg transition-all duration-200 active:scale-95"
+                title="View file"
+              >
+                <Eye className="h-3.5 w-3.5" />
+                View
+              </button>
+            )}
           </div>
         </div>
       </div>
