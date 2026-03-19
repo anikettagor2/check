@@ -4,12 +4,15 @@
 import React, { createContext, useContext, useEffect, useState } from "react";
 import { 
   User as FirebaseUser, 
-  onAuthStateChanged, 
+  onAuthStateChanged,
+  onIdTokenChanged,
   GoogleAuthProvider, 
   signInWithPopup, 
   signOut,
   reauthenticateWithPopup,
-  signInWithEmailAndPassword
+  signInWithEmailAndPassword,
+  browserLocalPersistence,
+  setPersistence
 } from "firebase/auth";
 import { auth, db } from "@/lib/firebase/config";
 import { doc, getDoc, setDoc, onSnapshot } from "firebase/firestore";
@@ -46,44 +49,106 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [firebaseUser, setFirebaseUser] = useState<FirebaseUser | null>(null);
   const [loading, setLoading] = useState(true);
+  const [authInitialized, setAuthInitialized] = useState(false);
   const router = useRouter();
 
+  // Initialize Firebase Auth Persistence on mount
   useEffect(() => {
-    let unsubProfile: (() => void) | null = null;
+    const initializePersistence = async () => {
+      try {
+        await setPersistence(auth, browserLocalPersistence);
+        console.log("✅ Firebase Auth Persistence enabled (browserLocalPersistence)");
+      } catch (error) {
+        console.error("⚠️ Failed to set persistence:", error);
+      }
+      setAuthInitialized(true);
+    };
 
-    const unsubscribe = onAuthStateChanged(auth, async (fbUser) => {
-      setFirebaseUser(fbUser);
+    initializePersistence();
+  }, []);
+
+  // Main auth state listener with token refresh handling
+  useEffect(() => {
+    if (!authInitialized) return;
+
+    let unsubProfile: (() => void) | null = null;
+    let unsubTokenRefresh: (() => void) | null = null;
+    let tokenRefreshTimeout: NodeJS.Timeout | null = null;
+
+    // 🔐 Token Refresh Handler: Prevents unexpected logouts due to token expiration
+    const handleIdTokenRefresh = () => {
+      if (tokenRefreshTimeout) {
+        clearTimeout(tokenRefreshTimeout);
+      }
       
+      // Refresh token every 55 minutes (token valid for 1 hour)
+      tokenRefreshTimeout = setTimeout(() => {
+        auth.currentUser?.getIdToken(true)
+          .then(() => console.log("✅ ID Token refreshed - Session extended"))
+          .catch(err => console.error("⚠️ Token refresh failed:", err));
+      }, 55 * 60 * 1000);
+    };
+
+    // 🔄 Listen to ID token changes (handles refresh automatically)
+    unsubTokenRefresh = onIdTokenChanged(auth, (fbUser) => {
       if (fbUser) {
-        // Fetch user profile from Firestore real-time
-        const userRef = doc(db, "users", fbUser.uid);
-        unsubProfile = onSnapshot(userRef, (snapshot) => {
-          if (snapshot.exists()) {
-            setUser(snapshot.data() as User);
+        handleIdTokenRefresh();
+      } else if (tokenRefreshTimeout) {
+        clearTimeout(tokenRefreshTimeout);
+      }
+    });
+
+    // 🌐 Listen to auth state changes
+    const unsubscribe = onAuthStateChanged(auth, async (fbUser) => {
+      try {
+        setFirebaseUser(fbUser);
+        
+        if (fbUser) {
+          console.log("🔐 Auth State Changed - User logged in:", fbUser.uid);
+          
+          // Fetch user profile from Firestore with real-time listener
+          const userRef = doc(db, "users", fbUser.uid);
+          unsubProfile = onSnapshot(userRef, (snapshot) => {
+            if (snapshot.exists()) {
+              const userData = snapshot.data() as User;
+              setUser(userData);
+              console.log("📊 User Profile Loaded:", userData.displayName, `[${userData.role}]`);
+            } else {
+              console.warn("⚠️ User profile not found in Firestore");
+              setUser(null);
+            }
+            setLoading(false);
+          }, (err) => {
+            console.error("❌ Error listening to user profile:", err);
+            setLoading(false);
+          });
+        } else {
+          console.log("🚪 Auth State Changed - User logged out");
+          if (unsubProfile) {
+            unsubProfile();
+            unsubProfile = null;
           }
+          setUser(null);
           setLoading(false);
-        }, (err) => {
-          console.error("Error listening to user profile:", err);
-          setLoading(false);
-        });
-      } else {
-        if (unsubProfile) {
-          unsubProfile();
-          unsubProfile = null;
         }
-        setUser(null);
+      } catch (error) {
+        console.error("❌ Unexpected error in auth state handler:", error);
         setLoading(false);
       }
     });
 
+    // Cleanup function
     return () => {
       unsubscribe();
       if (unsubProfile) unsubProfile();
+      if (unsubTokenRefresh) unsubTokenRefresh();
+      if (tokenRefreshTimeout) clearTimeout(tokenRefreshTimeout);
     };
-  }, []);
+  }, [authInitialized]);
 
   const signInWithGoogle = async (selectedRole?: UserRole, initialPassword?: string, metadata?: any) => {
     try {
+      console.log("🔐 Google Sign-In initiated...");
       const provider = new GoogleAuthProvider();
       const result = await signInWithPopup(auth, provider);
       
@@ -92,6 +157,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
       if (!userSnap.exists()) {
         if (selectedRole && initialPassword) {
+            console.log("📝 New Google User - Creating profile...");
             // Update the Google user's profile with the new password so they can log in via email too!
             const { updatePassword, updateProfile } = await import("firebase/auth");
             try {
@@ -100,7 +166,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
                     await updateProfile(result.user, { displayName: metadata.displayName });
                 }
             } catch (err: any) {
-                console.warn("Could not set initial password or profile on Google account:", err);
+                console.warn("⚠️ Could not set initial password or profile on Google account:", err);
             }
 
             // Signup Flow: Create new user profile with selected role
@@ -118,22 +184,21 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             };
             await setDoc(userRef, newUser);
             setUser(newUser);
+            console.log("✅ Google User Profile Created");
         } else {
             // Login Flow: Block new users who haven't selected a role via Signup
-            await result.user.delete(); // revert the auth creation
-            await signOut(auth);
+            console.warn("⚠️ Google user not found - Blocking login, redirecting to signup");
+            // Don't sign out here - let the error be thrown and handled by the caller
             throw new Error("Account not found. Please navigate to the Create Account page to set up a role, username, and password before using Google Sign In.");
         }
       } else {
         // CASE: Existing User
         const existingData = userSnap.data() as User;
+        console.log("✅ Existing Google User logged in:", existingData.displayName);
         
         // If coming from Signup (with a role), verify it matches (or just log them in)
         if (selectedRole && existingData.role !== selectedRole && existingData.role !== 'admin') {
-             // Optional: You could allow them to "link" or just warn. 
-             // For now, let's just warn and log them in as their original role, 
-             // OR block them to avoid confusion. Blocking is safer.
-             await signOut(auth);
+             console.warn("⚠️ Role mismatch detected");
              throw new Error(`You already have an account as a ${existingData.role}. Please Log In.`);
         }
 
@@ -143,7 +208,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       router.push("/dashboard");
 
     } catch (error) {
-      console.error("Error signing in with Google", error);
+      console.error("❌ Error signing in with Google:", error);
       throw error;
     }
   };
@@ -160,99 +225,47 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
         let email = normalizedIdentifier;
 
-        // Handle Phone Number, WhatsApp Number or Username Login
-        // ⚠️ CRITICAL: Maintains auth integrity - users can login with:
-        //    1. Username (displayName) + password created during signup
-        //    2. Phone number (any format) + same password
-        //    3. WhatsApp number (any format) + same password
-        //    4. Email + password
-        // Password is always the SAME password set during signup.
+        // Handle Phone Number or Username Login
         if (!normalizedIdentifier.includes("@")) {
           try {
               const { collection, query, where, getDocs } = await import("firebase/firestore");
             const rawIdentifier = identifier.trim();
             const digits = rawIdentifier.replace(/\D/g, '');
 
-            // Try phone/WhatsApp lookup first (supports multiple formats)
+            // Try phone lookup first (supports +91XXXXXXXXXX, 91XXXXXXXXXX, XXXXXXXXXX)
             const phoneCandidates = new Set<string>();
-            
-            // Handle 10-digit numbers (most common)
-            if (digits.length === 10) {
-              // All possible formats for 10-digit number
-              phoneCandidates.add(`+91${digits}`);    // +919876543210
-              phoneCandidates.add(`91${digits}`);     // 919876543210
-              phoneCandidates.add(digits);            // 9876543210
-            } 
-            // Handle 11-digit numbers (with leading 0)
-            else if (digits.length === 11 && digits.startsWith('0')) {
-              const tenDigits = digits.slice(1);
-              phoneCandidates.add(`+91${tenDigits}`);
-              phoneCandidates.add(`91${tenDigits}`);
-              phoneCandidates.add(tenDigits);
-            } 
-            // Handle 12-digit numbers (91 + 10 digits)
-            else if (digits.length === 12 && digits.startsWith('91')) {
-              const tenDigits = digits.slice(2);
-              phoneCandidates.add(`+91${tenDigits}`);
-              phoneCandidates.add(digits);
-              phoneCandidates.add(tenDigits);
-            } 
-            // Handle 13-digit numbers (+91 + 10 digits as string)
-            else if (digits.length === 13 && digits.startsWith('91')) {
-              const tenDigits = digits.slice(2);
-              phoneCandidates.add(`+91${tenDigits}`);
-              phoneCandidates.add(`91${tenDigits}`);
-              phoneCandidates.add(tenDigits);
+            if (digits.length >= 10) {
+              const lastTen = digits.slice(-10);
+              phoneCandidates.add(`+91${lastTen}`);
+              phoneCandidates.add(lastTen);
+              phoneCandidates.add(`91${lastTen}`);
             }
-            
-            // Also try the raw identifier as-is
             phoneCandidates.add(rawIdentifier);
 
             let resolvedUser: User | null = null;
 
-            // 🔐 INTEGRITY CHECK: All identifiers resolve to SAME email account
-            // Once we find the user by phone/username, we get their email,
-            // then authenticate using Firebase Auth (single password per email)
-            // This ensures: username + phone share the SAME password created during signup
-
-            // Check phoneNumber field
             for (const candidate of phoneCandidates) {
               const qPhone = query(collection(db, "users"), where("phoneNumber", "==", candidate));
               const phoneSnap = await getDocs(qPhone);
               if (!phoneSnap.empty) {
                 resolvedUser = phoneSnap.docs[0].data() as User;
-                console.log("✅ Phone Login - User identified by phoneNumber:", candidate, "|", "User:", resolvedUser.displayName, "|", "Role:", resolvedUser.role);
                 break;
               }
             }
 
-            // Check whatsappNumber field if phone not found
-            if (!resolvedUser) {
-              for (const candidate of phoneCandidates) {
-                const qWhatsApp = query(collection(db, "users"), where("whatsappNumber", "==", candidate));
-                const whatsappSnap = await getDocs(qWhatsApp);
-                if (!whatsappSnap.empty) {
-                  resolvedUser = whatsappSnap.docs[0].data() as User;
-                  console.log("✅ WhatsApp Login - User identified by whatsappNumber:", candidate, "|", "User:", resolvedUser.displayName, "|", "Role:", resolvedUser.role);
-                  break;
-                }
-              }
-            }
-
-            // If not phone or WhatsApp, treat as username (displayName)
+            // If not phone, treat as username (displayName)
             if (!resolvedUser) {
               const qUsername = query(collection(db, "users"), where("displayName", "==", rawIdentifier));
               const usernameSnap = await getDocs(qUsername);
               if (!usernameSnap.empty) {
                 resolvedUser = usernameSnap.docs[0].data() as User;
-                console.log("✅ Username Login - User identified by displayName:", rawIdentifier, "|", "User:", resolvedUser.displayName, "|", "Role:", resolvedUser.role);
               }
             }
 
             if (resolvedUser?.email) {
               email = resolvedUser.email.toLowerCase();
             } else {
-              throw new Error("No account found. Please check your WhatsApp number, phone number, username, or email.");
+              throw new Error("No account found with this phone number or username.");
             }
           } catch (err: any) {
             console.error("Identifier lookup failed", err);
@@ -261,38 +274,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
 
       try {
-          // 🔑 PASSWORD VERIFICATION: Single Firebase Auth Account
-          // Whether user logged in with username, phone, or WhatsApp,
-          // we now have their email. Firebase Auth uses email + password
-          // to verify identity. Same password works for all identifiers
-          // because they all resolve to the same Firebase Auth account.
-          const result = await signInWithEmailAndPassword(auth, email, password);
-          console.log("🔓 Password Verified - User authenticated to Firebase Auth", "|", "UID:", result.user.uid);
-          
-          // Fetch full user profile to get role and determine dashboard
-          const { getDoc } = await import("firebase/firestore");
-          const userRef = doc(db, "users", result.user.uid);
-          const userSnap = await getDoc(userRef);
-          
-          if (userSnap.exists()) {
-            const userData = userSnap.data() as User;
-            console.log("📊 Dashboard Routing - Role:", userData.role, "|", "Status:", userData.status);
-            
-            // Route to appropriate dashboard based on role
-            router.push("/dashboard");
-          } else {
-            console.warn("⚠️ User profile not found after login");
-            router.push("/dashboard");
-          }
+          await signInWithEmailAndPassword(auth, email, password);
+          console.log("✅ Email Login Successful - Session authenticated");
+          router.push("/dashboard");
       } catch (error: any) {
-          console.error("Error signing in with Email/Pass", error);
+          console.error("❌ Error signing in with Email/Pass", error);
           
           // Enhanced Admin Recovery
           if (
               (error.code === 'auth/user-not-found' || error.code === 'auth/invalid-credential') &&
               (email.trim().toLowerCase() === "admin@editohub.com" || email.trim().toLowerCase() === "admin@editohub")
           ) {
-              console.log("Admin login failed, attempting to ensure admin account...");
+              console.log("🔧 Admin login attempt - Trying recovery...");
               try {
                   await loginAsAdmin();
                   return;
@@ -317,15 +310,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
               const phoneSnapshot = await getDocs(q);
               if (!phoneSnapshot.empty) {
                   throw new Error("Phone number already in use by another account.");
-              }
-          }
-
-          // Check if WhatsApp number is already in use
-          if (metadata?.whatsappNumber) {
-              const qWA = query(collection(db, "users"), where("whatsappNumber", "==", metadata.whatsappNumber.trim()));
-              const waSnapshot = await getDocs(qWA);
-              if (!waSnapshot.empty) {
-                  throw new Error("WhatsApp number already in use by another account.");
               }
           }
           
@@ -399,11 +383,32 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   const logout = async () => {
-    localStorage.removeItem("editohub_admin_session");
-    await signOut(auth);
-    setUser(null);
-    setFirebaseUser(null);
-    router.push("/");
+    try {
+      console.log("🚪 Logging out user...");
+      
+      // Clear all local session data first
+      localStorage.removeItem("editohub_admin_session");
+      sessionStorage.clear();
+      
+      // Sign out from Firebase (this will trigger onAuthStateChanged)
+      await signOut(auth);
+      
+      // Clear state
+      setUser(null);
+      setFirebaseUser(null);
+      
+      console.log("✅ User logged out successfully");
+      
+      // Navigation happens via onAuthStateChanged listener
+      router.push("/login");
+    } catch (error) {
+      console.error("❌ Error during logout:", error);
+      // Even if logout fails, clear local state and redirect
+      setUser(null);
+      setFirebaseUser(null);
+      router.push("/login");
+      throw error;
+    }
   };
 
 

@@ -253,7 +253,6 @@ export default function SignupPage() {
                                   maxLength={10}
                               />
                           </div>
-                          <p className="text-[10px] text-muted-foreground/70 italic">💬 You can use this WhatsApp number to login</p>
                       </div>
                       <Input 
                           placeholder="Portfolio Link (Google Drive/YouTube/behance)" 

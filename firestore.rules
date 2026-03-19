@@ -40,8 +40,7 @@ service cloud.firestore {
 
     // 1. Users Collection
     match /users/{userId} {
-      // Allow reads: authenticated users OR unauthenticated queries (for login/signup lookups)
-      allow read: if isAuthenticated() || request.query.limit <= 1;
+      allow read: if isAuthenticated();
       allow create: if isAuthenticated(); // Allow creation (e.g. sign up)
       allow update: if isAuthenticated() && (request.auth.uid == userId || isAdmin());
       allow delete: if isAdmin() || hasRole(['project_manager']);

@@ -40,7 +40,7 @@ export default function LoginPage() {
 
   // Real-time validation
   const identifierError = touched.identifier && !identifier.trim()
-    ? "Email, username, phone or WhatsApp is required"
+    ? "Email, username or phone is required"
     : null;
   
   const passwordError = touched.password && !password 
@@ -85,7 +85,7 @@ export default function LoginPage() {
     } catch (error: any) {
       console.error("Email login failed", error);
       setError(error.code === "auth/user-not-found"
-        ? "No account found with this email, username, phone or WhatsApp number"
+        ? "No account found with this email, username or phone"
         : error.code === "auth/wrong-password"
         ? "Incorrect password"
         : "Invalid credentials");
@@ -155,16 +155,15 @@ export default function LoginPage() {
           {/* Email Login Form */}
           <form onSubmit={handleEmailLogin} className="space-y-4">
               <div className="space-y-2">
-                    <Label className="text-foreground/80">Email, Username, Phone or WhatsApp</Label>
+                    <Label className="text-foreground/80">Email, Username or Phone</Label>
                   <Input 
                       type="text" 
-                      placeholder="username, phone, WhatsApp or you@example.com"
+                      placeholder="username, phone or you@example.com"
                       className={`bg-black/5 dark:bg-black/40 border-border text-foreground ${identifierError ? 'border-red-500 focus:ring-red-500' : ''}`}
                       value={identifier}
                       onChange={(e) => setIdentifier(e.target.value)}
                       onBlur={() => setTouched(t => ({ ...t, identifier: true }))}
                   />
-                  <p className="text-[10px] text-muted-foreground/60">💬 Login with email, username, phone number or WhatsApp number</p>
                   {identifierError && (
                     <p className="text-xs text-red-400 flex items-center gap-1">
                       <AlertCircle className="w-3 h-3" />
