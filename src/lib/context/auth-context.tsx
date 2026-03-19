@@ -221,6 +221,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
               const phoneSnap = await getDocs(qPhone);
               if (!phoneSnap.empty) {
                 resolvedUser = phoneSnap.docs[0].data() as User;
+                console.log("✅ Phone Login - User identified by phoneNumber:", candidate, "|", "User:", resolvedUser.displayName, "|", "Role:", resolvedUser.role);
                 break;
               }
             }
@@ -232,6 +233,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
                 const whatsappSnap = await getDocs(qWhatsApp);
                 if (!whatsappSnap.empty) {
                   resolvedUser = whatsappSnap.docs[0].data() as User;
+                  console.log("✅ WhatsApp Login - User identified by whatsappNumber:", candidate, "|", "User:", resolvedUser.displayName, "|", "Role:", resolvedUser.role);
                   break;
                 }
               }
@@ -243,6 +245,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
               const usernameSnap = await getDocs(qUsername);
               if (!usernameSnap.empty) {
                 resolvedUser = usernameSnap.docs[0].data() as User;
+                console.log("✅ Username Login - User identified by displayName:", rawIdentifier, "|", "User:", resolvedUser.displayName, "|", "Role:", resolvedUser.role);
               }
             }
 
@@ -263,8 +266,24 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           // we now have their email. Firebase Auth uses email + password
           // to verify identity. Same password works for all identifiers
           // because they all resolve to the same Firebase Auth account.
-          await signInWithEmailAndPassword(auth, email, password);
-          router.push("/dashboard");
+          const result = await signInWithEmailAndPassword(auth, email, password);
+          console.log("🔓 Password Verified - User authenticated to Firebase Auth", "|", "UID:", result.user.uid);
+          
+          // Fetch full user profile to get role and determine dashboard
+          const { getDoc } = await import("firebase/firestore");
+          const userRef = doc(db, "users", result.user.uid);
+          const userSnap = await getDoc(userRef);
+          
+          if (userSnap.exists()) {
+            const userData = userSnap.data() as User;
+            console.log("📊 Dashboard Routing - Role:", userData.role, "|", "Status:", userData.status);
+            
+            // Route to appropriate dashboard based on role
+            router.push("/dashboard");
+          } else {
+            console.warn("⚠️ User profile not found after login");
+            router.push("/dashboard");
+          }
       } catch (error: any) {
           console.error("Error signing in with Email/Pass", error);
           
