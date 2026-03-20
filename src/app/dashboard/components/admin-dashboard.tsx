@@ -86,7 +86,7 @@ import {
 
 import { useSearchParams } from "next/navigation";
 import { useAuth } from "@/lib/context/auth-context";
-import { assignEditor, updateProject, togglePayLater, deleteProject, deleteUser, toggleUserStatus, rejectDeletionRequest, verifyEditor, getWhatsAppTemplates, updateWhatsAppTemplates, getSystemSettings, updateSystemSettings, settleProjectPayment, addProjectLog, bulkSettleEditorDues } from "@/app/actions/admin-actions";
+import { assignEditor, updateProject, togglePayLater, deleteProject, deleteUser, toggleUserStatus, rejectDeletionRequest, verifyEditor, getWhatsAppTemplates, updateWhatsAppTemplates, getSystemSettings, updateSystemSettings, settleProjectPayment, addProjectLog, bulkSettleEditorDues, assignProjectManager } from "@/app/actions/admin-actions";
 import { AdminOverviewGraphs } from "./admin-overview-graphs";
 import { AdminPerformanceTab } from "./admin-performance";
 import { ClientDocuments } from "./client-documents";
@@ -914,7 +914,37 @@ export function AdminDashboard() {
                                     <td className="px-3 py-3 text-xs text-foreground font-semibold whitespace-nowrap">{project.videoType || project.videoFormat || 'N/A'}</td>
                                     <td className="px-3 py-3 text-xs text-foreground font-semibold whitespace-nowrap">{project.clientName || 'N/A'}</td>
                                     <td className="px-3 py-3 text-xs text-foreground font-semibold whitespace-nowrap">
-                                        {project.assignedPMId ? (users.find(u => u.uid === project.assignedPMId)?.displayName || 'Unknown PM') : 'Not Assigned'}
+                                        <div className="flex items-center gap-2">
+                                            {project.assignedPMId ? (users.find(u => u.uid === project.assignedPMId)?.displayName || 'Unknown PM') : 'Not Assigned'}
+                                            <DropdownMenu>
+                                                <DropdownMenuTrigger asChild>
+                                                    <button className="p-1 hover:bg-muted rounded transition-colors">
+                                                        <Edit className="h-3 w-3 text-muted-foreground" />
+                                                    </button>
+                                                </DropdownMenuTrigger>
+                                                <DropdownMenuContent className="w-48 bg-popover border-border p-1.5 rounded-xl shadow-2xl">
+                                                    <DropdownMenuLabel className="text-[10px] uppercase tracking-widest text-muted-foreground px-2 py-1.5">Change Manager</DropdownMenuLabel>
+                                                    <DropdownMenuSeparator className="my-1 bg-border" />
+                                                    {users.filter(u => u.role === 'project_manager' || u.role === 'admin' || (u as any).role === 'sales_executive').map(manager => (
+                                                        <DropdownMenuItem
+                                                            key={manager.uid}
+                                                            className="p-2 text-xs cursor-pointer rounded-lg"
+                                                            onClick={async () => {
+                                                                const res = await assignProjectManager(project.id, manager.uid, {
+                                                                    uid: currentUser!.uid,
+                                                                    displayName: currentUser!.displayName || 'Admin',
+                                                                    designation: 'Admin'
+                                                                });
+                                                                if (res.success) toast.success(`Manager updated to ${manager.displayName}`);
+                                                                else toast.error(res.error);
+                                                            }}
+                                                        >
+                                                            {manager.displayName} <span className="ml-auto text-[9px] opacity-50 uppercase">{(manager as any).role?.replace('_', ' ')}</span>
+                                                        </DropdownMenuItem>
+                                                    ))}
+                                                </DropdownMenuContent>
+                                            </DropdownMenu>
+                                        </div>
                                     </td>
                                     <td className="px-3 py-3">
                                         <span className={cn(

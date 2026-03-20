@@ -205,6 +205,62 @@ export async function handleProjectCreated(projectId: string) {
 }
 
 /**
+ * Assigns or changes the Project Manager for a project.
+ */
+export async function assignProjectManager(projectId: string, pmId: string, updatedBy: { uid: string, displayName: string, designation: string }) {
+    try {
+        const projectRef = adminDb.collection('projects').doc(projectId);
+        const projectSnap = await projectRef.get();
+        if (!projectSnap.exists) throw new Error("Project not found");
+
+        const pmSnap = await adminDb.collection('users').doc(pmId).get();
+        if (!pmSnap.exists) throw new Error("PM not found");
+        const pmData = pmSnap.data();
+
+        await projectRef.update({
+            assignedPMId: pmId,
+            updatedAt: Date.now()
+        });
+
+        await addProjectLog(
+            projectId,
+            'PM_ASSIGNED',
+            updatedBy,
+            `Project Manager changed to ${pmData?.displayName || 'Unknown'}.`
+        );
+
+        revalidatePath('/dashboard');
+        return { success: true };
+    } catch (error: any) {
+        console.error('Error assigning PM:', error);
+        return { success: false, error: error.message };
+    }
+}
+
+/**
+ * Assigns or changes the Project Manager for a client.
+ */
+export async function assignClientManager(clientId: string, pmId: string, updatedBy: { uid: string, displayName: string, designation: string }) {
+    try {
+        const clientRef = adminDb.collection('users').doc(clientId);
+        const pmSnap = await adminDb.collection('users').doc(pmId).get();
+        if (!pmSnap.exists) throw new Error("PM not found");
+        const pmData = pmSnap.data();
+
+        await clientRef.update({
+            managedByPM: pmId,
+            updatedAt: Date.now()
+        });
+
+        revalidatePath('/dashboard');
+        return { success: true };
+    } catch (error: any) {
+        console.error('Error assigning Client PM:', error);
+        return { success: false, error: error.message };
+    }
+}
+
+/**
  * Assigns an editor to a project with a 5-minute validity window
  * Editor must accept within 5 minutes or assignment expires
  */
