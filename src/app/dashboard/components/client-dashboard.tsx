@@ -24,12 +24,16 @@ import {
     ArrowRight,
     FileVideo,
     Sparkles,
+    X,
     IndianRupee,
     ShieldCheck,
     Download,
     Link as LinkIcon,
-    X,
-    FileText
+    ExternalLink,
+    FileText,
+    Copy,
+    ImageIcon,
+    Briefcase
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import Link from "next/link";
@@ -99,6 +103,7 @@ export function ClientDashboard() {
     const [isProjectModalOpen, setIsProjectModalOpen] = useState(false);
     const [isReviewSystemOpen, setIsReviewSystemOpen] = useState(false);
     const [invoices, setInvoices] = useState<Invoice[]>([]);
+    const [previewFile, setPreviewFile] = useState<{ url: string; type: string; name: string } | null>(null);
 
 
     useEffect(() => {
@@ -439,6 +444,7 @@ export function ClientDashboard() {
                 maxWidth="max-w-5xl"
             >
                 {selectedProject && (
+                    <>
                     <div className="mt-4 grid grid-cols-1 lg:grid-cols-3 gap-6 max-h-[75vh] overflow-y-auto pr-2">
                         <div className="lg:col-span-2 space-y-5">
                             <div className="p-4 rounded-xl bg-muted/30 border border-border">
@@ -523,6 +529,216 @@ export function ClientDashboard() {
                                         <LinkIcon className="h-3.5 w-3.5" /> Open External Reference
                                     </a>
                                 )}
+                            </div>
+
+                            {/* PROFESSIONAL CLIENT UPLOADED ASSETS PANEL */}
+                            <div className="bg-muted/20 border border-border/50 rounded-xl p-6 space-y-5">
+                                <div className="flex items-center gap-2">
+                                    <div className="h-8 w-8 rounded-lg bg-primary/10 border border-primary/20 flex items-center justify-center">
+                                        <Briefcase className="h-4 w-4 text-primary" />
+                                    </div>
+                                    <h4 className="text-sm font-bold uppercase tracking-widest text-foreground">Client Assets</h4>
+                                </div>
+
+                                {/* 1. Google Drive Link */}
+                                <div className="space-y-3">
+                                    <div className="flex items-center gap-2">
+                                        <span className="text-[11px] font-bold uppercase tracking-widest text-muted-foreground">📎 Google Drive Link</span>
+                                    </div>
+                                    {selectedProject.footageLink ? (
+                                        <a 
+                                            href={selectedProject.footageLink.startsWith('http') ? selectedProject.footageLink : `https://${selectedProject.footageLink}`} 
+                                            target="_blank"
+                                            className="flex items-center gap-3 p-3 rounded-lg bg-primary/5 border border-primary/20 hover:border-primary/40 hover:bg-primary/10 transition-all group"
+                                        >
+                                            <ExternalLink className="h-4 w-4 text-primary flex-shrink-0" />
+                                            <span className="text-sm font-semibold text-foreground group-hover:text-primary transition-colors">Access Google Drive</span>
+                                        </a>
+                                    ) : (
+                                        <div className="p-3 rounded-lg border border-border/30 bg-muted/20">
+                                            <p className="text-xs text-muted-foreground">Not uploaded yet</p>
+                                        </div>
+                                    )}
+                                </div>
+
+                                {/* 2. Raw Video Files */}
+                                <div className="space-y-3 pt-3 border-t border-border/30">
+                                    <div className="flex items-center gap-2">
+                                        <span className="text-[11px] font-bold uppercase tracking-widest text-muted-foreground">🎬 Raw Video Files</span>
+                                    </div>
+                                    {selectedProject.rawFiles && selectedProject.rawFiles.length > 0 ? (
+                                        <div className="grid gap-2">
+                                            {selectedProject.rawFiles.slice(0, 3).map((file: any, idx: number) => (
+                                                <div key={idx} className="flex items-center justify-between gap-3 p-3 rounded-lg border border-border/30 hover:bg-muted/30 transition-all group">
+                                                    <div className="flex items-center gap-2 min-w-0 flex-1">
+                                                        <FileVideo className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+                                                        <div className="min-w-0">
+                                                            <p className="text-xs font-semibold text-foreground truncate">{file.name}</p>
+                                                            {file.size && <p className="text-[9px] text-muted-foreground">{(file.size / (1024*1024)).toFixed(1)} MB</p>}
+                                                        </div>
+                                                    </div>
+                                                    <button
+                                                        onClick={() => triggerDirectDownload(file.url, file.name)}
+                                                        className="h-8 w-8 rounded-lg bg-muted/50 group-hover:bg-primary/20 group-hover:text-primary text-muted-foreground flex items-center justify-center transition-all flex-shrink-0"
+                                                    >
+                                                        <Download className="h-3.5 w-3.5" />
+                                                    </button>
+                                                </div>
+                                            ))}
+                                            {(selectedProject.rawFiles?.length || 0) > 3 && (
+                                                <p className="text-xs text-muted-foreground text-center py-1">+{(selectedProject.rawFiles?.length || 0) - 3} more files</p>
+                                            )}
+                                        </div>
+                                    ) : (
+                                        <div className="p-3 rounded-lg border border-border/30 bg-muted/20">
+                                            <p className="text-xs text-muted-foreground">Not uploaded yet</p>
+                                        </div>
+                                    )}
+                                </div>
+
+                                {/* 3. Scripts & Pasted Text */}
+                                <div className="space-y-3 pt-3 border-t border-border/30">
+                                    <div className="flex items-center gap-2">
+                                        <span className="text-[11px] font-bold uppercase tracking-widest text-muted-foreground">📝 Scripts & Directions</span>
+                                    </div>
+
+                                    {/* Uploaded Script Files */}
+                                    {selectedProject.scripts && selectedProject.scripts.length > 0 && (
+                                        <div className="grid gap-2">
+                                            {selectedProject.scripts.slice(0, 2).map((file: any, idx: number) => (
+                                                <div key={idx} className="flex items-center justify-between gap-3 p-3 rounded-lg border border-border/30 hover:bg-muted/30 transition-all group">
+                                                    <div className="flex items-center gap-2 min-w-0 flex-1">
+                                                        <FileText className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+                                                        <p className="text-xs font-semibold text-foreground truncate">{file.name}</p>
+                                                    </div>
+                                                    <button
+                                                        onClick={() => triggerDirectDownload(file.url, file.name)}
+                                                        className="h-8 w-8 rounded-lg bg-muted/50 group-hover:bg-primary/20 group-hover:text-primary text-muted-foreground flex items-center justify-center transition-all flex-shrink-0"
+                                                    >
+                                                        <Download className="h-3.5 w-3.5" />
+                                                    </button>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    )}
+
+                                    {/* Pasted Script Text */}
+                                    {(selectedProject as any).scriptText && (
+                                        <div className="p-4 rounded-lg bg-primary/5 border border-primary/20">
+                                            <div className="flex items-center justify-between gap-2 mb-3">
+                                                <p className="text-[10px] font-bold uppercase tracking-widest text-primary">✍️ Pasted Script</p>
+                                                <button 
+                                                    onClick={() => {
+                                                        navigator.clipboard.writeText((selectedProject as any).scriptText);
+                                                        toast.success("Script copied to clipboard");
+                                                    }}
+                                                    className="h-7 px-2.5 rounded text-[9px] font-bold uppercase tracking-widest bg-primary/10 hover:bg-primary/20 text-primary transition-all flex items-center gap-1.5"
+                                                >
+                                                    <Copy className="h-3 w-3" /> Copy
+                                                </button>
+                                            </div>
+                                            <p className="text-xs text-foreground leading-relaxed whitespace-pre-wrap font-medium max-h-[120px] overflow-y-auto">
+                                                {(selectedProject as any).scriptText}
+                                            </p>
+                                        </div>
+                                    )}
+
+                                    {/* Empty State */}
+                                    {!((selectedProject as any).scriptText) && (!selectedProject.scripts || selectedProject.scripts.length === 0) && (
+                                        <div className="p-3 rounded-lg border border-border/30 bg-muted/20">
+                                            <p className="text-xs text-muted-foreground">Not uploaded yet</p>
+                                        </div>
+                                    )}
+                                </div>
+
+                                {/* 4. B-Roll Assets */}
+                                <div className="space-y-3 pt-3 border-t border-border/30">
+                                    <div className="flex items-center gap-2">
+                                        <span className="text-[11px] font-bold uppercase tracking-widest text-muted-foreground">🎞️ B-Roll Assets</span>
+                                    </div>
+                                    {(selectedProject as any).bRoleFiles && (selectedProject as any).bRoleFiles.length > 0 ? (
+                                        <div className="grid gap-2">
+                                            {(selectedProject as any).bRoleFiles.slice(0, 2).map((file: any, idx: number) => (
+                                                <div key={idx} className="flex items-center justify-between gap-3 p-3 rounded-lg border border-border/30 hover:bg-muted/30 transition-all group">
+                                                    <div className="flex items-center gap-2 min-w-0 flex-1">
+                                                        {file.type?.includes('image') ? (
+                                                            <ImageIcon className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+                                                        ) : (
+                                                            <FileVideo className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+                                                        )}
+                                                        <p className="text-xs font-semibold text-foreground truncate">{file.name}</p>
+                                                    </div>
+                                                    <button
+                                                        onClick={() => triggerDirectDownload(file.url, file.name)}
+                                                        className="h-8 w-8 rounded-lg bg-muted/50 group-hover:bg-primary/20 group-hover:text-primary text-muted-foreground flex items-center justify-center transition-all flex-shrink-0"
+                                                    >
+                                                        <Download className="h-3.5 w-3.5" />
+                                                    </button>
+                                                </div>
+                                            ))}
+                                            {((selectedProject as any).bRoleFiles?.length || 0) > 2 && (
+                                                <p className="text-xs text-muted-foreground text-center py-1">+{((selectedProject as any).bRoleFiles?.length || 0) - 2} more files</p>
+                                            )}
+                                        </div>
+                                    ) : (
+                                        <div className="p-3 rounded-lg border border-border/30 bg-muted/20">
+                                            <p className="text-xs text-muted-foreground">Not uploaded yet</p>
+                                        </div>
+                                    )}
+                                </div>
+
+                                {/* 5. Style References */}
+                                <div className="space-y-3 pt-3 border-t border-border/30">
+                                    <div className="flex items-center gap-2">
+                                        <span className="text-[11px] font-bold uppercase tracking-widest text-muted-foreground">✨ Style References</span>
+                                    </div>
+
+                                    {/* Reference Link */}
+                                    {(selectedProject as any).referenceLink && (
+                                        <a 
+                                            href={(selectedProject as any).referenceLink.startsWith('http') ? (selectedProject as any).referenceLink : `https://${(selectedProject as any).referenceLink}`}
+                                            target="_blank"
+                                            className="flex items-center gap-3 p-3 rounded-lg bg-emerald-500/5 border border-emerald-500/20 hover:border-emerald-500/40 hover:bg-emerald-500/10 transition-all group"
+                                        >
+                                            <LinkIcon className="h-4 w-4 text-emerald-600 flex-shrink-0" />
+                                            <span className="text-sm font-semibold text-foreground group-hover:text-emerald-600 transition-colors">Open Style Reference</span>
+                                        </a>
+                                    )}
+
+                                    {/* Reference Files */}
+                                    {(selectedProject as any).referenceFiles && (selectedProject as any).referenceFiles.length > 0 && (
+                                        <div className="grid gap-2">
+                                            {(selectedProject as any).referenceFiles.slice(0, 2).map((file: any, idx: number) => (
+                                                <div key={idx} className="flex items-center justify-between gap-3 p-3 rounded-lg border border-border/30 hover:bg-muted/30 transition-all group">
+                                                    <div className="flex items-center gap-2 min-w-0 flex-1">
+                                                        {file.type?.includes('image') ? (
+                                                            <ImageIcon className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+                                                        ) : (
+                                                            <FileVideo className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+                                                        )}
+                                                        <p className="text-xs font-semibold text-foreground truncate">{file.name}</p>
+                                                    </div>
+                                                    <button
+                                                        onClick={() => triggerDirectDownload(file.url, file.name)}
+                                                        className="h-8 w-8 rounded-lg bg-muted/50 group-hover:bg-primary/20 group-hover:text-primary text-muted-foreground flex items-center justify-center transition-all flex-shrink-0"
+                                                    >
+                                                        <Download className="h-3.5 w-3.5" />
+                                                    </button>
+                                                </div>
+                                            ))}
+                                            {((selectedProject as any).referenceFiles?.length || 0) > 2 && (
+                                                <p className="text-xs text-muted-foreground text-center py-1">+{((selectedProject as any).referenceFiles?.length || 0) - 2} more files</p>
+                                            )}
+                                        </div>
+                                    )}
+
+                                    {/* Empty State */}
+                                    {!(selectedProject as any).referenceLink && (!((selectedProject as any).referenceFiles) || (selectedProject as any).referenceFiles.length === 0) && (
+                                        <div className="p-3 rounded-lg border border-border/30 bg-muted/20">
+                                            <p className="text-xs text-muted-foreground">Not uploaded yet</p>
+                                        </div>
+                                    )}
+                                </div>
                             </div>
 
                             <div className="bg-muted/30 border border-border rounded-lg p-4">
@@ -625,6 +841,27 @@ export function ClientDashboard() {
                             )}
                         </div>
                     </div>
+                    {/* Preview Modal */}
+                    {previewFile && (
+                        <div className="fixed inset-0 z-[200] bg-black/90 backdrop-blur-xl flex items-center justify-center p-4" onClick={() => setPreviewFile(null)}>
+                            <div className="relative max-w-3xl w-full max-h-[80vh] bg-black rounded-xl overflow-hidden shadow-2xl flex items-center justify-center" onClick={e => e.stopPropagation()}>
+                                <button onClick={() => setPreviewFile(null)} className="absolute top-4 right-4 h-10 w-10 bg-white/10 hover:bg-white/20 text-white rounded-full flex items-center justify-center backdrop-blur-md z-10 transition-all">
+                                    <X className="h-5 w-5" />
+                                </button>
+                                {previewFile.type.startsWith('image/') || /\.(jpg|jpeg|png|gif|webp)$/i.test(previewFile.name) ? (
+                                    <img src={previewFile.url} alt={previewFile.name} className="max-w-full max-h-full object-contain" />
+                                ) : previewFile.type.startsWith('video/') || /\.(mp4|webm|mov)$/i.test(previewFile.name) ? (
+                                    <video src={previewFile.url} controls className="w-full h-full" autoPlay />
+                                ) : (
+                                    <div className="text-center text-white">
+                                        <FileVideo className="h-12 w-12 mx-auto mb-4 opacity-50" />
+                                        <p className="text-sm">{previewFile.name}</p>
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+                    )}
+                    </>
                 )}
             </Modal>
 

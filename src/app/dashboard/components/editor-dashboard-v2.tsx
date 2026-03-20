@@ -37,7 +37,10 @@ import {
     Mail,
     Users,
     LinkIcon,
-    ArrowRight
+    ArrowRight,
+    ExternalLink,
+    Copy,
+    ImageIcon
 } from "lucide-react";
 import { toast } from "sonner";
 import { motion, AnimatePresence } from "framer-motion";
@@ -539,142 +542,214 @@ export function EditorDashboardV2() {
                                         </div>
                                     </div>
 
-                                    <div className="bg-muted/30 border border-border rounded-lg p-4 space-y-5">
-                                        <div className="flex items-center gap-2 justify-between">
-                                            <p className="text-xs text-muted-foreground font-bold uppercase tracking-widest">📁 Project Files & Assets</p>
-                                            {(selectedProjectDetails.rawFiles?.length || selectedProjectDetails.referenceFiles?.length || selectedProjectDetails.footageLink) && (
-                                                <span className="text-[9px] font-bold px-2 py-1 bg-primary/20 text-primary rounded-full">
-                                                    {(selectedProjectDetails.rawFiles?.length || 0) + (selectedProjectDetails.referenceFiles?.length || 0) + (selectedProjectDetails.footageLink ? 1 : 0)} items
-                                                </span>
+                                    {/* PROFESSIONAL CLIENT UPLOADED ASSETS PANEL */}
+                                    <div className="bg-muted/20 border border-border/50 rounded-xl p-6 space-y-5">
+                                        <div className="flex items-center gap-2">
+                                            <div className="h-8 w-8 rounded-lg bg-primary/10 border border-primary/20 flex items-center justify-center">
+                                                <Briefcase className="h-4 w-4 text-primary" />
+                                            </div>
+                                            <h4 className="text-sm font-bold uppercase tracking-widest text-foreground">Client Assets</h4>
+                                        </div>
+
+                                        {/* 1. Google Drive Link */}
+                                        <div className="space-y-3">
+                                            <div className="flex items-center gap-2">
+                                                <span className="text-[11px] font-bold uppercase tracking-widest text-muted-foreground">📎 Google Drive Link</span>
+                                            </div>
+                                            {selectedProjectDetails.footageLink ? (
+                                                <a 
+                                                    href={selectedProjectDetails.footageLink.startsWith('http') ? selectedProjectDetails.footageLink : `https://${selectedProjectDetails.footageLink}`} 
+                                                    target="_blank"
+                                                    className="flex items-center gap-3 p-3 rounded-lg bg-primary/5 border border-primary/20 hover:border-primary/40 hover:bg-primary/10 transition-all group"
+                                                >
+                                                    <ExternalLink className="h-4 w-4 text-primary flex-shrink-0" />
+                                                    <span className="text-sm font-semibold text-foreground group-hover:text-primary transition-colors">Access Google Drive</span>
+                                                </a>
+                                            ) : (
+                                                <div className="p-3 rounded-lg border border-border/30 bg-muted/20">
+                                                    <p className="text-xs text-muted-foreground">Not uploaded yet</p>
+                                                </div>
                                             )}
                                         </div>
 
-                                        {/* Footage Link */}
-                                        {selectedProjectDetails.footageLink && (
-                                            <a 
-                                                href={selectedProjectDetails.footageLink.startsWith('http') ? selectedProjectDetails.footageLink : `https://${selectedProjectDetails.footageLink}`}
-                                                target="_blank"
-                                                rel="noreferrer"
-                                                className="flex items-center justify-between gap-3 p-3 rounded-lg bg-gradient-to-r from-blue-500/10 to-blue-400/5 border border-blue-500/20 hover:border-blue-500/40 hover:bg-blue-500/15 transition-all group"
-                                            >
-                                                <div className="flex items-center gap-3 min-w-0 flex-1">
-                                                    <div className="h-9 w-9 rounded-lg bg-blue-500/20 flex items-center justify-center text-blue-500 flex-shrink-0">
-                                                        <LinkIcon className="h-4.5 w-4.5" />
-                                                    </div>
-                                                    <div className="min-w-0 flex-1">
-                                                        <p className="text-[10px] text-blue-500/70 font-bold uppercase tracking-widest">Raw Footage Link</p>
-                                                        <p className="text-xs font-medium text-foreground group-hover:text-blue-500 transition-colors truncate mt-0.5">Google Drive / External Storage</p>
-                                                    </div>
-                                                </div>
-                                                <div className="h-8 w-8 rounded-lg bg-blue-500/20 text-blue-500 flex items-center justify-center flex-shrink-0 group-hover:bg-blue-500/30 transition-all">
-                                                    <ArrowRight className="h-4 w-4" />
-                                                </div>
-                                            </a>
-                                        )}
-
-                                        {/* Client Raw Files */}
-                                        {selectedProjectDetails.rawFiles && selectedProjectDetails.rawFiles.length > 0 && (
-                                            <div className="space-y-3">
-                                                <p className="text-[10px] text-muted-foreground uppercase tracking-widest font-bold ml-1 flex items-center gap-2">
-                                                    <span className="text-xs">📦</span> Client Assets
-                                                </p>
-                                                <div className="grid gap-2">
-                                                    {selectedProjectDetails.rawFiles.map((file: any, idx: number) => (
-                                                        <div key={`raw-${idx}`} className="flex items-center justify-between gap-3 p-3 rounded-lg bg-card border border-border hover:border-primary/30 hover:bg-primary/5 transition-all group">
-                                                            <div className="flex items-center gap-3 min-w-0 flex-1">
-                                                                <div className="h-9 w-9 rounded-lg bg-muted/50 flex items-center justify-center text-muted-foreground group-hover:text-primary transition-colors flex-shrink-0">
-                                                                    {file.name?.includes('.mp4') || file.name?.includes('.mov') || file.name?.includes('.avi') ? (
-                                                                        <FileVideo className="h-4.5 w-4.5" />
-                                                                    ) : file.name?.includes('.pdf') || file.name?.includes('.doc') ? (
-                                                                        <FileText className="h-4.5 w-4.5" />
-                                                                    ) : file.name?.includes('.zip') || file.name?.includes('.rar') ? (
-                                                                        <Archive className="h-4.5 w-4.5" />
-                                                                    ) : (
-                                                                        <File className="h-4.5 w-4.5" />
-                                                                    )}
-                                                                </div>
-                                                                <div className="min-w-0 flex-1">
-                                                                    <p className="text-xs font-bold text-foreground truncate">{file.name}</p>
-                                                                    <p className="text-[9px] text-muted-foreground">
-                                                                        {file.size ? `${(file.size / (1024*1024)).toFixed(2)} MB` : 'Unknown size'}
-                                                                    </p>
-                                                                </div>
-                                                            </div>
-                                                            <div className="flex items-center gap-1.5 flex-shrink-0">
-                                                                {file.url?.includes('.mp4') || file.url?.includes('.mov') || file.url?.includes('.avi') ? (
-                                                                    <button
-                                                                        onClick={() => setPreviewVideoUrl(file.url)}
-                                                                        className="h-8 w-8 rounded-lg bg-muted hover:bg-primary/20 hover:text-primary text-muted-foreground flex items-center justify-center transition-all group-hover:bg-primary/20"
-                                                                        title="Preview video"
-                                                                    >
-                                                                        <Eye className="h-4 w-4" />
-                                                                    </button>
-                                                                ) : null}
-                                                                <button
-                                                                    onClick={() => triggerDirectDownload(file.url, file.name)}
-                                                                    className="h-8 w-8 rounded-lg bg-muted hover:bg-emerald-500/20 hover:text-emerald-500 text-muted-foreground flex items-center justify-center transition-all"
-                                                                    title="Download file"
-                                                                >
-                                                                    <Download className="h-4 w-4" />
-                                                                </button>
-                                                            </div>
-                                                        </div>
-                                                    ))}
-                                                </div>
+                                        {/* 2. Raw Video Files */}
+                                        <div className="space-y-3 pt-3 border-t border-border/30">
+                                            <div className="flex items-center gap-2">
+                                                <span className="text-[11px] font-bold uppercase tracking-widest text-muted-foreground">🎬 Raw Video Files</span>
                                             </div>
-                                        )}
-
-                                        {/* Reference Files from Manager */}
-                                        {selectedProjectDetails.referenceFiles && selectedProjectDetails.referenceFiles.length > 0 && (
-                                            <div className="space-y-3 pt-2 border-t border-border/30">
-                                                <p className="text-[10px] text-muted-foreground uppercase tracking-widest font-bold ml-1 flex items-center gap-2">
-                                                    <span className="text-xs">📌</span> Manager References
-                                                </p>
+                                            {selectedProjectDetails.rawFiles && selectedProjectDetails.rawFiles.length > 0 ? (
                                                 <div className="grid gap-2">
-                                                    {selectedProjectDetails.referenceFiles.map((file: any, idx: number) => (
-                                                        <div key={`ref-${idx}`} className="flex items-center justify-between gap-3 p-3 rounded-lg bg-card border border-border hover:border-amber-500/30 hover:bg-amber-500/5 transition-all group">
-                                                            <div className="flex items-center gap-3 min-w-0 flex-1">
-                                                                <div className="h-9 w-9 rounded-lg bg-amber-500/10 flex items-center justify-center text-amber-500 flex-shrink-0">
-                                                                    {file.name?.includes('.mp4') || file.name?.includes('.mov') ? (
-                                                                        <FileVideo className="h-4.5 w-4.5" />
-                                                                    ) : file.name?.includes('.pdf') ? (
-                                                                        <FileText className="h-4.5 w-4.5" />
-                                                                    ) : file.name?.includes('.zip') ? (
-                                                                        <Archive className="h-4.5 w-4.5" />
-                                                                    ) : (
-                                                                        <File className="h-4.5 w-4.5" />
-                                                                    )}
-                                                                </div>
-                                                                <div className="min-w-0 flex-1">
-                                                                    <p className="text-xs font-bold text-foreground truncate">{file.name}</p>
-                                                                    <p className="text-[9px] text-muted-foreground">
-                                                                        Uploaded by PM
-                                                                    </p>
+                                                    {selectedProjectDetails.rawFiles.slice(0, 3).map((file: any, idx: number) => (
+                                                        <div key={idx} className="flex items-center justify-between gap-3 p-3 rounded-lg border border-border/30 hover:bg-muted/30 transition-all group">
+                                                            <div className="flex items-center gap-2 min-w-0 flex-1">
+                                                                <FileVideo className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+                                                                <div className="min-w-0">
+                                                                    <p className="text-xs font-semibold text-foreground truncate">{file.name}</p>
+                                                                    {file.size && <p className="text-[9px] text-muted-foreground">{(file.size / (1024*1024)).toFixed(1)} MB</p>}
                                                                 </div>
                                                             </div>
                                                             <button
                                                                 onClick={() => triggerDirectDownload(file.url, file.name)}
-                                                                className="h-8 w-8 rounded-lg bg-muted hover:bg-emerald-500/20 hover:text-emerald-500 text-muted-foreground flex items-center justify-center transition-all flex-shrink-0"
-                                                                title="Download reference file"
+                                                                className="h-8 w-8 rounded-lg bg-muted/50 group-hover:bg-primary/20 group-hover:text-primary text-muted-foreground flex items-center justify-center transition-all flex-shrink-0"
                                                             >
-                                                                <Download className="h-4 w-4" />
+                                                                <Download className="h-3.5 w-3.5" />
+                                                            </button>
+                                                        </div>
+                                                    ))}
+                                                    {(selectedProjectDetails.rawFiles?.length || 0) > 3 && (
+                                                        <p className="text-xs text-muted-foreground text-center py-1">+{(selectedProjectDetails.rawFiles?.length || 0) - 3} more files</p>
+                                                    )}
+                                                </div>
+                                            ) : (
+                                                <div className="p-3 rounded-lg border border-border/30 bg-muted/20">
+                                                    <p className="text-xs text-muted-foreground">Not uploaded yet</p>
+                                                </div>
+                                            )}
+                                        </div>
+
+                                        {/* 3. Scripts & Pasted Text */}
+                                        <div className="space-y-3 pt-3 border-t border-border/30">
+                                            <div className="flex items-center gap-2">
+                                                <span className="text-[11px] font-bold uppercase tracking-widest text-muted-foreground">📝 Scripts & Directions</span>
+                                            </div>
+
+                                            {/* Uploaded Script Files */}
+                                            {selectedProjectDetails.scripts && selectedProjectDetails.scripts.length > 0 && (
+                                                <div className="grid gap-2">
+                                                    {selectedProjectDetails.scripts.slice(0, 2).map((file: any, idx: number) => (
+                                                        <div key={idx} className="flex items-center justify-between gap-3 p-3 rounded-lg border border-border/30 hover:bg-muted/30 transition-all group">
+                                                            <div className="flex items-center gap-2 min-w-0 flex-1">
+                                                                <FileText className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+                                                                <p className="text-xs font-semibold text-foreground truncate">{file.name}</p>
+                                                            </div>
+                                                            <button
+                                                                onClick={() => triggerDirectDownload(file.url, file.name)}
+                                                                className="h-8 w-8 rounded-lg bg-muted/50 group-hover:bg-primary/20 group-hover:text-primary text-muted-foreground flex items-center justify-center transition-all flex-shrink-0"
+                                                            >
+                                                                <Download className="h-3.5 w-3.5" />
                                                             </button>
                                                         </div>
                                                     ))}
                                                 </div>
-                                            </div>
-                                        )}
+                                            )}
 
-                                        {/* No Files Message */}
-                                        {!selectedProjectDetails.footageLink && (!selectedProjectDetails.rawFiles || selectedProjectDetails.rawFiles.length === 0) && (!selectedProjectDetails.referenceFiles || selectedProjectDetails.referenceFiles.length === 0) && (
-                                            <div className="py-8 text-center">
-                                                <div className="h-12 w-12 rounded-lg bg-muted/50 mx-auto mb-3 flex items-center justify-center text-muted-foreground">
-                                                    <AlertCircle className="h-5 w-5" />
+                                            {/* Pasted Script Text */}
+                                            {(selectedProjectDetails as any).scriptText && (
+                                                <div className="p-4 rounded-lg bg-primary/5 border border-primary/20">
+                                                    <div className="flex items-center justify-between gap-2 mb-3">
+                                                        <p className="text-[10px] font-bold uppercase tracking-widest text-primary">✍️ Pasted Script</p>
+                                                        <button 
+                                                            onClick={() => {
+                                                                navigator.clipboard.writeText((selectedProjectDetails as any).scriptText);
+                                                                toast.success("Script copied to clipboard");
+                                                            }}
+                                                            className="h-7 px-2.5 rounded text-[9px] font-bold uppercase tracking-widest bg-primary/10 hover:bg-primary/20 text-primary transition-all flex items-center gap-1.5"
+                                                        >
+                                                            <Copy className="h-3 w-3" /> Copy
+                                                        </button>
+                                                    </div>
+                                                    <p className="text-xs text-foreground leading-relaxed whitespace-pre-wrap font-medium max-h-[120px] overflow-y-auto">
+                                                        {(selectedProjectDetails as any).scriptText}
+                                                    </p>
                                                 </div>
-                                                <p className="text-xs text-muted-foreground font-medium">No files uploaded yet</p>
-                                                <p className="text-[10px] text-muted-foreground mt-1">Client assets will appear here</p>
+                                            )}
+
+                                            {/* Empty State */}
+                                            {!((selectedProjectDetails as any).scriptText) && (!selectedProjectDetails.scripts || selectedProjectDetails.scripts.length === 0) && (
+                                                <div className="p-3 rounded-lg border border-border/30 bg-muted/20">
+                                                    <p className="text-xs text-muted-foreground">Not uploaded yet</p>
+                                                </div>
+                                            )}
+                                        </div>
+
+                                        {/* 4. B-Roll Assets */}
+                                        <div className="space-y-3 pt-3 border-t border-border/30">
+                                            <div className="flex items-center gap-2">
+                                                <span className="text-[11px] font-bold uppercase tracking-widest text-muted-foreground">🎞️ B-Roll Assets</span>
                                             </div>
-                                        )}
+                                            {(selectedProjectDetails as any).bRoleFiles && (selectedProjectDetails as any).bRoleFiles.length > 0 ? (
+                                                <div className="grid gap-2">
+                                                    {(selectedProjectDetails as any).bRoleFiles.slice(0, 2).map((file: any, idx: number) => (
+                                                        <div key={idx} className="flex items-center justify-between gap-3 p-3 rounded-lg border border-border/30 hover:bg-muted/30 transition-all group">
+                                                            <div className="flex items-center gap-2 min-w-0 flex-1">
+                                                                {file.type?.includes('image') ? (
+                                                                    <ImageIcon className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+                                                                ) : (
+                                                                    <FileVideo className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+                                                                )}
+                                                                <p className="text-xs font-semibold text-foreground truncate">{file.name}</p>
+                                                            </div>
+                                                            <button
+                                                                onClick={() => triggerDirectDownload(file.url, file.name)}
+                                                                className="h-8 w-8 rounded-lg bg-muted/50 group-hover:bg-primary/20 group-hover:text-primary text-muted-foreground flex items-center justify-center transition-all flex-shrink-0"
+                                                            >
+                                                                <Download className="h-3.5 w-3.5" />
+                                                            </button>
+                                                        </div>
+                                                    ))}
+                                                    {((selectedProjectDetails as any).bRoleFiles?.length || 0) > 2 && (
+                                                        <p className="text-xs text-muted-foreground text-center py-1">+{((selectedProjectDetails as any).bRoleFiles?.length || 0) - 2} more files</p>
+                                                    )}
+                                                </div>
+                                            ) : (
+                                                <div className="p-3 rounded-lg border border-border/30 bg-muted/20">
+                                                    <p className="text-xs text-muted-foreground">Not uploaded yet</p>
+                                                </div>
+                                            )}
+                                        </div>
+
+                                        {/* 5. Style References */}
+                                        <div className="space-y-3 pt-3 border-t border-border/30">
+                                            <div className="flex items-center gap-2">
+                                                <span className="text-[11px] font-bold uppercase tracking-widest text-muted-foreground">✨ Style References</span>
+                                            </div>
+
+                                            {/* Reference Link */}
+                                            {(selectedProjectDetails as any).referenceLink && (
+                                                <a 
+                                                    href={(selectedProjectDetails as any).referenceLink.startsWith('http') ? (selectedProjectDetails as any).referenceLink : `https://${(selectedProjectDetails as any).referenceLink}`}
+                                                    target="_blank"
+                                                    className="flex items-center gap-3 p-3 rounded-lg bg-emerald-500/5 border border-emerald-500/20 hover:border-emerald-500/40 hover:bg-emerald-500/10 transition-all group"
+                                                >
+                                                    <LinkIcon className="h-4 w-4 text-emerald-600 flex-shrink-0" />
+                                                    <span className="text-sm font-semibold text-foreground group-hover:text-emerald-600 transition-colors">Open Style Reference</span>
+                                                </a>
+                                            )}
+
+                                            {/* Reference Files */}
+                                            {(selectedProjectDetails as any).referenceFiles && (selectedProjectDetails as any).referenceFiles.length > 0 && (
+                                                <div className="grid gap-2">
+                                                    {(selectedProjectDetails as any).referenceFiles.slice(0, 2).map((file: any, idx: number) => (
+                                                        <div key={idx} className="flex items-center justify-between gap-3 p-3 rounded-lg border border-border/30 hover:bg-muted/30 transition-all group">
+                                                            <div className="flex items-center gap-2 min-w-0 flex-1">
+                                                                {file.type?.includes('image') ? (
+                                                                    <ImageIcon className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+                                                                ) : (
+                                                                    <FileVideo className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+                                                                )}
+                                                                <p className="text-xs font-semibold text-foreground truncate">{file.name}</p>
+                                                            </div>
+                                                            <button
+                                                                onClick={() => triggerDirectDownload(file.url, file.name)}
+                                                                className="h-8 w-8 rounded-lg bg-muted/50 group-hover:bg-primary/20 group-hover:text-primary text-muted-foreground flex items-center justify-center transition-all flex-shrink-0"
+                                                            >
+                                                                <Download className="h-3.5 w-3.5" />
+                                                            </button>
+                                                        </div>
+                                                    ))}
+                                                    {((selectedProjectDetails as any).referenceFiles?.length || 0) > 2 && (
+                                                        <p className="text-xs text-muted-foreground text-center py-1">+{((selectedProjectDetails as any).referenceFiles?.length || 0) - 2} more files</p>
+                                                    )}
+                                                </div>
+                                            )}
+
+                                            {/* Empty State */}
+                                            {!(selectedProjectDetails as any).referenceLink && (!((selectedProjectDetails as any).referenceFiles) || (selectedProjectDetails as any).referenceFiles.length === 0) && (
+                                                <div className="p-3 rounded-lg border border-border/30 bg-muted/20">
+                                                    <p className="text-xs text-muted-foreground">Not uploaded yet</p>
+                                                </div>
+                                            )}
+                                        </div>
                                     </div>
 
                                     <div className="bg-muted/30 border border-border rounded-lg p-4 space-y-4">

@@ -33,7 +33,9 @@ import {
     Eye,
     Star,
     FileText,
-    Image as ImageIcon
+    Image as ImageIcon,
+    Copy,
+    AlertCircle
 } from "lucide-react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
@@ -554,7 +556,45 @@ export default function ProjectDetailsPage() {
                              <p className="text-muted-foreground leading-relaxed italic text-sm">"{project.description || "No specific instructions provided."}"</p>
                         </div>
 
-                        {(project.footageLink || (project.rawFiles && project.rawFiles.length > 0) || project.referenceLink || (project.referenceFiles && project.referenceFiles.length > 0)) && (
+                        {/* Script & Directions */}
+                        {( (project as any).scriptText || (project.scripts && project.scripts.length > 0)) && (
+                            <div className="pt-4 border-t border-border space-y-4">
+                                <p className="text-[10px] text-muted-foreground uppercase font-black tracking-widest">Scripts & Directions</p>
+                                
+                                {(project as any).scriptText && (
+                                    <div className="p-4 bg-primary/5 rounded-xl border border-primary/10">
+                                        <p className="text-xs text-primary/80 leading-relaxed whitespace-pre-wrap">{(project as any).scriptText}</p>
+                                    </div>
+                                )}
+
+                                {project.scripts && project.scripts.length > 0 && (
+                                    <div className="grid grid-cols-1 gap-2">
+                                        {project.scripts.map((file: any, idx: number) => (
+                                            <div key={idx} className="flex items-center justify-between p-3 bg-card rounded-xl border border-border group hover:border-primary/30 transition-all">
+                                                <div className="flex items-center gap-3 min-w-0">
+                                                    <div className="h-8 w-8 rounded-lg bg-primary/10 flex items-center justify-center text-primary">
+                                                        <FileText className="h-4 w-4" />
+                                                    </div>
+                                                    <div className="flex flex-col min-w-0">
+                                                        <span className="text-xs font-bold text-foreground truncate">{file.name}</span>
+                                                        <span className="text-[9px] font-black text-muted-foreground uppercase tracking-widest">Script File</span>
+                                                    </div>
+                                                </div>
+                                                <button 
+                                                    onClick={() => setPreviewFile({ url: file.url, type: 'application/pdf', name: file.name })}
+                                                    className="h-8 px-3 rounded-lg bg-primary/10 hover:bg-primary text-primary hover:text-primary-foreground text-[9px] font-bold uppercase tracking-widest transition-all"
+                                                >
+                                                    View
+                                                </button>
+                                            </div>
+                                        ))}
+                                    </div>
+                                )}
+                            </div>
+                        )}
+
+                        {/* Raw Footage & Assets */}
+                        {(project.footageLink || (project.rawFiles && project.rawFiles.length > 0) || project.referenceLink || (project.referenceFiles && project.referenceFiles.length > 0) || ((project as any).bRoleFiles && (project as any).bRoleFiles.length > 0)) && (
                             <div className="pt-4 border-t border-border space-y-4">
                                 <p className="text-[10px] text-muted-foreground uppercase font-black tracking-widest">Project Assets (Preview Only)</p>
                                 
@@ -592,14 +632,14 @@ export default function ProjectDetailsPage() {
                                     )}
                                 </div>
 
-                                {(project.rawFiles && project.rawFiles.length > 0) && (
+                                {project.rawFiles && project.rawFiles.length > 0 ? (
                                     <div className="space-y-2">
                                         <p className="text-[9px] text-muted-foreground font-black uppercase tracking-widest ml-1">Raw Files</p>
                                         <div className="grid gap-2">
                                             {project.rawFiles.map((file: any, idx: number) => (
                                                 <div key={idx} className="flex items-center justify-between p-2.5 bg-black/5 dark:bg-black/40 rounded-lg border border-border group">
                                                     <div className="flex items-center gap-3 min-w-0">
-                                                        <FileVideo className="h-4 w-4 text-muted-foreground group-hover:text-primary transition-colors" />
+                                                        {file.type?.includes('image') ? <ImageIcon className="h-4 w-4 text-muted-foreground group-hover:text-primary transition-colors" /> : <FileVideo className="h-4 w-4 text-muted-foreground group-hover:text-primary transition-colors" />}
                                                         <div className="flex flex-col min-w-0">
                                                             <span className="text-xs font-bold text-muted-foreground truncate">{file.name}</span>
                                                             <span className="text-[9px] font-black text-muted-foreground uppercase tracking-widest">{(file.size ? (file.size / (1024*1024)).toFixed(2) : '?')} MB</span>
@@ -609,6 +649,33 @@ export default function ProjectDetailsPage() {
                                                 </div>
                                             ))}
                                         </div>
+                                    </div>
+                                ) : (
+                                    <div className="p-3 bg-red-500/5 rounded-lg border border-red-500/10">
+                                        <p className="text-[10px] text-red-500/80 italic font-medium">Client has not uploaded any raw files.</p>
+                                    </div>
+                                )}
+
+                                {(project as any).bRoleFiles && (project as any).bRoleFiles.length > 0 ? (
+                                    <div className="space-y-2">
+                                        <p className="text-[9px] text-amber-500/70 font-black uppercase tracking-widest ml-1">B-Roll Assets</p>
+                                        <div className="grid gap-2">
+                                            {(project as any).bRoleFiles.map((file: any, idx: number) => (
+                                                <div key={idx} className="flex items-center justify-between p-2.5 bg-amber-500/5 rounded-lg border border-amber-500/10 group">
+                                                    <div className="flex items-center gap-3 min-w-0">
+                                                        {file.type?.includes('image') ? <ImageIcon className="h-4 w-4 text-amber-500/70 group-hover:text-amber-500 transition-colors" /> : <FileVideo className="h-4 w-4 text-amber-500/70 group-hover:text-amber-500 transition-colors" />}
+                                                        <div className="flex flex-col min-w-0">
+                                                            <span className="text-xs font-bold text-amber-500/70 truncate">{file.name}</span>
+                                                        </div>
+                                                    </div>
+                                                    <button onClick={() => setPreviewFile({ url: file.url, type: file.type || 'video/mp4', name: file.name })} className="h-8 px-3 rounded bg-amber-500/10 hover:bg-amber-500/20 hover:text-amber-500 text-amber-500/70 text-[9px] font-bold uppercase tracking-widest transition-all">Preview</button>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </div>
+                                ) : (
+                                    <div className="p-3 bg-red-500/5 rounded-lg border border-red-500/10">
+                                        <p className="text-[10px] text-red-500/80 italic font-medium">Client has not uploaded any B-roll assets.</p>
                                     </div>
                                 )}
 
@@ -1198,105 +1265,129 @@ export default function ProjectDetailsPage() {
                         </div>
                     )}
 
-                    {/* Technical Assets */}
-                    <div className="enterprise-card p-6 md:p-8 space-y-8">
-                        <div className="flex items-center gap-3 text-muted-foreground">
-                            <Briefcase className="h-4 w-4" /> 
-                            <h3 className="text-[10px] font-bold uppercase tracking-widest">Project Files</h3>
+                    {/* ===== PROFESSIONAL PROJECT ASSET DETAILS PANEL ===== */}
+                    {/* Visible to ALL users: Editors, PMs, Admins, Clients */}
+                    <div className="enterprise-card p-6 md:p-8 space-y-6">
+                        <div className="flex items-center gap-2">
+                            <div className="h-8 w-8 rounded-lg bg-primary/10 border border-primary/20 flex items-center justify-center">
+                                <Briefcase className="h-4 w-4 text-primary" />
+                            </div>
+                            <h3 className="text-sm font-bold uppercase tracking-widest text-foreground">Project Assets</h3>
                         </div>
-                        
-                        <div className="grid gap-4">
-                            {/* Raw Data Link */}
-                            {project.footageLink && (
-                                <a 
-                                    href={project.footageLink.startsWith('http') ? project.footageLink : `https://${project.footageLink}`} 
-                                    target="_blank" 
-                                    className="flex items-center justify-between p-4 rounded-xl bg-muted/50 border border-border hover:bg-muted/50 hover:border-primary/30 transition-all group"
-                                >
-                                    <div className="flex items-center gap-3 min-w-0">
-                                        <div className="h-9 w-9 flex items-center justify-center rounded-lg bg-muted text-muted-foreground group-hover:text-primary transition-colors">
-                                            <ExternalLink className="h-4 w-4" />
-                                        </div>
-                                        <div className="min-w-0">
-                                            <p className="text-[10px] text-muted-foreground font-bold uppercase tracking-widest leading-none mb-1.5">Raw Footage</p>
-                                            <p className="text-sm font-bold text-muted-foreground group-hover:text-foreground transition-colors truncate">Open Drive Link</p>
-                                        </div>
-                                    </div>
-                                </a>
-                            )}
 
-                            {/* Local Asset Grid */}
-                            {project.rawFiles && project.rawFiles.length > 0 && (
-                                <div className="space-y-3 pt-2">
-                                    <div className="flex items-center gap-2">
-                                        <p className="text-[9px] text-muted-foreground font-bold uppercase tracking-widest">Client Raw Files</p>
-                                        <span className="inline-flex items-center px-2 py-0.5 rounded-full bg-blue-500/10 text-blue-600 text-[8px] font-bold uppercase tracking-widest border border-blue-500/20">
-                                            Primary Footage
-                                        </span>
+                        {/* Editor Not Accepted Warning */}
+                        {project.assignmentStatus === 'pending' && !isClient && (
+                            <motion.div 
+                                initial={{ opacity: 0, y: 10 }}
+                                animate={{ opacity: 1, y: 0 }}
+                                className="bg-amber-500/10 border border-amber-500/20 rounded-xl p-4 flex items-start gap-3"
+                            >
+                                <AlertCircle className="h-5 w-5 text-amber-500 flex-shrink-0 mt-0.5" />
+                                <div>
+                                    <p className="text-sm font-semibold text-amber-600 dark:text-amber-400">Project Pending Review</p>
+                                    <p className="text-xs text-amber-600/80 dark:text-amber-400/80 mt-1">Accept this project to access detailed assets and enable downloads</p>
+                                </div>
+                            </motion.div>
+                        )}
+
+                        <div className="grid gap-6">
+                            {/* 1. Google Drive Link */}
+                            <div className="space-y-3">
+                                <div className="flex items-center gap-2">
+                                    <span className="text-[11px] font-bold uppercase tracking-widest text-muted-foreground">📎 Google Drive Link</span>
+                                </div>
+                                {project.footageLink ? (
+                                    <a 
+                                        href={project.footageLink.startsWith('http') ? project.footageLink : `https://${project.footageLink}`} 
+                                        target="_blank"
+                                        className="flex items-center gap-3 p-3 rounded-lg bg-primary/5 border border-primary/20 hover:border-primary/40 hover:bg-primary/10 transition-all group"
+                                    >
+                                        <ExternalLink className="h-4 w-4 text-primary flex-shrink-0" />
+                                        <span className="text-sm font-semibold text-foreground group-hover:text-primary transition-colors">Access Google Drive</span>
+                                    </a>
+                                ) : (
+                                    <div className="p-3 rounded-lg border border-border/30 bg-muted/20">
+                                        <p className="text-xs text-muted-foreground">Not uploaded yet</p>
                                     </div>
+                                )}
+                            </div>
+
+                            {/* 2. Raw Video Files */}
+                            <div className="space-y-3 pt-3 border-t border-border/30">
+                                <div className="flex items-center gap-2">
+                                    <span className="text-[11px] font-bold uppercase tracking-widest text-muted-foreground">🎬 Raw Video Files</span>
+                                </div>
+                                {project.rawFiles && project.rawFiles.length > 0 ? (
                                     <div className="grid gap-2">
-                                        {project.rawFiles.map((file, idx) => (
-                                            <div 
-                                                key={idx}
-                                                className="flex flex-col p-3.5 bg-muted/50 rounded-xl border border-border transition-all group"
-                                            >
-                                                <div className="flex items-center gap-3">
-                                                    <div className="h-9 w-9 rounded-lg bg-zinc-900 border border-border flex items-center justify-center text-muted-foreground group-hover:text-primary group-hover:bg-primary/5 transition-all">
-                                                        {file.type?.includes('video') ? <FileVideo className="h-4 w-4" /> : <ImageIcon className="h-4 w-4" />}
+                                        {project.rawFiles.slice(0, 3).map((file, idx) => (
+                                            <div key={idx} className="flex items-center justify-between gap-3 p-3 rounded-lg border border-border/30 hover:bg-muted/30 transition-all group">
+                                                <div className="flex items-center gap-2 min-w-0 flex-1">
+                                                    <FileVideo className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+                                                    <div className="min-w-0">
+                                                        <p className="text-xs font-semibold text-foreground truncate">{file.name}</p>
+                                                        {file.size && <p className="text-[9px] text-muted-foreground">{(file.size / (1024*1024)).toFixed(1)} MB</p>}
                                                     </div>
-                                                    <div className="flex-1 min-w-0 text-left">
-                                                        <p className="text-xs font-bold text-muted-foreground truncate group-hover:text-foreground mb-0.5">{file.name}</p>
-                                                        <p className="text-[9px] text-muted-foreground font-bold uppercase tracking-tighter">{(file.size ? (file.size / (1024*1024)).toFixed(2) : '?')} MB</p>
-                                                    </div>
-                                                    <div className="flex items-center gap-2">
-                                                        <button 
-                                                            onClick={() => setPreviewFile({ url: file.url, type: file.type || 'video/mp4', name: file.name })} 
-                                                            className="h-8 px-3 rounded bg-muted hover:bg-primary/20 hover:text-primary text-muted-foreground text-[9px] font-bold uppercase tracking-widest transition-all flex items-center gap-2"
-                                                        >
-                                                            <Eye className="h-3.5 w-3.5" /> Preview
-                                                        </button>
-                                                        <button
-                                                            onClick={() => handleDirectDownload(file.url, file.name)}
-                                                            className="h-8 w-8 rounded bg-muted hover:bg-zinc-800 flex items-center justify-center text-muted-foreground transition-all"
-                                                            title="Download file"
-                                                        >
-                                                            <Download className="h-3.5 w-3.5" />
-                                                        </button>
-                                                    </div>
+                                                </div>
+                                                <div className="flex items-center gap-2 flex-shrink-0">
+                                                    <button 
+                                                        onClick={() => setPreviewFile({ url: file.url, type: file.type || 'video/mp4', name: file.name })} 
+                                                        className="h-8 px-2.5 rounded text-xs font-bold uppercase tracking-widest bg-muted/50 hover:bg-primary/20 text-muted-foreground hover:text-primary transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                                                        disabled={project.assignmentStatus === 'pending' && !isClient}
+                                                        title={project.assignmentStatus === 'pending' && !isClient ? "Accept project to preview" : ""}
+                                                    >
+                                                        Preview
+                                                    </button>
+                                                    <button
+                                                        onClick={() => handleDirectDownload(file.url, file.name)}
+                                                        className="h-8 w-8 rounded-lg bg-muted/50 hover:bg-primary/20 text-muted-foreground hover:text-primary flex items-center justify-center transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                                                        disabled={project.assignmentStatus === 'pending' && !isClient}
+                                                        title={project.assignmentStatus === 'pending' && !isClient ? "Accept project to download" : ""}
+                                                    >
+                                                        <Download className="h-3.5 w-3.5" />
+                                                    </button>
                                                 </div>
                                             </div>
                                         ))}
+                                        {(project.rawFiles?.length || 0) > 3 && (
+                                            <p className="text-xs text-muted-foreground text-center py-1">+{(project.rawFiles?.length || 0) - 3} more files</p>
+                                        )}
                                     </div>
-                                </div>
-                            )}
+                                ) : (
+                                    <div className="p-3 rounded-lg border border-border/30 bg-muted/20">
+                                        <p className="text-xs text-muted-foreground">Not uploaded yet</p>
+                                    </div>
+                                )}
+                            </div>
 
-                            {/* Scripts & Directions */}
-                            <div className="space-y-3 pt-4 border-t border-border">
-                                <p className="text-[9px] text-muted-foreground font-bold uppercase tracking-widest">Scripts & Directions</p>
-                                
-                                {project.scripts && project.scripts.length > 0 ? (
+                            {/* 3. Scripts & Directions */}
+                            <div className="space-y-3 pt-3 border-t border-border/30">
+                                <div className="flex items-center gap-2">
+                                    <span className="text-[11px] font-bold uppercase tracking-widest text-muted-foreground">📝 Scripts & Directions</span>
+                                </div>
+
+                                {/* Uploaded Script Files */}
+                                {project.scripts && project.scripts.length > 0 && (
                                     <div className="grid gap-2">
-                                        {project.scripts.map((script, idx) => (
-                                            <div key={idx} className="flex items-center justify-between p-3.5 bg-muted/50 rounded-xl border border-border group">
-                                                <div className="flex items-center gap-3 min-w-0">
-                                                    <div className="h-9 w-9 rounded-lg bg-zinc-900 border border-border flex items-center justify-center text-muted-foreground">
-                                                        <FileText className="h-4 w-4" />
-                                                    </div>
-                                                    <div className="min-w-0">
-                                                        <p className="text-xs font-bold text-muted-foreground truncate">{script.name}</p>
-                                                        <p className="text-[9px] text-muted-foreground font-bold uppercase tracking-tighter">Script File</p>
-                                                    </div>
+                                        {project.scripts.slice(0, 2).map((script, idx) => (
+                                            <div key={idx} className="flex items-center justify-between gap-3 p-3 rounded-lg border border-border/30 hover:bg-muted/30 transition-all group">
+                                                <div className="flex items-center gap-2 min-w-0 flex-1">
+                                                    <FileText className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+                                                    <p className="text-xs font-semibold text-foreground truncate">{script.name}</p>
                                                 </div>
-                                                <div className="flex items-center gap-2">
+                                                <div className="flex items-center gap-2 flex-shrink-0">
                                                     <button 
                                                         onClick={() => setPreviewFile({ url: script.url, type: script.type || 'text/plain', name: script.name })}
-                                                        className="h-8 px-3 rounded bg-muted hover:bg-primary/20 hover:text-primary text-muted-foreground text-[9px] font-bold uppercase tracking-widest transition-all"
+                                                        className="h-8 px-2.5 rounded text-xs font-bold uppercase tracking-widest bg-muted/50 hover:bg-primary/20 text-muted-foreground hover:text-primary transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                                                        disabled={project.assignmentStatus === 'pending' && !isClient}
+                                                        title={project.assignmentStatus === 'pending' && !isClient ? "Accept project to preview" : ""}
                                                     >
                                                         Preview
                                                     </button>
                                                     <button 
                                                         onClick={() => handleDirectDownload(script.url, script.name)}
-                                                        className="h-8 w-8 rounded bg-muted hover:bg-zinc-800 flex items-center justify-center text-muted-foreground transition-all"
+                                                        className="h-8 w-8 rounded-lg bg-muted/50 hover:bg-primary/20 text-muted-foreground hover:text-primary flex items-center justify-center transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                                                        disabled={project.assignmentStatus === 'pending' && !isClient}
+                                                        title={project.assignmentStatus === 'pending' && !isClient ? "Accept project to download" : ""}
                                                     >
                                                         <Download className="h-3.5 w-3.5" />
                                                     </button>
@@ -1304,157 +1395,149 @@ export default function ProjectDetailsPage() {
                                             </div>
                                         ))}
                                     </div>
-                                ) : (project as any).scriptText ? (
-                                    <div className="p-4 bg-muted/30 rounded-xl border border-border">
-                                        <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground mb-2">Written Script</p>
-                                        <p className="text-sm text-foreground/80 leading-relaxed italic whitespace-pre-wrap">
-                                            "{(project as any).scriptText}"
+                                )}
+
+                                {/* Pasted Script Text */}
+                                {(project as any).scriptText && (
+                                    <div className="p-4 rounded-lg bg-primary/5 border border-primary/20">
+                                        <div className="flex items-center justify-between gap-2 mb-3">
+                                            <p className="text-[10px] font-bold uppercase tracking-widest text-primary">✍️ Pasted Script</p>
+                                            <button 
+                                                onClick={() => {
+                                                    navigator.clipboard.writeText((project as any).scriptText);
+                                                    toast.success("Script copied to clipboard");
+                                                }}
+                                                className="h-7 px-2.5 rounded text-[9px] font-bold uppercase tracking-widest bg-primary/10 hover:bg-primary/20 text-primary transition-all flex items-center gap-1.5"
+                                            >
+                                                <Copy className="h-3 w-3" /> Copy
+                                            </button>
+                                        </div>
+                                        <p className="text-xs text-foreground leading-relaxed whitespace-pre-wrap font-medium max-h-[120px] overflow-y-auto">
+                                            {(project as any).scriptText}
                                         </p>
                                     </div>
-                                ) : (
-                                    <p className="text-xs text-muted-foreground italic ml-1">No script provided by client.</p>
+                                )}
+
+                                {/* Empty State */}
+                                {!((project as any).scriptText) && (!project.scripts || project.scripts.length === 0) && (
+                                    <div className="p-3 rounded-lg border border-border/30 bg-muted/20">
+                                        <p className="text-xs text-muted-foreground">Not uploaded yet</p>
+                                    </div>
                                 )}
                             </div>
 
-                            {/* B-Roll Footage */}
-                            <div className="space-y-3 pt-4 border-t border-border">
-                                <p className="text-[9px] text-muted-foreground font-bold uppercase tracking-widest">B-Roll / Supplementary Assets</p>
+                            {/* 4. B-Roll Assets */}
+                            <div className="space-y-3 pt-3 border-t border-border/30">
+                                <div className="flex items-center gap-2">
+                                    <span className="text-[11px] font-bold uppercase tracking-widest text-muted-foreground">🎞️ B-Roll Assets</span>
+                                </div>
                                 {(project as any).bRoleFiles && (project as any).bRoleFiles.length > 0 ? (
                                     <div className="grid gap-2">
-                                        {(project as any).bRoleFiles.map((file: any, idx: number) => (
-                                            <div key={idx} className="flex items-center justify-between p-3.5 bg-muted/50 rounded-xl border border-border group">
-                                                <div className="flex items-center gap-3 min-w-0">
-                                                    <div className="h-9 w-9 rounded-lg bg-zinc-900 border border-border flex items-center justify-center text-muted-foreground">
-                                                        {file.type?.includes('image') ? <ImageIcon className="h-4 w-4" /> : <FileVideo className="h-4 w-4" />}
-                                                    </div>
-                                                    <div className="min-w-0">
-                                                        <p className="text-xs font-bold text-muted-foreground truncate">{file.name}</p>
-                                                        <p className="text-[9px] text-muted-foreground font-bold uppercase tracking-tighter">B-Roll Asset</p>
-                                                    </div>
+                                        {(project as any).bRoleFiles.slice(0, 2).map((file: any, idx: number) => (
+                                            <div key={idx} className="flex items-center justify-between gap-3 p-3 rounded-lg border border-border/30 hover:bg-muted/30 transition-all group">
+                                                <div className="flex items-center gap-2 min-w-0 flex-1">
+                                                    {file.type?.includes('image') ? (
+                                                        <ImageIcon className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+                                                    ) : (
+                                                        <FileVideo className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+                                                    )}
+                                                    <p className="text-xs font-semibold text-foreground truncate">{file.name}</p>
                                                 </div>
-                                                <div className="flex items-center gap-2">
+                                                <div className="flex items-center gap-2 flex-shrink-0">
                                                     <button 
                                                         onClick={() => setPreviewFile({ url: file.url, type: file.type || 'video/mp4', name: file.name })}
-                                                        className="h-8 px-3 rounded bg-muted hover:bg-primary/20 hover:text-primary text-muted-foreground text-[9px] font-bold uppercase tracking-widest transition-all"
+                                                        className="h-8 px-2.5 rounded text-xs font-bold uppercase tracking-widest bg-muted/50 hover:bg-primary/20 text-muted-foreground hover:text-primary transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                                                        disabled={project.assignmentStatus === 'pending' && !isClient}
+                                                        title={project.assignmentStatus === 'pending' && !isClient ? "Accept project to preview" : ""}
                                                     >
                                                         Preview
                                                     </button>
                                                     <button 
                                                         onClick={() => handleDirectDownload(file.url, file.name)}
-                                                        className="h-8 w-8 rounded bg-muted hover:bg-zinc-800 flex items-center justify-center text-muted-foreground transition-all"
+                                                        className="h-8 w-8 rounded-lg bg-muted/50 hover:bg-primary/20 text-muted-foreground hover:text-primary flex items-center justify-center transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                                                        disabled={project.assignmentStatus === 'pending' && !isClient}
+                                                        title={project.assignmentStatus === 'pending' && !isClient ? "Accept project to download" : ""}
                                                     >
                                                         <Download className="h-3.5 w-3.5" />
                                                     </button>
                                                 </div>
                                             </div>
                                         ))}
+                                        {((project as any).bRoleFiles?.length || 0) > 2 && (
+                                            <p className="text-xs text-muted-foreground text-center py-1">+{((project as any).bRoleFiles?.length || 0) - 2} more files</p>
+                                        )}
                                     </div>
                                 ) : (
-                                    <p className="text-xs text-muted-foreground italic ml-1">No B-roll assets provided.</p>
+                                    <div className="p-3 rounded-lg border border-border/30 bg-muted/20">
+                                        <p className="text-xs text-muted-foreground">Not uploaded yet</p>
+                                    </div>
                                 )}
                             </div>
 
-                            {/* Reference Section */}
-                            {((project as any).referenceLink || ((project as any).referenceFiles && (project as any).referenceFiles.length > 0)) && (
-                                <div className="space-y-4 pt-4 border-t border-border">
-                                    <div className="flex items-center gap-2">
-                                        <p className="text-[9px] text-primary/70 font-black uppercase tracking-widest ml-1 flex items-center gap-2">
-                                            <Zap className="h-3 w-3" /> Style Reference Components
-                                        </p>
-                                        <span className="inline-flex items-center px-2 py-0.5 rounded-full bg-purple-500/10 text-purple-600 text-[8px] font-bold uppercase tracking-widest border border-purple-500/20">
-                                            PM Upload
-                                        </span>
-                                    </div>
-                                    <div className="grid gap-3">
-                                        {(project as any).referenceLink && (
-                                            <a 
-                                                href={(project as any).referenceLink.startsWith('http') ? (project as any).referenceLink : `https://${(project as any).referenceLink}`} 
-                                                target="_blank" 
-                                                className="flex items-center justify-between p-4 rounded-xl bg-primary/5 border border-primary/20 hover:border-primary/40 transition-all group"
-                                            >
-                                                <div className="flex items-center gap-3 min-w-0">
-                                                    <div className="h-9 w-9 flex items-center justify-center rounded-lg bg-primary/10 text-primary">
-                                                        <LinkIcon className="h-4 w-4" />
-                                                    </div>
-                                                    <div className="min-w-0">
-                                                        <p className="text-[9px] text-primary font-bold uppercase tracking-widest leading-none mb-1.5">Style URL</p>
-                                                        <p className="text-sm font-bold text-primary truncate">Open Reference Page</p>
-                                                    </div>
-                                                </div>
-                                            </a>
-                                        )}
-                                        
-                                        {(project as any).referenceFiles && (project as any).referenceFiles.length > 0 && (
-                                            <div className="grid gap-2">
-                                                {(project as any).referenceFiles.map((file: any, idx: number) => {
-                                                    const isImage = /\.(jpg|jpeg|png|gif|webp|svg)$/i.test(file.name);
-                                                    const isVideo = /\.(mp4|webm|mov|avi|mkv)$/i.test(file.name);
-                                                    
-                                                    return (
-                                                        <div key={idx} className="flex flex-col gap-2">
-                                                            {/* Image Preview */}
-                                                            {isImage && (
-                                                                <div className="relative rounded-xl overflow-hidden border border-border bg-black/20 group cursor-pointer">
-                                                                    <img 
-                                                                        src={file.url} 
-                                                                        alt={file.name} 
-                                                                        className="max-h-[200px] w-full object-cover group-hover:opacity-80 transition-opacity"
-                                                                        onClick={() => setPreviewFile({ url: file.url, type: 'image', name: file.name })}
-                                                                    />
-                                                                    <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 flex items-center justify-center transition-all opacity-0 group-hover:opacity-100">
-                                                                        <div className="text-white text-xs font-bold uppercase tracking-widest bg-black/60 px-3 py-1.5 rounded-full">
-                                                                            View
-                                                                        </div>
-                                                                    </div>
-                                                                </div>
-                                                            )}
-
-                                                            {/* Video Thumbnail */}
-                                                            {isVideo && (
-                                                                <div className="relative rounded-xl overflow-hidden border border-border bg-black/40 group cursor-pointer aspect-video">
-                                                                    <video 
-                                                                        src={file.url}
-                                                                        className="w-full h-full object-cover group-hover:opacity-80 transition-opacity"
-                                                                        onClick={() => setPreviewFile({ url: file.url, type: 'video', name: file.name })}
-                                                                    />
-                                                                    <div className="absolute inset-0 bg-black/0 group-hover:bg-black/30 flex items-center justify-center transition-all opacity-0 group-hover:opacity-100">
-                                                                        <Play className="h-10 w-10 text-white opacity-90" />
-                                                                    </div>
-                                                                </div>
-                                                            )}
-
-                                                            {/* File Info & Actions */}
-                                                            <div className="flex items-center justify-between gap-3">
-                                                                <div className="flex-1 min-w-0">
-                                                                    <p className="text-xs font-bold text-muted-foreground truncate group-hover:text-foreground">{file.name}</p>
-                                                                    <p className="text-[10px] text-muted-foreground/60 mt-0.5">Uploaded by: Project Manager</p>
-                                                                </div>
-                                                                <div className="flex items-center gap-2 flex-shrink-0">
-                                                                    {!isImage && !isVideo && (
-                                                                        <button 
-                                                                            onClick={() => setPreviewFile({ url: file.url, type: 'other', name: file.name })} 
-                                                                            className="h-8 px-3 rounded bg-muted hover:bg-primary/20 hover:text-primary text-muted-foreground text-[9px] font-bold uppercase tracking-widest transition-all"
-                                                                        >
-                                                                            Preview
-                                                                        </button>
-                                                                    )}
-                                                                    <button 
-                                                                        onClick={() => handleDirectDownload(file.url, file.name)}
-                                                                        className="h-8 w-8 rounded bg-muted hover:bg-primary/20 hover:text-primary text-muted-foreground flex items-center justify-center transition-all"
-                                                                        title="Download file"
-                                                                    >
-                                                                        <Download className="h-3.5 w-3.5" />
-                                                                    </button>
-                                                                </div>
-                                                            </div>
-                                                        </div>
-                                                    );
-                                                })}
-                                            </div>
-                                        )}
-                                    </div>
+                            {/* 5. Style References */}
+                            <div className="space-y-3 pt-3 border-t border-border/30">
+                                <div className="flex items-center gap-2">
+                                    <span className="text-[11px] font-bold uppercase tracking-widest text-muted-foreground">✨ Style References</span>
                                 </div>
-                            )}
+
+                                {/* Reference Link */}
+                                {(project as any).referenceLink && (
+                                    <a 
+                                        href={(project as any).referenceLink.startsWith('http') ? (project as any).referenceLink : `https://${(project as any).referenceLink}`}
+                                        target="_blank"
+                                        className="flex items-center gap-3 p-3 rounded-lg bg-emerald-500/5 border border-emerald-500/20 hover:border-emerald-500/40 hover:bg-emerald-500/10 transition-all group"
+                                    >
+                                        <LinkIcon className="h-4 w-4 text-emerald-600 flex-shrink-0" />
+                                        <span className="text-sm font-semibold text-foreground group-hover:text-emerald-600 transition-colors">Open Style Reference</span>
+                                    </a>
+                                )}
+
+                                {/* Reference Files */}
+                                {(project as any).referenceFiles && (project as any).referenceFiles.length > 0 && (
+                                    <div className="grid gap-2">
+                                        {(project as any).referenceFiles.slice(0, 2).map((file: any, idx: number) => (
+                                            <div key={idx} className="flex items-center justify-between gap-3 p-3 rounded-lg border border-border/30 hover:bg-muted/30 transition-all group">
+                                                <div className="flex items-center gap-2 min-w-0 flex-1">
+                                                    {file.type?.includes('image') ? (
+                                                        <ImageIcon className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+                                                    ) : (
+                                                        <FileVideo className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+                                                    )}
+                                                    <p className="text-xs font-semibold text-foreground truncate">{file.name}</p>
+                                                </div>
+                                                <div className="flex items-center gap-2 flex-shrink-0">
+                                                    <button 
+                                                        onClick={() => setPreviewFile({ url: file.url, type: file.type || 'image', name: file.name })}
+                                                        className="h-8 px-2.5 rounded text-xs font-bold uppercase tracking-widest bg-muted/50 hover:bg-primary/20 text-muted-foreground hover:text-primary transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                                                        disabled={project.assignmentStatus === 'pending' && !isClient}
+                                                        title={project.assignmentStatus === 'pending' && !isClient ? "Accept project to preview" : ""}
+                                                    >
+                                                        Preview
+                                                    </button>
+                                                    <button 
+                                                        onClick={() => handleDirectDownload(file.url, file.name)}
+                                                        className="h-8 w-8 rounded-lg bg-muted/50 hover:bg-primary/20 text-muted-foreground hover:text-primary flex items-center justify-center transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                                                        disabled={project.assignmentStatus === 'pending' && !isClient}
+                                                        title={project.assignmentStatus === 'pending' && !isClient ? "Accept project to download" : ""}
+                                                    >
+                                                        <Download className="h-3.5 w-3.5" />
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        ))}
+                                        {((project as any).referenceFiles?.length || 0) > 2 && (
+                                            <p className="text-xs text-muted-foreground text-center py-1">+{((project as any).referenceFiles?.length || 0) - 2} more files</p>
+                                        )}
+                                    </div>
+                                )}
+
+                                {/* Empty State */}
+                                {!(project as any).referenceLink && (!((project as any).referenceFiles) || (project as any).referenceFiles.length === 0) && (
+                                    <div className="p-3 rounded-lg border border-border/30 bg-muted/20">
+                                        <p className="text-xs text-muted-foreground">Not uploaded yet</p>
+                                    </div>
+                                )}
+                            </div>
 
                             {previewFile && (
                                 <div className="fixed inset-0 z-[100] bg-black/90 backdrop-blur-xl flex items-center justify-center p-4" onClick={() => setPreviewFile(null)}>
@@ -1491,9 +1574,9 @@ export default function ProjectDetailsPage() {
                                 </div>
                             )}
 
-                            {/* Inject Asset */}
+                            {/* Client Upload */}
                             {isClient && (
-                                <div className="pt-2">
+                                <div className="pt-4 border-t border-border">
                                     {isUploadingAsset ? (
                                         <div className="w-full bg-muted/50 rounded-xl border border-border px-4 py-3 space-y-2.5">
                                             <div className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-widest text-muted-foreground">
@@ -1518,19 +1601,19 @@ export default function ProjectDetailsPage() {
                                             </div>
                                         </div>
                                     ) : (
-                                        <div className="relative">
-                                            <button className="w-full h-12 rounded-xl bg-muted/50 border border-border hover:border-border hover:bg-muted/50 text-muted-foreground hover:text-foreground transition-all group relative overflow-hidden">
-                                                <div className="flex items-center justify-center gap-2.5 relative z-10 text-[10px] font-bold uppercase tracking-widest">
-                                                    <Upload className="h-3.5 w-3.5" />
-                                                    Add Files
-                                                </div>
-                                                <input 
-                                                    type="file" 
-                                                    className="absolute inset-0 opacity-0 cursor-pointer z-20"
-                                                    onChange={handleAssetUpload}
-                                                />
-                                            </button>
-                                        </div>
+                                        <label className="flex items-center justify-center w-full h-24 rounded-xl border-2 border-dashed border-border hover:border-primary/50 hover:bg-muted/50 transition-all cursor-pointer group">
+                                            <div className="text-center">
+                                                <Upload className="h-6 w-6 mx-auto text-muted-foreground group-hover:text-primary transition-colors mb-1" />
+                                                <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground group-hover:text-primary transition-colors">Upload Raw Files</p>
+                                            </div>
+                                            <input 
+                                                type="file"
+                                                onChange={handleAssetUpload}
+                                                disabled={isUploadingAsset}
+                                                className="hidden"
+                                                accept="video/*"
+                                            />
+                                        </label>
                                     )}
                                 </div>
                             )}
@@ -1551,6 +1634,7 @@ export default function ProjectDetailsPage() {
                             <Milestone label="Final Delivery" date="Pending" active={project.status === 'completed'} />
                         </div>
                     </div>
+
 
                 </div>
             </div>
