@@ -5,7 +5,7 @@ import { useParams, useRouter } from "next/navigation";
 import { useAuth } from "@/lib/context/auth-context";
 import { db } from "@/lib/firebase/config";
 import { doc, collection, query, where, orderBy, updateDoc, arrayUnion, onSnapshot, increment } from "firebase/firestore";
-import { Project, Revision } from "@/types/schema";
+import { Project, Revision, Invoice } from "@/types/schema";
 import { 
     Loader2, 
     ArrowLeft, 
@@ -31,7 +31,8 @@ import {
     ChevronRight,
     MessageSquare,
     Eye,
-    Star
+    Star,
+    FileText
 } from "lucide-react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
@@ -98,6 +99,7 @@ export default function ProjectDetailsPage() {
     const [assignedPM, setAssignedPM] = useState<User | null>(null);
     const [assignedEditor, setAssignedEditor] = useState<User | null>(null);
     const [assignedSE, setAssignedSE] = useState<User | null>(null);
+    const [invoices, setInvoices] = useState<Invoice[]>([]);
 
     const handleAssetUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
         if (!e.target.files || !e.target.files[0] || !project) return;
@@ -761,6 +763,45 @@ export default function ProjectDetailsPage() {
                             >
                                 {isDownloading ? <><Loader2 className="h-4 w-4 animate-spin" /> Fetching...</> : <><Download className="h-4 w-4" /> Download Final Video</>}
                             </button>
+                        </div>
+                    )}
+
+                    {invoices.length > 0 && (
+                        <div className="enterprise-card border-emerald-500/20 bg-emerald-500/[0.02] p-8 space-y-6">
+                            <div className="flex items-center gap-3">
+                                <div className="h-12 w-12 bg-emerald-500/10 border border-emerald-500/20 rounded-xl flex items-center justify-center text-emerald-500">
+                                    <FileText className="h-6 w-6" />
+                                </div>
+                                <div>
+                                    <h3 className="text-lg font-bold text-foreground">Invoice & Receipt</h3>
+                                    <p className="text-sm text-muted-foreground mt-1">Download your project invoice</p>
+                                </div>
+                            </div>
+
+                            <div className="space-y-3">
+                                {invoices.map((invoice) => (
+                                    <Link key={invoice.id} href={`/dashboard/invoices/${invoice.id}`}>
+                                        <motion.div
+                                            whileHover={{ scale: 1.01 }}
+                                            className="flex items-center justify-between p-4 rounded-xl bg-background border border-border hover:border-emerald-500/30 hover:bg-emerald-500/5 transition-all group cursor-pointer"
+                                        >
+                                            <div className="flex items-center gap-3 min-w-0">
+                                                <div className="h-10 w-10 bg-emerald-500/10 rounded-lg flex items-center justify-center text-emerald-500 group-hover:bg-emerald-500/20 transition-colors flex-shrink-0">
+                                                    <FileText className="h-5 w-5" />
+                                                </div>
+                                                <div className="min-w-0">
+                                                    <p className="text-sm font-semibold text-foreground group-hover:text-emerald-600 transition-colors">{invoice.invoiceNumber}</p>
+                                                    <p className="text-xs text-muted-foreground">₹{invoice.total.toLocaleString()}</p>
+                                                </div>
+                                            </div>
+                                            <div className="flex items-center gap-2 flex-shrink-0">
+                                                <span className="text-xs font-bold text-emerald-600/60 uppercase tracking-widest">View PDF</span>
+                                                <Download className="h-4 w-4 text-muted-foreground group-hover:text-emerald-600 transition-colors" />
+                                            </div>
+                                        </motion.div>
+                                    </Link>
+                                ))}
+                            </div>
                         </div>
                     )}
                 </div>
