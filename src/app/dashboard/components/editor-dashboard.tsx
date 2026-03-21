@@ -74,8 +74,7 @@ export function EditorDashboard() {
         const projectsRef = collection(db, "projects");
         const q = query(
             projectsRef, 
-            where("assignedEditorId", "==", user.uid),
-            orderBy("updatedAt", "desc")
+            where("assignedEditorId", "==", user.uid)
         );
 
         const unsubscribe = onSnapshot(q, (snapshot) => {
@@ -83,7 +82,20 @@ export function EditorDashboard() {
             snapshot.forEach((doc) => {
                 fetchedProjects.push({ id: doc.id, ...doc.data() } as Project);
             });
+            fetchedProjects.sort((a, b) => {
+                const aUpdated = typeof a.updatedAt === "number" ? a.updatedAt : 0;
+                const bUpdated = typeof b.updatedAt === "number" ? b.updatedAt : 0;
+                return bUpdated - aUpdated;
+            });
             setProjects(fetchedProjects);
+            setLoading(false);
+        }, (error) => {
+            console.error("[EditorDashboard] Failed to subscribe assigned projects", {
+                code: (error as any)?.code,
+                message: error?.message,
+                uid: user.uid,
+            });
+            toast.error("Failed to load assigned projects. Please refresh.");
             setLoading(false);
         });
 
