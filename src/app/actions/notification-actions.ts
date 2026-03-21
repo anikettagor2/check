@@ -46,7 +46,13 @@ export async function handleRevisionUploaded(projectId: string) {
         const reviewLink = `${baseUrl}/review/${projectId}/${revisionId}`;
 
         // 4. Notify client about new draft with version number and link
-        notifyClientDraftSubmitted(projectId, versionNumber, reviewLink);
+        const draftNotifyResult = await notifyClientDraftSubmitted(projectId, versionNumber, reviewLink);
+        if (!draftNotifyResult.success) {
+            console.error('[WhatsApp] Draft submitted notification failed', {
+                projectId,
+                error: draftNotifyResult.error,
+            });
+        }
 
         revalidatePath(`/dashboard/projects/${projectId}`);
         return { success: true };
@@ -66,13 +72,26 @@ export async function handleProjectCompleted(projectId: string) {
         const project = projectSnap.data();
 
         // Notify client
-        notifyClientProjectCompleted(projectId);
+        const clientCompletedResult = await notifyClientProjectCompleted(projectId);
+        if (!clientCompletedResult.success) {
+            console.error('[WhatsApp] Client project-completed notification failed', {
+                projectId,
+                error: clientCompletedResult.error,
+            });
+        }
         
         // Notify PM if assigned
         if (project?.assignedPMId) {
             const clientSnap = await adminDb.collection('users').doc(project.clientId).get();
             const clientName = clientSnap.exists ? clientSnap.data()?.displayName || 'Client' : 'Client';
-            notifyPMProjectCompleted(projectId, project.assignedPMId, clientName);
+            const pmCompletedResult = await notifyPMProjectCompleted(projectId, project.assignedPMId, clientName);
+            if (!pmCompletedResult.success) {
+                console.error('[WhatsApp] PM project-completed notification failed', {
+                    projectId,
+                    pmId: project.assignedPMId,
+                    error: pmCompletedResult.error,
+                });
+            }
         }
 
         return { success: true };
@@ -102,28 +121,68 @@ export async function handleNewComment(
             if (project?.assignedEditorId) {
                 const clientSnap = await adminDb.collection('users').doc(commenterId).get();
                 const clientName = clientSnap.exists ? clientSnap.data()?.displayName || 'Client' : 'Client';
-                notifyEditorNewComment(projectId, project.assignedEditorId, clientName);
+                const editorCommentResult = await notifyEditorNewComment(projectId, project.assignedEditorId, clientName);
+                if (!editorCommentResult.success) {
+                    console.error('[WhatsApp] Editor new-comment notification failed', {
+                        projectId,
+                        editorId: project.assignedEditorId,
+                        error: editorCommentResult.error,
+                    });
+                }
             }
             if (project?.assignedPMId) {
-                notifyPMNewComment(projectId, project.assignedPMId, commenterName, 'Client');
+                const pmCommentResult = await notifyPMNewComment(projectId, project.assignedPMId, commenterName, 'Client');
+                if (!pmCommentResult.success) {
+                    console.error('[WhatsApp] PM client-comment notification failed', {
+                        projectId,
+                        pmId: project.assignedPMId,
+                        error: pmCommentResult.error,
+                    });
+                }
             }
         } else if (commenterRole === 'editor' || commenterRole === 'video_editor') {
             // Editor commented -> notify client and PM
             if (project?.clientId) {
-                notifyClientNewComment(projectId, commenterName);
+                const clientCommentResult = await notifyClientNewComment(projectId, commenterName);
+                if (!clientCommentResult.success) {
+                    console.error('[WhatsApp] Client editor-comment notification failed', {
+                        projectId,
+                        error: clientCommentResult.error,
+                    });
+                }
             }
             if (project?.assignedPMId) {
-                notifyPMNewComment(projectId, project.assignedPMId, commenterName, 'Editor');
+                const pmCommentResult = await notifyPMNewComment(projectId, project.assignedPMId, commenterName, 'Editor');
+                if (!pmCommentResult.success) {
+                    console.error('[WhatsApp] PM editor-comment notification failed', {
+                        projectId,
+                        pmId: project.assignedPMId,
+                        error: pmCommentResult.error,
+                    });
+                }
             }
         } else if (commenterRole === 'project_manager') {
             // PM commented -> notify client and editor
             if (project?.clientId) {
-                notifyClientNewComment(projectId, commenterName);
+                const clientCommentResult = await notifyClientNewComment(projectId, commenterName);
+                if (!clientCommentResult.success) {
+                    console.error('[WhatsApp] Client PM-comment notification failed', {
+                        projectId,
+                        error: clientCommentResult.error,
+                    });
+                }
             }
             if (project?.assignedEditorId) {
                 const clientSnap = project.clientId ? await adminDb.collection('users').doc(project.clientId).get() : null;
                 const clientName = clientSnap?.exists ? clientSnap.data()?.displayName || 'Client' : 'Client';
-                notifyEditorNewComment(projectId, project.assignedEditorId, clientName);
+                const editorCommentResult = await notifyEditorNewComment(projectId, project.assignedEditorId, clientName);
+                if (!editorCommentResult.success) {
+                    console.error('[WhatsApp] Editor PM-comment notification failed', {
+                        projectId,
+                        editorId: project.assignedEditorId,
+                        error: editorCommentResult.error,
+                    });
+                }
             }
         }
 
@@ -145,7 +204,14 @@ export async function handleEditorRatingSubmitted(projectId: string, rating: num
 
         // Notify editor about the feedback
         if (project?.assignedEditorId && rating > 0) {
-            notifyEditorFeedbackReceived(projectId, project.assignedEditorId, rating);
+            const editorRatingResult = await notifyEditorFeedbackReceived(projectId, project.assignedEditorId, rating);
+            if (!editorRatingResult.success) {
+                console.error('[WhatsApp] Editor feedback notification failed', {
+                    projectId,
+                    editorId: project.assignedEditorId,
+                    error: editorRatingResult.error,
+                });
+            }
         }
 
         return { success: true };

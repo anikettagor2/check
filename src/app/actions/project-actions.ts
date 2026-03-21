@@ -259,7 +259,13 @@ export async function unlockProjectDownloads(projectId: string, userId: string) 
         });
 
         // Notify client that project is completed/ready for download
-        notifyClientProjectCompleted(projectId);
+        const completionNotifyResult = await notifyClientProjectCompleted(projectId);
+        if (!completionNotifyResult.success) {
+            console.error('[WhatsApp] Client completion notification failed', {
+                projectId,
+                error: completionNotifyResult.error,
+            });
+        }
 
         const { addProjectLog } = await import("./admin-actions");
         await addProjectLog(projectId, 'COMPLETED', { uid: userId, displayName: userData?.displayName || 'PM/Admin' }, 'Downloads unlocked. Project successfully marked as completed.');

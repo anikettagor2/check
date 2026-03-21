@@ -138,18 +138,19 @@ export async function sendWhatsAppNotification(
     params: string[],
     campaignName: string,
     retryCount = 0
-): Promise<{ success: boolean; error?: string; data?: any }> {
-    console.log(`[WhatsApp] Attempting send to ${phoneNumber} via campaign "${campaignName}" (attempt ${retryCount + 1})`);
+): Promise<{ success: boolean; error?: string; data?: any; requestId?: string }> {
+    const requestId = `wa-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+    console.log(`[WhatsApp] [${requestId}] Attempting send to ${phoneNumber} via campaign "${campaignName}" (attempt ${retryCount + 1})`);
 
     const phoneResult = formatPhoneNumber(phoneNumber);
     if (!phoneResult.valid) {
-        console.warn(`[WhatsApp] ${phoneResult.error}`);
-        return { success: false, error: phoneResult.error };
+        console.warn(`[WhatsApp] [${requestId}] ${phoneResult.error}`);
+        return { success: false, error: phoneResult.error, requestId };
     }
 
     if (!AISENSY_API_KEY) {
-        console.error("[WhatsApp] AISENSY_API_KEY is missing");
-        return { success: false, error: "WhatsApp service not configured" };
+        console.error(`[WhatsApp] [${requestId}] AISENSY_API_KEY is missing`);
+        return { success: false, error: "WhatsApp service not configured", requestId };
     }
 
     const payload = {
@@ -163,9 +164,9 @@ export async function sendWhatsAppNotification(
 
     try {
         // Debug logs for network troubleshooting
-        console.log('[WhatsApp] API Key present:', !!AISENSY_API_KEY);
-        console.log('[WhatsApp] Target URL:', AISENSY_URL);
-        console.log('[WhatsApp] Campaign:', payload.campaignName);
+        console.log(`[WhatsApp] [${requestId}] API Key present:`, !!AISENSY_API_KEY);
+        console.log(`[WhatsApp] [${requestId}] Target URL:`, AISENSY_URL);
+        console.log(`[WhatsApp] [${requestId}] Campaign:`, payload.campaignName);
         
         const controller = new AbortController();
         const timeoutId = setTimeout(() => controller.abort(), 10000);
@@ -184,18 +185,18 @@ export async function sendWhatsAppNotification(
         const data = await response.json();
         
         if (!response.ok) {
-            console.error("[WhatsApp] AiSensy Error:", data);
+            console.error(`[WhatsApp] [${requestId}] AiSensy Error:`, data);
             
             if (retryCount < MAX_RETRIES && (response.status >= 500 || response.status === 429)) {
                 await delay(RETRY_DELAY * (retryCount + 1));
                 return sendWhatsAppNotification(phoneNumber, params, campaignName, retryCount + 1);
             }
             
-            return { success: false, error: data.message || `Request failed with status ${response.status}` };
+            return { success: false, error: data.message || `Request failed with status ${response.status}`, requestId };
         }
         
-        console.log("[WhatsApp] Success:", data);
-        return { success: true, data };
+        console.log(`[WhatsApp] [${requestId}] Success:`, data);
+        return { success: true, data, requestId };
         
     } catch (error: any) {
         const errorCode = error?.code;
@@ -203,7 +204,7 @@ export async function sendWhatsAppNotification(
         
         // Handle specific network errors
         if (errorCode === 'ENOTFOUND' || errorCode === 'ECONNREFUSED') {
-            console.error(`[WhatsApp] Network Error - Domain Resolution Failed: ${errorCode}`, {
+            console.error(`[WhatsApp] [${requestId}] Network Error - Domain Resolution Failed: ${errorCode}`, {
                 hostname: 'backend.aisensy.com',
                 message: 'Production environment cannot reach AiSensy API',
                 solution: 'Check firewall rules, DNS configuration, and outbound HTTPS permissions',
@@ -213,26 +214,27 @@ export async function sendWhatsAppNotification(
             // Don't retry DNS errors - they won't resolve on retry
             return { 
                 success: false, 
-                error: `Network connectivity error (${errorCode}): Cannot reach AiSensy backend. Check firewall/DNS.` 
+                error: `Network connectivity error (${errorCode}): Cannot reach AiSensy backend. Check firewall/DNS.`,
+                requestId
             };
         }
         
         // Handle timeout/abort errors
         if (error.name === 'AbortError' || errorCode === 'ECONNRESET' || errorCode === 'ETIMEDOUT') {
-            console.error(`[WhatsApp] Network Error - Timeout/Connection Reset: ${error.name || errorCode}`);
+            console.error(`[WhatsApp] [${requestId}] Network Error - Timeout/Connection Reset: ${error.name || errorCode}`);
             
             if (retryCount < MAX_RETRIES) {
-                console.log(`[WhatsApp] Retrying... (attempt ${retryCount + 2}/${MAX_RETRIES + 1})`);
+                console.log(`[WhatsApp] [${requestId}] Retrying... (attempt ${retryCount + 2}/${MAX_RETRIES + 1})`);
                 await delay(RETRY_DELAY * (retryCount + 1));
                 return sendWhatsAppNotification(phoneNumber, params, campaignName, retryCount + 1);
             }
             
-            return { success: false, error: `Connection timeout after ${MAX_RETRIES + 1} attempts` };
+            return { success: false, error: `Connection timeout after ${MAX_RETRIES + 1} attempts`, requestId };
         }
         
         // Generic network error
-        console.error("[WhatsApp] Network Error:", error);
-        return { success: false, error: errorMessage };
+        console.error(`[WhatsApp] [${requestId}] Network Error:`, error);
+        return { success: false, error: errorMessage, requestId };
     }
 }
 
@@ -416,31 +418,31 @@ export async function notifyPM(
 }
 
 // ============================================================================
-// CONVENIENCE WRAPPERS (Fire-and-forget, non-blocking)
+// CONVENIENCE WRAPPERS (awaitable)
 // ============================================================================
 
 /** Notify client about project creation */
-export function notifyClientProjectCreated(projectId: string) {
-    notifyClient(projectId, 'client_project_created').catch(console.error);
+export async function notifyClientProjectCreated(projectId: string) {
+    return notifyClient(projectId, 'client_project_created');
 }
 
 /** Notify client about PM assignment */
-export function notifyClientPMAssigned(projectId: string, pmName: string) {
-    notifyClient(projectId, 'client_pm_assigned', { pm: pmName }).catch(console.error);
+export async function notifyClientPMAssigned(projectId: string, pmName: string) {
+    return notifyClient(projectId, 'client_pm_assigned', { pm: pmName });
 }
 
 /** Notify client about editor assignment */
-export function notifyClientEditorAssigned(projectId: string) {
-    notifyClient(projectId, 'client_editor_assigned').catch(console.error);
+export async function notifyClientEditorAssigned(projectId: string) {
+    return notifyClient(projectId, 'client_editor_assigned');
 }
 
 /** Notify client that editor accepted */
-export function notifyClientEditorAccepted(projectId: string) {
-    notifyClient(projectId, 'client_editor_accepted').catch(console.error);
+export async function notifyClientEditorAccepted(projectId: string) {
+    return notifyClient(projectId, 'client_editor_accepted');
 }
 
 /** Notify client about new draft */
-export function notifyClientDraftSubmitted(projectId: string, versionNumber?: number, reviewLink?: string) {
+export async function notifyClientDraftSubmitted(projectId: string, versionNumber?: number, reviewLink?: string) {
     const extraData: Record<string, string> = {};
     
     if (versionNumber !== undefined) {
@@ -451,63 +453,63 @@ export function notifyClientDraftSubmitted(projectId: string, versionNumber?: nu
         extraData.link = reviewLink;
     }
     
-    notifyClient(projectId, 'client_draft_submitted', extraData).catch(console.error);
+    return notifyClient(projectId, 'client_draft_submitted', extraData);
 }
 
 /** Notify client about new comment */
-export function notifyClientNewComment(projectId: string, commenterName: string) {
-    notifyClient(projectId, 'client_new_comment', { name: commenterName }).catch(console.error);
+export async function notifyClientNewComment(projectId: string, commenterName: string) {
+    return notifyClient(projectId, 'client_new_comment', { name: commenterName });
 }
 
 /** Notify client about project completion */
-export function notifyClientProjectCompleted(projectId: string) {
-    notifyClient(projectId, 'client_project_completed').catch(console.error);
+export async function notifyClientProjectCompleted(projectId: string) {
+    return notifyClient(projectId, 'client_project_completed');
 }
 
 /** Notify editor about new project assignment */
-export function notifyEditorProjectAssigned(projectId: string, editorId: string, pmName: string, deadline?: string) {
-    notifyEditor(projectId, editorId, 'editor_project_assigned', { 
+export async function notifyEditorProjectAssigned(projectId: string, editorId: string, pmName: string, deadline?: string) {
+    return notifyEditor(projectId, editorId, 'editor_project_assigned', { 
         pm: pmName, 
         extra: deadline ? `Deadline: ${deadline}` : '' 
-    }).catch(console.error);
+    });
 }
 
 /** Notify editor about new comment from client */
-export function notifyEditorNewComment(projectId: string, editorId: string, clientName: string) {
-    notifyEditor(projectId, editorId, 'editor_new_comment', { client: clientName }).catch(console.error);
+export async function notifyEditorNewComment(projectId: string, editorId: string, clientName: string) {
+    return notifyEditor(projectId, editorId, 'editor_new_comment', { client: clientName });
 }
 
 /** Notify editor about client feedback */
-export function notifyEditorFeedbackReceived(projectId: string, editorId: string, rating: number) {
-    notifyEditor(projectId, editorId, 'editor_feedback_received', { 
+export async function notifyEditorFeedbackReceived(projectId: string, editorId: string, rating: number) {
+    return notifyEditor(projectId, editorId, 'editor_feedback_received', { 
         rating: rating.toString(),
         extra: `Rating: ${rating} stars`
-    }).catch(console.error);
+    });
 }
 
 /** Notify PM about new project from SE */
-export function notifyPMProjectAssigned(projectId: string, pmId: string, seName: string) {
-    notifyPM(projectId, pmId, 'pm_project_assigned', { se: seName }).catch(console.error);
+export async function notifyPMProjectAssigned(projectId: string, pmId: string, seName: string) {
+    return notifyPM(projectId, pmId, 'pm_project_assigned', { se: seName });
 }
 
 /** Notify PM that editor accepted */
-export function notifyPMEditorAccepted(projectId: string, pmId: string, editorName: string) {
-    notifyPM(projectId, pmId, 'pm_editor_accepted', { editor: editorName, details: `Editor: ${editorName}` }).catch(console.error);
+export async function notifyPMEditorAccepted(projectId: string, pmId: string, editorName: string) {
+    return notifyPM(projectId, pmId, 'pm_editor_accepted', { editor: editorName, details: `Editor: ${editorName}` });
 }
 
 /** Notify PM that editor rejected */
-export function notifyPMEditorRejected(projectId: string, pmId: string, editorName: string, reason: string) {
-    notifyPM(projectId, pmId, 'pm_editor_rejected', { editor: editorName, reason, details: `Reason: ${reason}` }).catch(console.error);
+export async function notifyPMEditorRejected(projectId: string, pmId: string, editorName: string, reason: string) {
+    return notifyPM(projectId, pmId, 'pm_editor_rejected', { editor: editorName, reason, details: `Reason: ${reason}` });
 }
 
 /** Notify PM about new comment in project */
-export function notifyPMNewComment(projectId: string, pmId: string, commenterName: string, commenterRole: string) {
-    notifyPM(projectId, pmId, 'pm_new_comment', { name: commenterName, role: commenterRole, details: `${commenterName} (${commenterRole})` }).catch(console.error);
+export async function notifyPMNewComment(projectId: string, pmId: string, commenterName: string, commenterRole: string) {
+    return notifyPM(projectId, pmId, 'pm_new_comment', { name: commenterName, role: commenterRole, details: `${commenterName} (${commenterRole})` });
 }
 
 /** Notify PM about project completion (client downloaded) */
-export function notifyPMProjectCompleted(projectId: string, pmId: string, clientName: string) {
-    notifyPM(projectId, pmId, 'pm_project_completed', { client: clientName, details: `Client: ${clientName}` }).catch(console.error);
+export async function notifyPMProjectCompleted(projectId: string, pmId: string, clientName: string) {
+    return notifyPM(projectId, pmId, 'pm_project_completed', { client: clientName, details: `Client: ${clientName}` });
 }
 
 // ============================================================================

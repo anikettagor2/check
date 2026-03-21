@@ -4,7 +4,7 @@ import * as admin from 'firebase-admin';
 import { adminAuth, adminDb, adminStorage } from '@/lib/firebase/admin';
 import { UserRole } from '@/types/schema';
 import { revalidatePath } from 'next/cache';
-import { notifyClient, notifyClientProjectCreated, notifyClientPMAssigned, notifyPMProjectAssigned, notifyPMEditorAccepted, notifyPMEditorRejected, notifyClientEditorAssigned, notifyEditorProjectAssigned } from '@/lib/whatsapp';
+import { notifyClient, notifyClientProjectCreated, notifyClientPMAssigned, notifyPMProjectAssigned, notifyPMEditorAccepted, notifyPMEditorRejected, notifyClientEditorAssigned, notifyClientEditorAccepted, notifyEditorProjectAssigned } from '@/lib/whatsapp';
 
 /**
  * Toggles a user's disabled status in Firebase Auth and updates Firestore
@@ -185,8 +185,15 @@ export async function handleProjectCreated(projectId: string) {
                 `Project created. (SE: ${seName}, Assigned PM: ${pmName})`
             );
             
-            // Notify PM about new project assignment
-            notifyPMProjectAssigned(projectId, pmId, seName);
+            // Await notification so serverless execution does not drop WhatsApp sends.
+            const pmNotifyResult = await notifyPMProjectAssigned(projectId, pmId, seName);
+            if (!pmNotifyResult.success) {
+                console.error('[WhatsApp] PM assignment notification failed', {
+                    projectId,
+                    pmId,
+                    error: pmNotifyResult.error,
+                });
+            }
         } else {
             await addProjectLog(
                 projectId,
@@ -196,8 +203,13 @@ export async function handleProjectCreated(projectId: string) {
             );
         }
 
-        // Notify client about project creation
-        notifyClientProjectCreated(projectId);
+        const clientNotifyResult = await notifyClientProjectCreated(projectId);
+        if (!clientNotifyResult.success) {
+            console.error('[WhatsApp] Client project-created notification failed', {
+                projectId,
+                error: clientNotifyResult.error,
+            });
+        }
         return { success: true };
     } catch (error: any) {
         return { success: false, error: error.message };
@@ -322,11 +334,25 @@ export async function assignEditor(
             `Editor ${editorName} assigned to project.`
         );
 
-        // Notify client that PM has assigned an editor
-        notifyClientEditorAssigned(projectId);
-        
-        // Notify editor about new assignment
-        notifyEditorProjectAssigned(projectId, editorId, pmName, deadline);
+        const [clientAssignResult, editorAssignResult] = await Promise.all([
+            notifyClientEditorAssigned(projectId),
+            notifyEditorProjectAssigned(projectId, editorId, pmName, deadline),
+        ]);
+
+        if (!clientAssignResult.success) {
+            console.error('[WhatsApp] Client editor-assigned notification failed', {
+                projectId,
+                error: clientAssignResult.error,
+            });
+        }
+
+        if (!editorAssignResult.success) {
+            console.error('[WhatsApp] Editor assignment notification failed', {
+                projectId,
+                editorId,
+                error: editorAssignResult.error,
+            });
+        }
 
         revalidatePath('/dashboard');
         return { success: true };
@@ -405,22 +431,25 @@ export async function respondToAssignment(projectId: string, response: 'accepted
 
         // Notify based on response
         if (response === 'accepted') {
-            // Fire-and-forget WhatsApp notifications (non-blocking)
-            import('@/lib/whatsapp').then(({ notifyClientEditorAccepted, notifyPMEditorAccepted }) => {
-                try {
-                    notifyClientEditorAccepted(projectId);
-                } catch (err) {
-                    console.error('[WhatsApp] Failed to notify client:', err);
-                }
-                
-                if (pmId) {
-                    try {
-                        notifyPMEditorAccepted(projectId, pmId, editorName);
-                    } catch (err) {
-                        console.error('[WhatsApp] Failed to notify PM:', err);
-                    }
-                }
-            }).catch(err => console.error('[WhatsApp] Failed to import:', err));
+            const acceptedResults = await Promise.all([
+                notifyClientEditorAccepted(projectId),
+                pmId ? notifyPMEditorAccepted(projectId, pmId, editorName) : Promise.resolve({ success: true }),
+            ]);
+
+            if (!acceptedResults[0].success) {
+                console.error('[WhatsApp] Client editor-accepted notification failed', {
+                    projectId,
+                    error: acceptedResults[0].error,
+                });
+            }
+
+            if (pmId && !acceptedResults[1].success) {
+                console.error('[WhatsApp] PM editor-accepted notification failed', {
+                    projectId,
+                    pmId,
+                    error: acceptedResults[1].error,
+                });
+            }
         } else if (response === 'rejected') {
             // Create in-app notification for PM about rejection (CRITICAL - must succeed)
             if (pmId) {
@@ -440,15 +469,15 @@ export async function respondToAssignment(projectId: string, response: 'accepted
                 });
             }
             
-            // Fire-and-forget WhatsApp notification (non-blocking)
             if (pmId) {
-                import('@/lib/whatsapp').then(({ notifyPMEditorRejected }) => {
-                    try {
-                        notifyPMEditorRejected(projectId, pmId, editorName, reason?.trim() || 'No reason provided');
-                    } catch (err) {
-                        console.error('[WhatsApp] Failed to notify PM:', err);
-                    }
-                }).catch(err => console.error('[WhatsApp] Failed to import:', err));
+                const rejectedNotifyResult = await notifyPMEditorRejected(projectId, pmId, editorName, reason?.trim() || 'No reason provided');
+                if (!rejectedNotifyResult.success) {
+                    console.error('[WhatsApp] PM editor-rejected notification failed', {
+                        projectId,
+                        pmId,
+                        error: rejectedNotifyResult.error,
+                    });
+                }
             }
         }
 
@@ -945,8 +974,25 @@ export async function autoAssignEditor(projectId: string, editorPrice: number, d
         );
 
         // 8. Send notifications
-        notifyClientEditorAssigned(projectId);
-        notifyEditorProjectAssigned(projectId, selectedEditor.editorId, pmName, deadline);
+        const [clientAssignResult, editorAssignResult] = await Promise.all([
+            notifyClientEditorAssigned(projectId),
+            notifyEditorProjectAssigned(projectId, selectedEditor.editorId, pmName, deadline),
+        ]);
+
+        if (!clientAssignResult.success) {
+            console.error('[WhatsApp] Client auto-assignment notification failed', {
+                projectId,
+                error: clientAssignResult.error,
+            });
+        }
+
+        if (!editorAssignResult.success) {
+            console.error('[WhatsApp] Editor auto-assignment notification failed', {
+                projectId,
+                editorId: selectedEditor.editorId,
+                error: editorAssignResult.error,
+            });
+        }
 
         revalidatePath('/dashboard');
         return { 
