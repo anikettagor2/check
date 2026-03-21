@@ -162,6 +162,11 @@ export async function sendWhatsAppNotification(
     };
 
     try {
+        // Debug logs for network troubleshooting
+        console.log('[WhatsApp] API Key present:', !!AISENSY_API_KEY);
+        console.log('[WhatsApp] Target URL:', AISENSY_URL);
+        console.log('[WhatsApp] Campaign:', payload.campaignName);
+        
         const controller = new AbortController();
         const timeoutId = setTimeout(() => controller.abort(), 10000);
 
@@ -193,14 +198,41 @@ export async function sendWhatsAppNotification(
         return { success: true, data };
         
     } catch (error: any) {
-        console.error("[WhatsApp] Network Error:", error);
+        const errorCode = error?.code;
+        const errorMessage = error?.message || 'Network error occurred';
         
-        if (retryCount < MAX_RETRIES && (error.name === 'AbortError' || error.code === 'ECONNRESET')) {
-            await delay(RETRY_DELAY * (retryCount + 1));
-            return sendWhatsAppNotification(phoneNumber, params, campaignName, retryCount + 1);
+        // Handle specific network errors
+        if (errorCode === 'ENOTFOUND' || errorCode === 'ECONNREFUSED') {
+            console.error(`[WhatsApp] Network Error - Domain Resolution Failed: ${errorCode}`, {
+                hostname: 'backend.aisensy.com',
+                message: 'Production environment cannot reach AiSensy API',
+                solution: 'Check firewall rules, DNS configuration, and outbound HTTPS permissions',
+                error: errorMessage
+            });
+            
+            // Don't retry DNS errors - they won't resolve on retry
+            return { 
+                success: false, 
+                error: `Network connectivity error (${errorCode}): Cannot reach AiSensy backend. Check firewall/DNS.` 
+            };
         }
         
-        return { success: false, error: error.message || "Network error occurred" };
+        // Handle timeout/abort errors
+        if (error.name === 'AbortError' || errorCode === 'ECONNRESET' || errorCode === 'ETIMEDOUT') {
+            console.error(`[WhatsApp] Network Error - Timeout/Connection Reset: ${error.name || errorCode}`);
+            
+            if (retryCount < MAX_RETRIES) {
+                console.log(`[WhatsApp] Retrying... (attempt ${retryCount + 2}/${MAX_RETRIES + 1})`);
+                await delay(RETRY_DELAY * (retryCount + 1));
+                return sendWhatsAppNotification(phoneNumber, params, campaignName, retryCount + 1);
+            }
+            
+            return { success: false, error: `Connection timeout after ${MAX_RETRIES + 1} attempts` };
+        }
+        
+        // Generic network error
+        console.error("[WhatsApp] Network Error:", error);
+        return { success: false, error: errorMessage };
     }
 }
 

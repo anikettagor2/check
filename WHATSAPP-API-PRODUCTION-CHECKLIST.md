@@ -7,9 +7,11 @@
 ## 🔴 COMMON PRODUCTION ISSUES & FIXES
 
 ### 1. **API KEY NOT PROPERLY SET IN PRODUCTION ENVIRONMENT**
+
 **Problem**: `AISENSY_API_KEY` is undefined on production servers.
 
 **Solution**:
+
 - ✅ Verify `.env.local` contains the API key locally
 - ✅ Add `AISENSY_API_KEY` to Vercel/hosting platform environment variables
 - ✅ Restart the server after adding environment variables
@@ -18,22 +20,26 @@
 ```typescript
 // Add this debug log at the top of sendWhatsAppNotification()
 if (!AISENSY_API_KEY) {
-    console.error("[WhatsApp] CRITICAL: AISENSY_API_KEY is missing from environment");
-    return { success: false, error: "WhatsApp service not configured" };
+  console.error(
+    "[WhatsApp] CRITICAL: AISENSY_API_KEY is missing from environment",
+  );
+  return { success: false, error: "WhatsApp service not configured" };
 }
 ```
 
 ---
 
 ### 2. **PHONE NUMBER FORMAT ISSUES**
+
 **Problem**: Phone numbers in database are in wrong format or invalid.
 
 **Solution**:
+
 - ✅ Ensure all phone numbers in Firestore are **10-digit Indian numbers WITHOUT country code**
   - ✅ Valid: `9876543210` → Gets converted to `919876543210`
   - ❌ Invalid: `+919876543210`, `+1-234-567-8900`, `919876543210`
-  
 - ✅ Check users in Firestore:
+
   ```
   Collection: users
   Fields to verify:
@@ -53,12 +59,68 @@ if (!AISENSY_API_KEY) {
 
 ---
 
-### 3. **NETWORK TIMEOUT OR BLOCKED REQUESTS**
+### 3. **DNS RESOLUTION FAILURE (ENOTFOUND)**
+
+**Problem**: Error message shows `Error: getaddrinfo ENOTFOUND backend.aisensy.com`
+
+This is a **production network connectivity issue** - the server cannot resolve the domain name.
+
+**Error Details**:
+```
+[WhatsApp] Network Error: TypeError: fetch failed
+  errno: -3008
+  code: 'ENOTFOUND'
+  syscall: 'getaddrinfo'
+  hostname: 'backend.aisensy.com'
+```
+
+**Solution**: Check in this order:
+
+1. ✅ **Verify DNS is working** - Test from your production platform:
+   - If on Vercel: Use Vercel's serverless logs to check network requests
+   - If on Firebase: Check Cloud Functions network configuration
+   - If on custom server: Run `nslookup backend.aisensy.com` from production environment
+
+2. ✅ **Check Firewall/Network Policies**:
+   - Production server may block outbound HTTPS requests
+   - Contact hosting provider to allow HTTPS traffic to `backend.aisensy.com:443`
+   - Common platforms with restrictions:
+     - **Vercel**: Check for VPN requirement or blocked domains
+     - **Firebase Cloud Functions**: May need to use `blaze` plan for external APIs
+     - **AWS Lambda**: Check VPC/security group rules
+
+3. ✅ **Enable Detailed Error Logging** (code already updated):
+   - Build includes enhanced error handling for ENOTFOUND
+   - Check logs for: `Network Error - Domain Resolution Failed`
+   - Information provided: hostname, solution steps, error details
+
+4. ✅ **Test Endpoint Availability**:
+   ```typescript
+   // Add this test endpoint to verify connectivity
+   // GET /api/health/whatsapp-connectivity
+   const response = await fetch('https://backend.aisensy.com/campaign/t1/api/v2', {
+     method: 'POST',
+     headers: { 'Content-Type': 'application/json' },
+     body: JSON.stringify({ test: true })
+   });
+   ```
+
+5. ✅ **As Last Resort - Use Proxy/VPN**:
+   - If your hosting provider blocks direct access
+   - Configure proxy server in AiSensy API request
+   - Or enable VPN in hosting platform
+
+---
+
+### 4. **NETWORK TIMEOUT OR BLOCKED REQUESTS**
+
 **Problem**: Requests to AiSensy API timeout or get blocked by firewall.
 
 **Solution**:
+
 - ✅ Check firewall allows outbound HTTPS to `https://backend.aisensy.com`
 - ✅ Verify 10-second timeout is sufficient: `src/lib/whatsapp.ts` line 189
+
   ```typescript
   const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 seconds
   // If needed, increase to 15000 (15 seconds) for slow networks
@@ -67,20 +129,25 @@ if (!AISENSY_API_KEY) {
 - ✅ Enable production logging to inspect network issues:
   ```typescript
   // In functions/src/index.ts - add detailed logging
-  console.error("[WhatsApp] Response status:", response.status, response.statusText);
+  console.error(
+    "[WhatsApp] Response status:",
+    response.status,
+    response.statusText,
+  );
   console.error("[WhatsApp] Response body:", await response.text());
   ```
 
 ---
 
-### 4. **GLOBAL WHATSAPP NOTIFICATIONS DISABLED**
+### 5. **GLOBAL WHATSAPP NOTIFICATIONS DISABLED**
+
 **Problem**: Admin has disabled notifications in settings.
 
 **Solution**:
+
 - ✅ Check Firebase: `settings/whatsapp` document
   - Check if `enabled: false` is set
   - Check if specific notification types have `enabled: false`
-  
 - ✅ Enable in admin dashboard:
   - Navigate to Settings → WhatsApp
   - Toggle "Global WhatsApp Notifications" to ON
@@ -88,16 +155,19 @@ if (!AISENSY_API_KEY) {
 
 ---
 
-### 5. **FIREBASE ADMIN SDK NOT INITIALIZED**
+### 6. **FIREBASE ADMIN SDK NOT INITIALIZED**
+
 **Problem**: Cloud Functions can't access Firestore.
 
 **Solution**:
+
 - ✅ Verify `FIREBASE_PRIVATE_KEY` and `FIREBASE_CLIENT_EMAIL` are set in `.env.local`
 - ✅ Check Service Account JSON is valid: `functions/src/index.ts` line 8-9
+
   ```typescript
   // Should initialize without errors
-  process.env.FIREBASE_CLIENT_EMAIL
-  process.env.FIREBASE_PRIVATE_KEY
+  process.env.FIREBASE_CLIENT_EMAIL;
+  process.env.FIREBASE_PRIVATE_KEY;
   ```
 
 - ✅ Test Firebase connection in cloud function logs:
@@ -109,14 +179,16 @@ if (!AISENSY_API_KEY) {
 
 ---
 
-### 6. **AISENSY CAMPAIGN NAME MISMATCH**
+### 7. **AISENSY CAMPAIGN NAME MISMATCH**
+
 **Problem**: Campaign names don't match what's registered in AiSensy.
 
 **Solution**:
+
 - ✅ Verify campaign names in AiSensy account match:
   - `("CLIENT", "EDITOR", "PROJECT_MANAGER")`
-  
 - ✅ Check Firebase `settings/whatsapp` has correct campaigns:
+
   ```typescript
   {
     "campaigns": {
@@ -131,10 +203,12 @@ if (!AISENSY_API_KEY) {
 
 ---
 
-### 7. **WHATSAPP TEMPLATES NOT APPROVED**
+### 8. **WHATSAPP TEMPLATES NOT APPROVED**
+
 **Problem**: AiSensy is rejecting messages because templates aren't approved.
 
 **Solution**:
+
 - ✅ Go to AiSensy account → Templates section
 - ✅ Ensure these templates are APPROVED:
   - CLIENT template
@@ -152,10 +226,12 @@ if (!AISENSY_API_KEY) {
 
 ---
 
-### 8. **WHATSAPP API RATE LIMITING**
+### 9. **WHATSAPP API RATE LIMITING**
+
 **Problem**: Too many requests causing timeout/rejection.
 
 **Solution**:
+
 - ✅ Check AiSensy rate limits (usually 100+ msgs/min)
 - ✅ Implement exponential backoff (already in code):
   ```typescript
@@ -168,11 +244,14 @@ if (!AISENSY_API_KEY) {
 
 ---
 
-### 9. **WRONG MESSAGE SENT (Custom vs Default)**
+### 10. **WRONG MESSAGE SENT (Custom vs Default)**
+
 **Problem**: Users receiving default message instead of custom message.
 
 **Solution**:
+
 - ✅ Check `settings/whatsapp` has custom message saved:
+
   ```
   notifications: {
     "client_project_created": {
@@ -209,22 +288,26 @@ if (!AISENSY_API_KEY) {
 ## 📊 TESTING IN PRODUCTION
 
 ### Test 1: Verify API Key is Loaded
+
 1. Call any endpoint that sends WhatsApp
 2. Check cloud function logs for: `[WhatsApp] Attempting send to...`
 3. If you see: `AISENSY_API_KEY is missing` → Environment variable not set
 
 ### Test 2: Test Phone Number Validation
+
 1. Create a user with phone number `9876543210`
 2. Trigger a notification
 3. Logs should show: `[WhatsApp] Attempting send to 919876543210`
 
 ### Test 3: Monitor AiSensy Response
+
 1. Send test notification
 2. Check logs for response:
    - ✅ Success: `[WhatsApp] Success: { message: "Sent" }`
    - ❌ Error: `[WhatsApp] AiSensy Error: { ... }`
 
 ### Test 4: Check Firestore Logging
+
 1. Notifications should create cloud function logs
 2. Search Vercel logs for `[WhatsApp]` prefix
 3. All attempts should be logged (even failures for debugging)
@@ -236,12 +319,14 @@ if (!AISENSY_API_KEY) {
 **If messages aren't being sent:**
 
 1. **Check API Key first** (most common issue):
+
    ```bash
    # In Vercel dashboard, verify env var:
    AISENSY_API_KEY = eyJhbGc...
    ```
 
 2. **Check phone numbers**:
+
    ```
    Firebase Console → Firestore → users collection
    Are phone numbers in column: whatsappNumber or phoneNumber?
@@ -249,6 +334,7 @@ if (!AISENSY_API_KEY) {
    ```
 
 3. **Check settings**:
+
    ```
    Firebase Firestore → settings → whatsapp
    enabled: true ?
@@ -256,6 +342,7 @@ if (!AISENSY_API_KEY) {
    ```
 
 4. **Check cloud function logs**:
+
    ```
    Vercel Logs → Filter by [WhatsApp]
    Look for error messages and response codes
