@@ -1,10 +1,12 @@
 
 import { NextResponse } from 'next/server';
-import { razorpay, CURRENCY } from '@/lib/razorpay';
+import { CURRENCY } from '@/lib/razorpay';
 import { db } from '@/lib/firebase/config'; // Client SDK for now, but better to use Admin SDK in API routes if possible. 
 // Using Admin SDK for consistency in API routes if available, or just standard check.
 // Using Admin SDK for consistency in API routes if available, or just standard check.
 // import { adminAuth } from '@/lib/firebase/admin';
+
+export const runtime = 'nodejs';
 
 export async function POST(request: Request) {
     try {
@@ -38,7 +40,40 @@ export async function POST(request: Request) {
             }
         };
 
-        const order = await razorpay.orders.create(options);
+        const keyId = process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID;
+        const keySecret = process.env.RAZORPAY_KEY_SECRET;
+        if (!keyId || !keySecret) {
+            return NextResponse.json({ error: 'Razorpay credentials are not configured' }, { status: 500 });
+        }
+
+        const basicAuth = Buffer.from(`${keyId}:${keySecret}`).toString('base64');
+        const response = await fetch('https://api.razorpay.com/v1/orders', {
+            method: 'POST',
+            headers: {
+                Authorization: `Basic ${basicAuth}`,
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(options)
+        });
+
+        const rawBody = await response.text();
+        let order: any = null;
+        try {
+            order = JSON.parse(rawBody);
+        } catch {
+            order = { raw: rawBody };
+        }
+
+        if (!response.ok) {
+            console.error('Razorpay order API failed', {
+                status: response.status,
+                body: order
+            });
+            return NextResponse.json(
+                { error: 'Error creating order', details: order },
+                { status: response.status }
+            );
+        }
 
         return NextResponse.json(order);
     } catch (error: any) {
