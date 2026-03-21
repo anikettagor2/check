@@ -325,9 +325,8 @@ export function EditorDashboardV2() {
     };
 
     // Filter projects based on search
-    const filteredProjects = projects.filter(p => 
-        p.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        p.clientName?.toLowerCase().includes(searchQuery.toLowerCase())
+    const filteredProjects = projects.filter(p =>
+        p.name?.toLowerCase().includes(searchQuery.toLowerCase())
     );
 
     // Count statistics
@@ -1218,7 +1217,7 @@ export function EditorDashboardV2() {
                 <div className="relative">
                     <input
                         type="text"
-                        placeholder="Search projects by name or client..."
+                        placeholder="Search projects by name..."
                         value={searchQuery}
                         onChange={(e) => setSearchQuery(e.target.value)}
                         className="w-full px-4 py-3 rounded-xl border border-border bg-muted/30 text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all"
@@ -1266,7 +1265,6 @@ export function EditorDashboardV2() {
                                                 </td>
                                                 <td className="px-4 py-4">
                                                     <div className="font-semibold text-foreground">{project.name}</div>
-                                                    <div className="text-xs text-muted-foreground">{project.clientName || 'N/A'}</div>
                                                 </td>
                                                 <td className="px-4 py-4">
                                                     <div className="text-sm font-medium text-foreground">

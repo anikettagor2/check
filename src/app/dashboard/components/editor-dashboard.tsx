@@ -367,7 +367,6 @@ export function EditorDashboard() {
                                     <thead>
                                         <tr className="border-b border-border bg-muted/30">
                                             <th className="text-left text-xs font-medium text-muted-foreground px-4 py-3">Project</th>
-                                            <th className="text-left text-xs font-medium text-muted-foreground px-4 py-3 hidden sm:table-cell">Client</th>
                                             <th className="text-left text-xs font-medium text-muted-foreground px-4 py-3 hidden md:table-cell">Deadline</th>
                                             <th className="text-right text-xs font-medium text-muted-foreground px-4 py-3">Status</th>
                                             <th className="text-right text-xs font-medium text-muted-foreground px-4 py-3">Earnings</th>
@@ -400,11 +399,6 @@ export function EditorDashboard() {
                                                                     {project.videoType?.replace('_', ' ') || 'Video'}
                                                                 </p>
                                                             </div>
-                                                        </td>
-                                                        <td className="px-4 py-4 hidden sm:table-cell">
-                                                            <span className="text-sm text-muted-foreground">
-                                                                {project.clientName || project.brand || 'Client'}
-                                                            </span>
                                                         </td>
                                                         <td className="px-4 py-4 hidden md:table-cell">
                                                             {project.deadline ? (
