@@ -87,6 +87,7 @@ export interface Project {
     assignedEditorId?: string;
     footageLink?: string; // Link to cloud storage
     rawFiles?: { name: string; url: string; size?: number; type?: string; uploadedAt?: number }[]; // Raw video files uploaded by client
+    deliveredFiles?: { name: string; url: string; size?: number; type?: string; uploadedAt?: number }[];
     audioFiles?: { name: string; url: string; size?: number; type?: string; uploadedAt?: number }[];
     thumbnailUrl?: string; // Cover image
     status: ProjectStatus;
