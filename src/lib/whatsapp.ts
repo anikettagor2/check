@@ -535,6 +535,8 @@ export async function notifyClientDraftSubmitted(projectId: string, versionNumbe
     if (reviewLink) {
         extraData.link = reviewLink;
     }
+
+    extraData.deliveredOn = new Date().toISOString();
     
     return notifyClient(projectId, 'client_draft_submitted', extraData);
 }
