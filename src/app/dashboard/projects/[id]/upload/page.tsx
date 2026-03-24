@@ -158,7 +158,7 @@ export default function UploadRevisionPage() {
                         Upload New <span className="text-muted-foreground">Draft</span>
                     </h1>
                     <p className="text-[13px] text-muted-foreground font-medium max-w-md">
-                        Files are split into 5 MB chunks and uploaded in parallel. Uploads resume automatically if interrupted.
+                        Adaptive turbo upload uses parallel chunk transfer and resumable recovery for faster large-file delivery.
                     </p>
                 </div>
 

@@ -199,7 +199,7 @@ export function UploadDraftModal({
                                     Upload Draft - <span className="text-muted-foreground">{projectName}</span>
                                 </h2>
                                 <p className="text-xs text-muted-foreground">
-                                    Files are split into 5 MB chunks and uploaded in parallel. Uploads resume automatically if interrupted.
+                                    Adaptive turbo upload uses parallel chunk transfer and resumable recovery for faster large-file delivery.
                                 </p>
                             </div>
                         </div>

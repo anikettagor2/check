@@ -1,16 +1,16 @@
 /**
  * Chunked Resumable Upload Service
  *
- * - Splits files into 5 MB chunks
- * - Uploads up to 3 chunks in parallel
- * - Persists session state in Firestore so uploads can resume after page reload
- * - Uploads directly to Firebase Storage (no backend proxy)
+ * - Splits files into adaptive chunks (4 MB / 8 MB / 16 MB)
+ * - Uploads chunks in parallel (adaptive concurrency)
+ * - Persists session state in Firestore for true resume
+ * - Finalizes into one downloadable file via server-side compose
  */
 import { storage, db } from "@/lib/firebase/config";
+import { auth } from "@/lib/firebase/config";
 import {
   ref,
   uploadBytesResumable,
-  getDownloadURL,
 } from "firebase/storage";
 import {
   doc,
@@ -22,8 +22,12 @@ import {
 // ---------------------------------------------------------------------------
 // Constants
 // ---------------------------------------------------------------------------
-export const CHUNK_SIZE = 5 * 1024 * 1024; // 5 MB
-const MAX_CONCURRENT = 3;
+const MIN_CHUNK_SIZE = 4 * 1024 * 1024;   // 4 MB
+const MID_CHUNK_SIZE = 8 * 1024 * 1024;   // 8 MB
+const MAX_CHUNK_SIZE = 16 * 1024 * 1024;  // 16 MB
+const DEFAULT_CONCURRENT = 4;
+const MAX_CONCURRENT = 10;
+const COMPOSE_BATCH_LIMIT = 32;
 
 // ---------------------------------------------------------------------------
 // Types
@@ -44,6 +48,7 @@ interface PersistedSession {
   projectId: string;
   fileName: string;
   fileSize: number;
+  chunkSize: number;
   totalChunks: number;
   completedChunks: number[];         // indices that have been confirmed
   chunkPaths: Record<number, string>; // index → storage path
@@ -72,6 +77,64 @@ function splitFile(file: File, chunkSize: number): Blob[] {
     start += chunkSize;
   }
   return chunks;
+}
+
+function getUploadTuning(fileSize: number) {
+  if (typeof window === "undefined") {
+    return { chunkSize: MID_CHUNK_SIZE, concurrency: DEFAULT_CONCURRENT };
+  }
+
+  const connection = (navigator as any)?.connection;
+  const downlink = Number(connection?.downlink || 0);
+  const saveData = Boolean(connection?.saveData);
+  const effectiveType = String(connection?.effectiveType || "").toLowerCase();
+
+  if (saveData || effectiveType === "slow-2g" || effectiveType === "2g") {
+    return { chunkSize: MIN_CHUNK_SIZE, concurrency: 2 };
+  }
+
+  if (downlink >= 25 && fileSize >= 200 * 1024 * 1024) {
+    return { chunkSize: MAX_CHUNK_SIZE, concurrency: Math.min(MAX_CONCURRENT, 8) };
+  }
+
+  if (downlink >= 8) {
+    return { chunkSize: MID_CHUNK_SIZE, concurrency: 6 };
+  }
+
+  if (downlink > 0 && downlink < 3) {
+    return { chunkSize: MIN_CHUNK_SIZE, concurrency: 3 };
+  }
+
+  return { chunkSize: MID_CHUNK_SIZE, concurrency: DEFAULT_CONCURRENT };
+}
+
+async function composeUploadedChunks(payload: {
+  projectId: string;
+  sessionId: string;
+  fileName: string;
+  chunkPaths: string[];
+  contentType: string;
+}) {
+  const idToken = await auth.currentUser?.getIdToken();
+  if (!idToken) {
+    throw new Error("Authentication is required to finalize upload.");
+  }
+
+  const response = await fetch("/api/uploads/compose", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "Authorization": `Bearer ${idToken}`,
+    },
+    body: JSON.stringify(payload),
+  });
+
+  const data = await response.json().catch(() => ({}));
+  if (!response.ok || !data?.downloadURL) {
+    throw new Error(data?.error || "Failed to finalize upload.");
+  }
+
+  return data.downloadURL as string;
 }
 
 /**
@@ -157,7 +220,35 @@ export async function startChunkedUpload(
 ): Promise<string> {
   const sessionId = makeSessionId(projectId, file);
   const sessionRef = doc(db, "upload_sessions", sessionId);
+  const { chunkSize, concurrency } = getUploadTuning(file.size);
+  const chunks = splitFile(file, chunkSize);
+  const totalChunks = chunks.length;
+  const chunkPaths = chunks.map(
+    (_chunk, index) => `projects/${projectId}/revisions/${sessionId}/chunks/${String(index).padStart(6, "0")}.part`
+  );
+
   let canPersistSession = true;
+  let completedSet = new Set<number>();
+
+  try {
+    const existingSnap = await getDoc(sessionRef);
+    if (existingSnap.exists()) {
+      const existing = existingSnap.data() as PersistedSession;
+      const sameUpload =
+        existing.projectId === projectId &&
+        existing.fileName === file.name &&
+        existing.fileSize === file.size &&
+        existing.totalChunks === totalChunks;
+
+      if (sameUpload) {
+        completedSet = new Set(
+          (existing.completedChunks || []).filter((idx) => Number.isInteger(idx) && idx >= 0 && idx < totalChunks)
+        );
+      }
+    }
+  } catch {
+    // Resume state is best-effort only.
+  }
 
   try {
     await setDoc(sessionRef, {
@@ -165,9 +256,13 @@ export async function startChunkedUpload(
       projectId,
       fileName: file.name,
       fileSize: file.size,
-      totalChunks: 1,
-      completedChunks: [],
-      chunkPaths: {},
+      chunkSize,
+      totalChunks,
+      completedChunks: Array.from(completedSet),
+      chunkPaths: chunkPaths.reduce<Record<number, string>>((acc, path, index) => {
+        acc[index] = path;
+        return acc;
+      }, {}),
       status: "uploading",
       createdAt: Date.now(),
       updatedAt: Date.now(),
@@ -177,102 +272,127 @@ export async function startChunkedUpload(
     console.warn("upload_sessions persistence unavailable; continuing upload without resume state", err);
   }
 
-  const finalPath = `projects/${projectId}/revisions/${sessionId}/${file.name}`;
-  const finalRef = ref(storage, finalPath);
+  if (signal?.aborted) {
+    throw new DOMException("Aborted", "AbortError");
+  }
 
-  return new Promise((resolve, reject) => {
-    if (signal?.aborted) {
-      reject(new DOMException("Aborted", "AbortError"));
-      return;
+  const chunkSizes = chunks.map((chunk) => chunk.size);
+  const chunkTransferred = new Map<number, number>();
+  const pendingIndices = Array.from({ length: totalChunks }, (_v, index) => index).filter(
+    (index) => !completedSet.has(index)
+  );
+
+  const bytesFromCompleted = () =>
+    Array.from(completedSet).reduce((sum, index) => sum + (chunkSizes[index] || 0), 0);
+
+  const bytesFromLive = () =>
+    Array.from(chunkTransferred.values()).reduce((sum, value) => sum + value, 0);
+
+  let sampleBytes = bytesFromCompleted();
+  let sampleTime = Date.now();
+  let speedBps = 0;
+
+  const emitProgress = (status: ChunkedUploadProgress["status"]) => {
+    const uploaded = Math.min(file.size, bytesFromCompleted() + bytesFromLive());
+    const now = Date.now();
+    const dt = (now - sampleTime) / 1000;
+    if (dt >= 0.3) {
+      speedBps = Math.max(0, (uploaded - sampleBytes) / dt);
+      sampleBytes = uploaded;
+      sampleTime = now;
     }
 
-    let sampleBytes = 0;
-    let sampleTime = Date.now();
-    let speedBps = 0;
-
-    const task = uploadBytesResumable(finalRef, file, {
-      contentType: file.type || "video/mp4",
-      customMetadata: {
-        sessionId,
-        projectId,
-        originalName: file.name,
-        uploadedAt: String(Date.now()),
-      },
+    const remaining = Math.max(0, file.size - uploaded);
+    onProgress({
+      overallPct: file.size > 0 ? Math.min(100, (uploaded / file.size) * 100) : 0,
+      bytesUploaded: uploaded,
+      totalBytes: file.size,
+      speedBps,
+      etaSeconds: speedBps > 0 ? remaining / speedBps : Infinity,
+      chunksTotal: totalChunks,
+      chunksComplete: completedSet.size,
+      status,
     });
+  };
 
-    const handleAbort = () => task.cancel();
-    signal?.addEventListener("abort", handleAbort);
+  emitProgress("uploading");
 
-    task.on(
-      "state_changed",
-      (snap) => {
-        const now = Date.now();
-        const dt = (now - sampleTime) / 1000;
-        if (dt >= 0.3) {
-          speedBps = Math.max(0, (snap.bytesTransferred - sampleBytes) / dt);
-          sampleBytes = snap.bytesTransferred;
-          sampleTime = now;
-        }
+  try {
+    const uploadFns = pendingIndices.map((index) => () =>
+      uploadChunk(
+        chunks[index],
+        chunkPaths[index],
+        (bytes) => {
+          chunkTransferred.set(index, bytes);
+          emitProgress("uploading");
+        },
+        signal
+      )
+    );
 
-        const remaining = Math.max(0, file.size - snap.bytesTransferred);
+    await withConcurrency(uploadFns, Math.min(MAX_CONCURRENT, Math.max(2, concurrency)), async (localIndex) => {
+      const chunkIndex = pendingIndices[localIndex];
+      completedSet.add(chunkIndex);
+      chunkTransferred.delete(chunkIndex);
+      emitProgress("uploading");
 
-        onProgress({
-          overallPct: Math.min(100, (snap.bytesTransferred / file.size) * 100),
-          bytesUploaded: snap.bytesTransferred,
-          totalBytes: file.size,
-          speedBps,
-          etaSeconds: speedBps > 0 ? remaining / speedBps : Infinity,
-          chunksTotal: 1,
-          chunksComplete: snap.bytesTransferred >= file.size ? 1 : 0,
-          status: snap.bytesTransferred >= file.size ? "assembling" : "uploading",
-        });
-      },
-      async (err) => {
-        signal?.removeEventListener("abort", handleAbort);
-        if (canPersistSession) {
-          try {
-            await updateDoc(sessionRef, { status: "error", updatedAt: Date.now() });
-          } catch {
-            // best-effort persistence only
-          }
-        }
-        reject(err);
-      },
-      async () => {
-        signal?.removeEventListener("abort", handleAbort);
+      if (canPersistSession) {
         try {
-          const url = await getDownloadURL(task.snapshot.ref);
-          if (canPersistSession) {
-            try {
-              await updateDoc(sessionRef, {
-                status: "done",
-                completedChunks: [0],
-                finalUrl: url,
-                updatedAt: Date.now(),
-              });
-            } catch {
-              // best-effort persistence only
-            }
-          }
-
-          onProgress({
-            overallPct: 100,
-            bytesUploaded: file.size,
-            totalBytes: file.size,
-            speedBps: 0,
-            etaSeconds: 0,
-            chunksTotal: 1,
-            chunksComplete: 1,
-            status: "done",
+          await updateDoc(sessionRef, {
+            completedChunks: Array.from(completedSet).sort((a, b) => a - b),
+            updatedAt: Date.now(),
           });
-
-          resolve(url);
-        } catch (e) {
-          reject(e);
+        } catch {
+          // best-effort persistence only
         }
       }
-    );
-  });
+    });
+
+    emitProgress("assembling");
+
+    const downloadURL = await composeUploadedChunks({
+      projectId,
+      sessionId,
+      fileName: file.name,
+      chunkPaths,
+      contentType: file.type || "video/mp4",
+    });
+
+    if (canPersistSession) {
+      try {
+        await updateDoc(sessionRef, {
+          status: "done",
+          completedChunks: Array.from(completedSet).sort((a, b) => a - b),
+          finalUrl: downloadURL,
+          updatedAt: Date.now(),
+        });
+      } catch {
+        // best-effort persistence only
+      }
+    }
+
+    onProgress({
+      overallPct: 100,
+      bytesUploaded: file.size,
+      totalBytes: file.size,
+      speedBps: 0,
+      etaSeconds: 0,
+      chunksTotal: totalChunks,
+      chunksComplete: totalChunks,
+      status: "done",
+    });
+
+    return downloadURL;
+  } catch (err) {
+    if (canPersistSession) {
+      try {
+        await updateDoc(sessionRef, { status: "error", updatedAt: Date.now() });
+      } catch {
+        // best-effort persistence only
+      }
+    }
+    throw err;
+  }
 }
 
 // ---------------------------------------------------------------------------
