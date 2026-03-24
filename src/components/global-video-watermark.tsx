@@ -12,6 +12,29 @@ type WatermarkState = {
 
 const DEFAULT_COMPANY_NAME = "EditoHub";
 
+function sanitizeWatermarkText(value?: string | null) {
+  if (!value) return "";
+  return value.trim().slice(0, 48);
+}
+
+function resolveWatermarkText(video: HTMLVideoElement) {
+  const fromVideo = sanitizeWatermarkText(video.dataset.watermarkName);
+  if (fromVideo) return fromVideo;
+
+  const fromContainer = sanitizeWatermarkText(
+    video.closest("[data-watermark-name]")?.getAttribute("data-watermark-name")
+  );
+  if (fromContainer) return fromContainer;
+
+  const fromBody = sanitizeWatermarkText(document.body.dataset.watermarkName);
+  if (fromBody) return fromBody;
+
+  const fromEnv = sanitizeWatermarkText(process.env.NEXT_PUBLIC_COMPANY_NAME);
+  if (fromEnv) return fromEnv;
+
+  return DEFAULT_COMPANY_NAME;
+}
+
 function createWatermarkNode(text: string, isFullscreen: boolean) {
   const node = document.createElement("div");
   node.textContent = text;
@@ -39,7 +62,6 @@ export function GlobalVideoWatermark() {
   useEffect(() => {
     if (typeof window === "undefined") return;
 
-    const companyName = process.env.NEXT_PUBLIC_COMPANY_NAME?.trim() || DEFAULT_COMPANY_NAME;
     const states = new Map<HTMLVideoElement, WatermarkState>();
 
     const setupVideo = (video: HTMLVideoElement) => {
@@ -52,10 +74,12 @@ export function GlobalVideoWatermark() {
         wrapper.style.position = "relative";
       }
 
-      const overlay = createWatermarkNode(companyName, false);
+      const watermarkText = resolveWatermarkText(video);
+
+      const overlay = createWatermarkNode(watermarkText, false);
       wrapper.appendChild(overlay);
 
-      const fullscreenOverlay = createWatermarkNode(companyName, true);
+      const fullscreenOverlay = createWatermarkNode(watermarkText, true);
       document.body.appendChild(fullscreenOverlay);
 
       const onFullscreenChange = () => {

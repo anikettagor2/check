@@ -366,6 +366,7 @@ export default function GuestReviewPage() {
                             <video
                                 ref={videoRef}
                                 className="h-full w-full outline-none"
+                                data-watermark-name={project?.brand || project?.clientName || project?.name || "Client"}
                                 controls
                                 preload="auto"
                                 playsInline

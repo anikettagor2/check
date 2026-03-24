@@ -42,8 +42,8 @@ export async function handleRevisionUploaded(projectId: string) {
         });
 
         // 3. Build shareable link for review
-        const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://editohub.io';
-        const reviewLink = `${baseUrl}/review/${projectId}/${revisionId}`;
+        const baseUrl = process.env.SHORT_LINK_BASE_URL || process.env.NEXT_PUBLIC_SHORT_LINK_BASE_URL || process.env.NEXT_PUBLIC_APP_URL || 'https://editohub.io';
+        const reviewLink = `${baseUrl}/r/${revisionId}`;
 
         // 4. Notify client about new draft with version number and link
         const draftNotifyResult = await notifyClientDraftSubmitted(projectId, versionNumber, reviewLink);

@@ -52,6 +52,20 @@ const nextConfig: NextConfig = {
             },
         ];
     },
+    async redirects() {
+        return [
+            {
+                source: '/r/:id',
+                destination: '/review/:id',
+                permanent: false,
+            },
+            {
+                source: '/review/:projectId/:revisionId',
+                destination: '/review/:revisionId',
+                permanent: false,
+            },
+        ];
+    },
 };
 
 export default nextConfig;

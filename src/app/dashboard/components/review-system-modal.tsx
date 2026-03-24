@@ -597,7 +597,8 @@ export function ReviewSystemModal({ isOpen, onClose, project, allowUploadDraft =
                                     toast.error("No revision selected to share yet.");
                                     return;
                                 }
-                                const url = `${window.location.origin}/review/${selectedRevisionId}`;
+                                const shortBaseUrl = process.env.NEXT_PUBLIC_SHORT_LINK_BASE_URL || window.location.origin;
+                                const url = `${shortBaseUrl}/r/${selectedRevisionId}`;
                                 navigator.clipboard.writeText(url);
                                 toast.success("Review link copied to clipboard!");
                             }}
