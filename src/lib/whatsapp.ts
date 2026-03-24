@@ -595,7 +595,41 @@ export async function notifyClientEditorAssigned(projectId: string) {
 
 /** Notify client that editor accepted */
 export async function notifyClientEditorAccepted(projectId: string, editorName: string) {
-    return notifyClient(projectId, 'client_editor_accepted', { editorName });
+    try {
+        const projectSnap = await adminDb.collection('projects').doc(projectId).get();
+        if (!projectSnap.exists) return { success: false, error: 'Project not found' };
+        const project = projectSnap.data() as Project;
+
+        if (!project.clientId) return { success: false, error: 'No client assigned' };
+        const clientSnap = await adminDb.collection('users').doc(project.clientId).get();
+        if (!clientSnap.exists) return { success: false, error: 'Client not found' };
+        const client = clientSnap.data() as User;
+
+        const phoneNumber = client.whatsappNumber || client.phoneNumber;
+        if (!phoneNumber) return { success: false, error: 'No phone number' };
+
+        // Exact template mapping requested by business flow:
+        // campaign: pr_accept_editor
+        // {{1}} client name, {{2}} editor name, {{3}} project name
+        const params = [
+            client.displayName || 'Client',
+            editorName || 'Assigned Editor',
+            project.name || 'Your Project',
+        ];
+
+        const result = await sendWhatsAppNotification(
+            phoneNumber,
+            params,
+            'pr_accept_editor',
+            0,
+            { fallbackCampaignName: AISENSY_CLIENT_FALLBACK_CAMPAIGN }
+        );
+
+        return { success: result.success, error: result.error };
+    } catch (error: any) {
+        console.error('[WhatsApp] notifyClientEditorAccepted Error:', error);
+        return { success: false, error: error.message };
+    }
 }
 
 /** Notify client about new draft */
