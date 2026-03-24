@@ -12,7 +12,7 @@ import {
 import { adminDb } from "@/lib/firebase/admin";
 import { revalidatePath } from "next/cache";
 
-const DEFAULT_SHORT_LINK_BASE_URL = "https://ed.com";
+const DEFAULT_SHORT_LINK_BASE_URL = "https://previewvideo.online";
 
 function normalizeBaseUrl(url: string) {
     return url.replace(/\/+$/, "");
