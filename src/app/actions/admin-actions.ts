@@ -357,7 +357,7 @@ export async function assignEditor(
         );
 
         const [clientAssignResult, editorAssignResult] = await Promise.all([
-            notifyClientEditorAssigned(projectId),
+            notifyClientEditorAccepted(projectId, editorName),
             notifyEditorProjectAssigned(projectId, editorId, pmName, deadline),
         ]);
 
