@@ -241,6 +241,28 @@ export async function assignProjectManager(projectId: string, pmId: string, upda
             `Project Manager changed to ${pmData?.displayName || 'Unknown'}.`
         );
 
+        const pmName = pmData?.displayName || 'Project Manager';
+        const [clientNotifyResult, pmNotifyResult] = await Promise.all([
+            notifyClientPMAssigned(projectId, pmName),
+            notifyPMProjectAssigned(projectId, pmId, updatedBy.displayName || 'Admin'),
+        ]);
+
+        if (!clientNotifyResult.success) {
+            console.error('[WhatsApp] Client PM-assigned notification failed after PM reassignment', {
+                projectId,
+                pmId,
+                error: clientNotifyResult.error,
+            });
+        }
+
+        if (!pmNotifyResult.success) {
+            console.error('[WhatsApp] PM project-assigned notification failed after PM reassignment', {
+                projectId,
+                pmId,
+                error: pmNotifyResult.error,
+            });
+        }
+
         revalidatePath('/dashboard');
         return { success: true };
     } catch (error: any) {
