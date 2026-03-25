@@ -211,6 +211,7 @@ export async function sendWhatsAppNotification(
     options?: {
         fallbackCampaignName?: string;
         usedFallback?: boolean;
+        templateName?: string;
     }
 ): Promise<{ success: boolean; error?: string; data?: any; requestId?: string }> {
     const requestId = `wa-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
@@ -230,6 +231,7 @@ export async function sendWhatsAppNotification(
     const payload = {
         apiKey: AISENSY_API_KEY,
         campaignName: campaignName,
+        templateName: options?.templateName,
         destination: phoneResult.formatted,
         userName: phoneResult.formatted,
         templateParams: params,
@@ -622,7 +624,10 @@ export async function notifyClientEditorAccepted(projectId: string, editorName: 
             params,
             'pr_accept_editor',
             0,
-            { fallbackCampaignName: AISENSY_CLIENT_FALLBACK_CAMPAIGN }
+            {
+                fallbackCampaignName: AISENSY_CLIENT_FALLBACK_CAMPAIGN,
+                templateName: 'project_accpeted_editor',
+            }
         );
 
         return { success: result.success, error: result.error };
