@@ -1360,7 +1360,7 @@ export default function NewProjectPage() {
                                         </div>
                                         <div className="space-y-1">
                                             <p className="text-sm font-bold text-foreground">Click or drag files to upload</p>
-                                            <p className="text-xs text-muted-foreground font-medium tracking-tight">Support for mp4, mov, jpg, png, zip, rar, 7z</p>
+                                            <p className="text-xs text-muted-foreground font-medium tracking-tight">mp4, mov, jpg, png, zip, rar, 7z &nbsp;·&nbsp; Max 5 GB per file</p>
                                         </div>
                                     </div>
                                 </div>
@@ -1429,7 +1429,7 @@ export default function NewProjectPage() {
                                         </div>
                                         <div className="space-y-1">
                                             <p className="text-sm font-bold text-foreground">Click or drag files to upload</p>
-                                            <p className="text-xs text-muted-foreground font-medium tracking-tight">Support for videos, images, audio, and documents</p>
+                                            <p className="text-xs text-muted-foreground font-medium tracking-tight">Videos, images, audio, documents &nbsp;·&nbsp; Max 5 GB per file</p>
                                         </div>
                                     </div>
                                 </div>

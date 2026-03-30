@@ -700,7 +700,7 @@ export function ReviewSystemModal({ isOpen, onClose, project, allowUploadDraft =
                                         ) : (
                                             <Download className="h-3.5 w-3.5" />
                                         )}
-                                        Download Draft
+                                        Download
                                     </button>
                                 </div>
                             );
@@ -743,10 +743,10 @@ export function ReviewSystemModal({ isOpen, onClose, project, allowUploadDraft =
                             </div>
                         ) : selectedRevision?.videoUrl ? (
                             <video
-                                key={selectedRevision.id}
                                 ref={videoRef}
+                                src={selectedRevision.videoUrl}
+                                data-watermark-name={project?.clientName || project?.name}
                                 controls
-                                preload="metadata"
                                 playsInline
                                 className="w-full h-full object-contain"
                                 onTimeUpdate={(e) => setCurrentTime(e.currentTarget.currentTime)}
@@ -755,29 +755,6 @@ export function ReviewSystemModal({ isOpen, onClose, project, allowUploadDraft =
                         ) : (
                             <div className="h-full w-full flex items-center justify-center text-muted-foreground text-sm">
                                 No uploaded draft available for this project.
-                            </div>
-                        )}
-
-                        {/* ── React-rendered watermark (always correct, no observer needed) ── */}
-                        {selectedRevision?.videoUrl && (project?.clientName || project?.name) && (
-                            <div
-                                className="absolute inset-0 flex items-center justify-center pointer-events-none select-none z-10"
-                                style={{ userSelect: "none", WebkitUserSelect: "none" }}
-                            >
-                                <span
-                                    style={{
-                                        color: "#ffffff",
-                                        opacity: 0.22,
-                                        fontWeight: 700,
-                                        letterSpacing: "0.08em",
-                                        textTransform: "uppercase",
-                                        fontSize: "clamp(10px, 1.2vw, 18px)",
-                                        textShadow: "0 1px 2px rgba(0,0,0,0.35)",
-                                        whiteSpace: "nowrap",
-                                    }}
-                                >
-                                    {project?.clientName || project?.name}
-                                </span>
                             </div>
                         )}
                     </div>

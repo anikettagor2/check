@@ -55,7 +55,7 @@ export function DraftReviewModal({
         <Modal
             isOpen={isOpen}
             onClose={onClose}
-            title="Download Draft Video"
+            title="Download Video"
             maxWidth="max-w-2xl"
         >
             {!revision || !project ? (
@@ -75,6 +75,7 @@ export function DraftReviewModal({
                         <div className="relative rounded-xl overflow-hidden bg-black border border-border shadow-lg">
                             <video
                                 src={revision.videoUrl}
+                                data-watermark-name={project?.clientName || project?.name}
                                 controls
                                 className="w-full max-h-[400px] object-contain"
                             />
@@ -105,7 +106,7 @@ export function DraftReviewModal({
                             className="flex-1 px-6 py-3 rounded-lg bg-primary text-primary-foreground text-sm font-bold uppercase tracking-widest hover:bg-primary/90 transition-colors disabled:opacity-50 flex items-center justify-center gap-2 shadow-md"
                         >
                             <Download className="h-4 w-4" />
-                            {isDownloading ? "Downloading..." : "Download Draft"}
+                            {isDownloading ? "Downloading..." : "Download"}
                         </button>
                     </div>
                 </div>

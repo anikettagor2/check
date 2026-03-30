@@ -19,17 +19,23 @@ function sanitizeWatermarkText(value?: string | null) {
 
 function resolveWatermarkText(video: HTMLVideoElement) {
   // 1. Body-level override (set imperatively by the review page once project loads)
-  const fromBody = sanitizeWatermarkText(document.body.dataset.watermarkName);
+  const fromBody = sanitizeWatermarkText(document.body.dataset.watermarkName || document.body.dataset.clientName);
   if (fromBody) return fromBody;
 
   // 2. Closest ancestor with data-watermark-name (wrapper div)
   const fromContainer = sanitizeWatermarkText(
-    video.closest("[data-watermark-name]")?.getAttribute("data-watermark-name")
+    video.closest("[data-watermark-name]")?.getAttribute("data-watermark-name") ||
+    video.closest("[data-client-name]")?.getAttribute("data-client-name")
   );
   if (fromContainer && fromContainer !== "Client Review") return fromContainer;
 
   // 3. Attribute directly on the <video> element
-  const fromVideo = sanitizeWatermarkText(video.getAttribute("data-watermark-name") || video.dataset.watermarkName);
+  const fromVideo = sanitizeWatermarkText(
+    video.getAttribute("data-watermark-name") || 
+    video.dataset.watermarkName ||
+    video.getAttribute("data-client-name") ||
+    video.dataset.clientName
+  );
   if (fromVideo && fromVideo !== "Client Review") return fromVideo;
 
   // 4. Environment variable fallback
@@ -181,26 +187,34 @@ export function GlobalVideoWatermark() {
     });
 
     scanVideos();
-    // Watch entire document for data-watermark-name changes (subtree covers body itself)
+    // Watch entire document for data-watermark-name changes
     observer.observe(document.documentElement, { 
       childList: true, 
       subtree: true,
       attributes: true,
-      attributeFilter: ["data-watermark-name"]
+      attributeFilter: ["data-watermark-name", "data-client-name"]
     });
 
-    // Polling fallback: once project data loads asynchronously (Firebase), 
-    // re-resolve watermarks every 500ms for the first 8 seconds
-    let polls = 0;
+    // Persistent reactive update: in case of async data like Firebase project loading,
+    // we keep checking for a valid watermark name indefinitely but at a lower rate after 10s.
+    let ticks = 0;
     const pollInterval = setInterval(() => {
+      ticks++;
       updateVideoWatermarks();
-      polls++;
-      if (polls >= 16) clearInterval(pollInterval); // stop after 8 s
+      
+      // If we haven't found a valid name (still showing EditoHub) keep polling fast-ish (500ms)
+      // Otherwise, slow down significantly to 2 seconds after the initial 10s burst.
+      if (ticks > 20) {
+        clearInterval(pollInterval);
+        const slowInterval = setInterval(updateVideoWatermarks, 2000);
+        (window as any)._watermarkSlowPoll = slowInterval;
+      }
     }, 500);
 
     return () => {
       observer.disconnect();
       clearInterval(pollInterval);
+      if ((window as any)._watermarkSlowPoll) clearInterval((window as any)._watermarkSlowPoll);
       for (const video of Array.from(states.keys())) {
         teardownVideo(video);
       }

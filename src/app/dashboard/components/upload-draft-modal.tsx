@@ -76,8 +76,8 @@ export function UploadDraftModal({
         e.preventDefault();
         if (!file || !user || !projectId) return;
 
-        if (file.size > 2 * 1024 * 1024 * 1024) {
-            toast.error("File is too large. Max size is 2 GB.");
+        if (file.size > 5 * 1024 * 1024 * 1024) {
+            toast.error("File is too large. Max size is 5 GB.");
             return;
         }
 
@@ -297,7 +297,7 @@ export function UploadDraftModal({
                                                         Upload Video
                                                     </p>
                                                     <p className="text-[9px] font-black text-muted-foreground uppercase tracking-[0.2em]">
-                                                        MP4 · MOV · WEBM // MAX 2 GB
+                                                        MP4 · MOV · WEBM // MAX 5 GB
                                                     </p>
                                                 </div>
                                             </div>
