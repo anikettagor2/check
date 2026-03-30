@@ -76,6 +76,7 @@ export default function GuestReviewPage() {
     const [isBuffering, setIsBuffering] = useState(false);
     const [networkTier, setNetworkTier] = useState<"low" | "medium" | "high">("high");
     const [streamMode, setStreamMode] = useState<"hls" | "direct">("direct");
+    const [videoReady, setVideoReady] = useState(false);
     const hlsInstanceRef = useRef<any>(null);
 
     useEffect(() => {
@@ -162,6 +163,8 @@ export default function GuestReviewPage() {
         const hlsSource = revision.hlsUrl || (revision.videoUrl.includes(".m3u8") ? revision.videoUrl : null);
         let disposed = false;
 
+        setVideoReady(false);
+
         const cleanupHls = () => {
             if (hlsInstanceRef.current) {
                 hlsInstanceRef.current.destroy();
@@ -173,7 +176,9 @@ export default function GuestReviewPage() {
             cleanupHls();
 
             if (!hlsSource) {
+                // Direct MP4 — set src and let browser range-request handle it
                 videoElement.src = revision.videoUrl || "";
+                videoElement.load();
                 setStreamMode("direct");
                 return;
             }
@@ -185,12 +190,22 @@ export default function GuestReviewPage() {
                 const startLevel = networkTier === "low" ? 0 : networkTier === "medium" ? 1 : -1;
                 const hls = new Hls({
                     enableWorker: true,
-                    lowLatencyMode: true,
-                    backBufferLength: 30,
-                    capLevelToPlayerSize: true,
-                    maxBufferLength: networkTier === "low" ? 10 : 20,
-                    maxMaxBufferLength: networkTier === "low" ? 20 : 40,
+                    // Faster initial start — load first fragment immediately
+                    startFragPrefetch: true,
                     startLevel,
+                    // Buffer tuning — small initial buffer so playback starts faster
+                    maxBufferLength: networkTier === "low" ? 8 : networkTier === "medium" ? 16 : 30,
+                    maxMaxBufferLength: networkTier === "low" ? 20 : 60,
+                    // Fill gaps quickly to prevent micro-stalls
+                    maxBufferHole: 0.3,
+                    // Keep less behind the playhead to save memory
+                    backBufferLength: 15,
+                    // Auto-drop quality on low bandwidth
+                    capLevelToPlayerSize: true,
+                    abrEwmaDefaultEstimate: networkTier === "low" ? 500_000 : networkTier === "medium" ? 2_000_000 : 10_000_000,
+                    // Faster error recovery
+                    fragLoadingRetryDelay: 500,
+                    manifestLoadingRetryDelay: 500,
                 });
 
                 hls.loadSource(hlsSource);
@@ -207,6 +222,7 @@ export default function GuestReviewPage() {
             }
 
             videoElement.src = revision.videoUrl || "";
+            videoElement.load();
             setStreamMode("direct");
         };
 
@@ -377,15 +393,29 @@ export default function GuestReviewPage() {
                 <div className="lg:col-span-8 flex flex-col p-6 bg-black/20">
                     <div className="flex-1 flex flex-col min-h-0">
                         <div className="relative rounded-2xl overflow-hidden bg-black aspect-video group shadow-2xl border border-white/5">
+                            {/* Loading skeleton — shown until video metadata is ready */}
+                            {!videoReady && (
+                                <div className="absolute inset-0 z-10 flex flex-col items-center justify-center bg-black gap-3">
+                                    <div className="relative w-12 h-12">
+                                        <div className="absolute inset-0 border-2 border-white/10 rounded-full" />
+                                        <div className="absolute inset-0 border-2 border-primary rounded-full border-t-transparent animate-spin" />
+                                    </div>
+                                    <span className="text-[11px] font-bold uppercase tracking-widest text-muted-foreground">Loading video...</span>
+                                </div>
+                            )}
                             <video
                                 ref={videoRef}
                                 className="h-full w-full outline-none"
                                 data-watermark-name={project?.brand || project?.clientName || project?.name || "Client"}
                                 controls
-                                preload="auto"
+                                preload="metadata"
                                 playsInline
+                                crossOrigin="anonymous"
                                 onTimeUpdate={(e) => setCurrentTime(e.currentTarget.currentTime)}
-                                onLoadedMetadata={(e) => setDuration(e.currentTarget.duration)}
+                                onLoadedMetadata={(e) => {
+                                    setDuration(e.currentTarget.duration);
+                                    setVideoReady(true);
+                                }}
                                 onPlaying={() => {
                                     setIsPlaying(true);
                                     setIsBuffering(false);
@@ -393,6 +423,7 @@ export default function GuestReviewPage() {
                                 onPause={() => setIsPlaying(false)}
                                 onWaiting={() => setIsBuffering(true)}
                                 onCanPlay={() => setIsBuffering(false)}
+                                onStalled={() => setIsBuffering(true)}
                                 controlsList="nodownload"
                                 onContextMenu={(e) => e.preventDefault()}
                             />
