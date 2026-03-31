@@ -225,13 +225,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
         let email = normalizedIdentifier;
 
-        // Handle Phone Number Login
+        // Handle Phone Number or Username Login
         if (!normalizedIdentifier.includes("@")) {
           try {
               const { collection, query, where, getDocs } = await import("firebase/firestore");
             const rawIdentifier = identifier.trim();
 
-            // Check if it's the new format +91 12345 67890
+            let resolvedUser: User | null = null;
+
+            // First, try phone lookup
             const phoneRegex = /^\+91 \d{5} \d{5}$/;
             let phoneToLookup = rawIdentifier;
 
@@ -249,17 +251,25 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             const qPhone = query(collection(db, "users"), where("phoneNumber", "==", phoneToLookup));
             const phoneSnap = await getDocs(qPhone);
             if (!phoneSnap.empty) {
-              const resolvedUser = phoneSnap.docs[0].data() as User;
-              if (resolvedUser?.email) {
-                email = resolvedUser.email.toLowerCase();
-              } else {
-                throw new Error("No account found with this phone number.");
+              resolvedUser = phoneSnap.docs[0].data() as User;
+            }
+
+            // If not found as phone, try as username (displayName)
+            if (!resolvedUser) {
+              const qUsername = query(collection(db, "users"), where("displayName", "==", rawIdentifier));
+              const usernameSnap = await getDocs(qUsername);
+              if (!usernameSnap.empty) {
+                resolvedUser = usernameSnap.docs[0].data() as User;
               }
+            }
+
+            if (resolvedUser?.email) {
+              email = resolvedUser.email.toLowerCase();
             } else {
-              throw new Error("No account found with this phone number.");
+              throw new Error("No account found with this username or phone number.");
             }
           } catch (err: any) {
-            console.error("Phone lookup failed", err);
+            console.error("Identifier lookup failed", err);
               throw err;
           }
       }

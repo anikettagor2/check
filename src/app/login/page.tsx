@@ -21,6 +21,11 @@ function isValidPhone(phone: string): boolean {
   return phoneRegex.test(phone);
 }
 
+function isValidIdentifier(identifier: string): boolean {
+  // Allow either phone number format or username (non-empty string)
+  return identifier.trim().length > 0 && (isValidPhone(identifier) || !isValidPhone(identifier));
+}
+
 export default function LoginPage() {
   const { signInWithGoogle, loginWithEmail, loading } = useAuth();
   const { logoUrl } = useBranding();
@@ -36,9 +41,9 @@ export default function LoginPage() {
 
   // Real-time validation
   const identifierError = touched.identifier && !identifier.trim()
-    ? "Phone number is required"
-    : touched.identifier && identifier.trim() && !isValidPhone(identifier)
-    ? "Phone number must be in format +91 12345 67890"
+    ? "Username or phone number is required"
+    : touched.identifier && identifier.trim() && !isValidIdentifier(identifier)
+    ? "Please enter a valid username or phone number in format +91 12345 67890"
     : null;
   
   const passwordError = touched.password && !password 
@@ -71,8 +76,8 @@ export default function LoginPage() {
       return;
     }
     
-    if (!isValidPhone(identifier)) {
-      setError("Phone number must be in format +91 12345 67890");
+    if (!isValidIdentifier(identifier)) {
+      setError("Please enter a valid username or phone number in format +91 12345 67890");
       return;
     }
     
@@ -88,7 +93,7 @@ export default function LoginPage() {
     } catch (error: any) {
       console.error("Email login failed", error);
       setError(error.code === "auth/user-not-found"
-        ? "No account found with this phone number"
+        ? "No account found with this username or phone number"
         : error.code === "auth/wrong-password"
         ? "Incorrect password"
         : "Invalid credentials");
@@ -158,10 +163,10 @@ export default function LoginPage() {
           {/* Email Login Form */}
           <form onSubmit={handleEmailLogin} className="space-y-4">
               <div className="space-y-2">
-                    <Label className="text-foreground/80">Phone Number</Label>
+                    <Label className="text-foreground/80">Username or Phone Number</Label>
                   <Input 
                       type="text" 
-                      placeholder="+91 12345 67890"
+                      placeholder="username or +91 12345 67890"
                       className={`bg-black/5 dark:bg-black/40 border-border text-foreground ${identifierError ? 'border-red-500 focus:ring-red-500' : ''}`}
                       value={identifier}
                       onChange={(e) => setIdentifier(e.target.value)}
