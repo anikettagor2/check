@@ -225,50 +225,41 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
         let email = normalizedIdentifier;
 
-        // Handle Phone Number or Username Login
+        // Handle Phone Number Login
         if (!normalizedIdentifier.includes("@")) {
           try {
               const { collection, query, where, getDocs } = await import("firebase/firestore");
             const rawIdentifier = identifier.trim();
-            const digits = rawIdentifier.replace(/\D/g, '');
 
-            // Try phone lookup first (supports +91XXXXXXXXXX, 91XXXXXXXXXX, XXXXXXXXXX)
-            const phoneCandidates = new Set<string>();
-            if (digits.length >= 10) {
-              const lastTen = digits.slice(-10);
-              phoneCandidates.add(`+91${lastTen}`);
-              phoneCandidates.add(lastTen);
-              phoneCandidates.add(`91${lastTen}`);
-            }
-            phoneCandidates.add(rawIdentifier);
+            // Check if it's the new format +91 12345 67890
+            const phoneRegex = /^\+91 \d{5} \d{5}$/;
+            let phoneToLookup = rawIdentifier;
 
-            let resolvedUser: User | null = null;
-
-            for (const candidate of phoneCandidates) {
-              const qPhone = query(collection(db, "users"), where("phoneNumber", "==", candidate));
-              const phoneSnap = await getDocs(qPhone);
-              if (!phoneSnap.empty) {
-                resolvedUser = phoneSnap.docs[0].data() as User;
-                break;
-              }
-            }
-
-            // If not phone, treat as username (displayName)
-            if (!resolvedUser) {
-              const qUsername = query(collection(db, "users"), where("displayName", "==", rawIdentifier));
-              const usernameSnap = await getDocs(qUsername);
-              if (!usernameSnap.empty) {
-                resolvedUser = usernameSnap.docs[0].data() as User;
-              }
-            }
-
-            if (resolvedUser?.email) {
-              email = resolvedUser.email.toLowerCase();
+            if (phoneRegex.test(rawIdentifier)) {
+              // Convert +91 12345 67890 to +911234567890 for lookup
+              phoneToLookup = rawIdentifier.replace(/\s/g, '');
             } else {
-              throw new Error("No account found with this phone number or username.");
+              // Fallback to old logic for backward compatibility
+              const digits = rawIdentifier.replace(/\D/g, '');
+              if (digits.length >= 10) {
+                phoneToLookup = `+91${digits.slice(-10)}`;
+              }
+            }
+
+            const qPhone = query(collection(db, "users"), where("phoneNumber", "==", phoneToLookup));
+            const phoneSnap = await getDocs(qPhone);
+            if (!phoneSnap.empty) {
+              const resolvedUser = phoneSnap.docs[0].data() as User;
+              if (resolvedUser?.email) {
+                email = resolvedUser.email.toLowerCase();
+              } else {
+                throw new Error("No account found with this phone number.");
+              }
+            } else {
+              throw new Error("No account found with this phone number.");
             }
           } catch (err: any) {
-            console.error("Identifier lookup failed", err);
+            console.error("Phone lookup failed", err);
               throw err;
           }
       }

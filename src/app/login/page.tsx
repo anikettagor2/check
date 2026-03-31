@@ -5,7 +5,7 @@ import { useState } from "react";
 import { useAuth } from "@/lib/context/auth-context";
 import { Button } from "@/components/ui/button";
 import { motion } from "framer-motion";
-import { Loader2, Film, AlertCircle, CheckCircle } from "lucide-react";
+import { Loader2, AlertCircle } from "lucide-react";
 import Link from "next/link";
 import { SnowBackground } from "@/components/snow-background";
 import { Input } from "@/components/ui/input";
@@ -15,14 +15,10 @@ import Image from "next/image";
 import { useBranding } from "@/lib/context/branding-context";
 
 // Validation helpers
-function isValidEmail(email: string): boolean {
-  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
-}
-
 function isValidPhone(phone: string): boolean {
-  // Indian phone number formats
-  const cleaned = phone.replace(/\D/g, '');
-  return cleaned.length >= 10 && cleaned.length <= 13;
+  // Indian phone number format: +91 12345 67890
+  const phoneRegex = /^\+91 \d{5} \d{5}$/;
+  return phoneRegex.test(phone);
 }
 
 export default function LoginPage() {
@@ -40,7 +36,9 @@ export default function LoginPage() {
 
   // Real-time validation
   const identifierError = touched.identifier && !identifier.trim()
-    ? "Email, username or phone is required"
+    ? "Phone number is required"
+    : touched.identifier && identifier.trim() && !isValidPhone(identifier)
+    ? "Phone number must be in format +91 12345 67890"
     : null;
   
   const passwordError = touched.password && !password 
@@ -73,6 +71,11 @@ export default function LoginPage() {
       return;
     }
     
+    if (!isValidPhone(identifier)) {
+      setError("Phone number must be in format +91 12345 67890");
+      return;
+    }
+    
     if (password.length < 6) {
       setError("Password must be at least 6 characters");
       return;
@@ -85,7 +88,7 @@ export default function LoginPage() {
     } catch (error: any) {
       console.error("Email login failed", error);
       setError(error.code === "auth/user-not-found"
-        ? "No account found with this email, username or phone"
+        ? "No account found with this phone number"
         : error.code === "auth/wrong-password"
         ? "Incorrect password"
         : "Invalid credentials");
@@ -155,10 +158,10 @@ export default function LoginPage() {
           {/* Email Login Form */}
           <form onSubmit={handleEmailLogin} className="space-y-4">
               <div className="space-y-2">
-                    <Label className="text-foreground/80">Email, Username or Phone</Label>
+                    <Label className="text-foreground/80">Phone Number</Label>
                   <Input 
                       type="text" 
-                      placeholder="username, phone or you@example.com"
+                      placeholder="+91 12345 67890"
                       className={`bg-black/5 dark:bg-black/40 border-border text-foreground ${identifierError ? 'border-red-500 focus:ring-red-500' : ''}`}
                       value={identifier}
                       onChange={(e) => setIdentifier(e.target.value)}
