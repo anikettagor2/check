@@ -85,7 +85,7 @@ export default function AssignEditorPage(props: { params: Promise<{ id: string }
                 getDoc(doc(db, "users", editorId))
             ]);
 
-            if (projectSnap.exists && editorSnap.exists) {
+            if (projectSnap.exists() && editorSnap.exists()) {
                 // Send WhatsApp notification using server action
                 await notifyEditorAssigned(params.id, editorId);
             }

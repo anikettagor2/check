@@ -261,7 +261,7 @@ export function AdminDashboard() {
 
   const [whatsappTemplates, setWhatsappTemplates] = useState<any>({});
   const [isUpdatingTemplates, setIsUpdatingTemplates] = useState(false);
-  const [systemSettings, setSystemSettings] = useState<{ allowDuplicatePhone?: boolean }>({});
+    const [systemSettings, setSystemSettings] = useState<{ allowDuplicatePhone?: boolean; downloadLimit?: number }>({});
 
 
 
