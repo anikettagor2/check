@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useRef, useEffect } from 'react';
-import { useVideoManager } from './video-manager';
+import { useVideoManager } from '@/components/video-manager';
 import { Play, Pause, Volume2, VolumeX, Loader2, AlertCircle } from 'lucide-react';
 
 interface OptimizedVideoPlayerProps {
@@ -31,7 +31,8 @@ export function OptimizedVideoPlayer({
   const [isIntersecting, setIsIntersecting] = useState(false);
   // Quality selection (prefer 360p for review)
   function selectQualityUrl(path: string): string {
-    if (navigator?.connection?.downlink && path.includes('/720p/')) {
+    const connection = (navigator as any).connection;
+    if (connection?.downlink && path.includes('/720p/')) {
       return path.replace('/720p/', '/360p/');
     }
     return path;
