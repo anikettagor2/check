@@ -24,6 +24,7 @@ import {
 import { toast } from "sonner";
 import { motion, AnimatePresence } from "framer-motion";
 import { handleNewComment } from "@/app/actions/notification-actions";
+import { useVideoPreload } from "@/lib/streaming/video-preload";
 import { OptimizedHLSPlayer } from "@/components/optimized-hls-player";
 import { OptimizedVideoPlayer } from "@/components/optimized-video-player";
 import { VideoManagerProvider } from "@/components/video-manager";
@@ -77,7 +78,12 @@ export default function GuestReviewPage() {
     const [isPlaying, setIsPlaying] = useState(false);
     const [isBuffering, setIsBuffering] = useState(false);
     const [videoReady, setVideoReady] = useState(false);
+    const [forceVideoFallback, setForceVideoFallback] = useState(false);
     const videoSeekRef = useRef<((seconds: number) => void) | null>(null);
+
+    const hlsUrl = revision?.hlsUrl;
+    const mp4Url = revision?.videoUrl;
+    const { isPreloading } = useVideoPreload(hlsUrl || mp4Url || '', true);
 
     useEffect(() => {
         if (!revisionId) return;
@@ -94,14 +100,12 @@ export default function GuestReviewPage() {
                 }
                 const revData = { id: revSnap.id, ...revSnap.data() } as RevisionDoc;
                 
-                // For guests: only use HLS URL (public), not original video (requires auth)
-                // This ensures fast retrieval and proper access control
+                // For guests: prefer HLS URL (public), but keep raw download URL as fallback.
+                // This ensures the preview plays when HLS is still updating or broken, and avoids stuck state.
                 const guestSafeRevision = {
                     ...revData,
-                    // Keep raw video URL available for guests only when HLS isn't ready yet.
-                    // This ensures the preview plays immediately instead of hanging on transcoding.
-                    videoUrl: revData.hlsUrl ? undefined : revData.videoUrl ?? undefined,
-                    // hlsUrl remains as is (public). If available, it will be used.
+                    videoUrl: revData.videoUrl,
+                    hlsUrl: revData.hlsUrl,
                 };
 
                 setRevision(guestSafeRevision);
@@ -304,20 +308,30 @@ export default function GuestReviewPage() {
                                 className="relative rounded-2xl overflow-hidden bg-black aspect-video group shadow-2xl border border-white/5"
                                 data-watermark-name={project?.clientName || project?.name || "Client Review"}
                             >
-                                {!revision.hlsUrl && !revision.videoUrl && (
+                                {!hlsUrl && !mp4Url && (
                                     <div className="absolute inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-10">
                                         <div className="text-center">
                                             <div className="animate-spin h-8 w-8 border-2 border-primary border-t-transparent rounded-full mx-auto mb-3"></div>
-                                            <p className="text-white text-sm font-medium">Transcoding video...</p>
-                                            <p className="text-gray-400 text-xs mt-2">This typically takes a few moments</p>
+                                            <p className="text-white text-sm font-medium">Preparing video...</p>
+                                            <p className="text-gray-400 text-xs mt-2">Initializing playback stream</p>
                                         </div>
                                     </div>
                                 )}
                                 
-                                {/* Use HLS if available, otherwise fallback to MP4 */}
-                                {revision.hlsUrl ? (
+                                {isPreloading && (
+                                    <div className="absolute top-4 right-4 z-20">
+                                        <div className="flex items-center gap-2 px-3 py-1.5 bg-black/60 rounded-full border border-white/10 backdrop-blur-sm">
+                                            <div className="h-2 w-2 bg-blue-400 rounded-full animate-pulse"></div>
+                                            <span className="text-[10px] text-white/70 font-medium">Buffering...</span>
+                                        </div>
+                                    </div>
+                                )}
+                                
+                                {/* Prefer HLS (adaptive), fallback to MP4 direct download */}
+                                {hlsUrl && !forceVideoFallback ? (
                                     <OptimizedHLSPlayer
-                                        hlsUrl={revision.hlsUrl}
+                                        hlsUrl={hlsUrl}
+                                        videoUrl={mp4Url}
                                         projectName={project?.name || "Guest Review"}
                                         fileSize={revision.fileSize}
                                         onTimeUpdate={(time, dur) => {
@@ -329,11 +343,15 @@ export default function GuestReviewPage() {
                                         }}
                                         onPlaying={() => setIsPlaying(true)}
                                         onPause={() => setIsPlaying(false)}
+                                        onError={(err) => {
+                                            console.warn('[Guest Review] HLS playback failed, falling back to MP4:', err);
+                                            setForceVideoFallback(true);
+                                        }}
                                         className="h-full w-full"
                                     />
-                                ) : revision.videoUrl ? (
+                                ) : mp4Url ? (
                                     <OptimizedVideoPlayer
-                                        videoPath={revision.videoUrl}
+                                        videoPath={mp4Url}
                                         title={project?.name || "Guest Review"}
                                         onTimeUpdate={(time, dur) => {
                                             setCurrentTime(time);
