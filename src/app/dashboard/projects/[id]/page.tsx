@@ -43,7 +43,7 @@ import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import { assignEditor, getAllUsers, respondToAssignment } from "@/app/actions/admin-actions";
-import { unlockProjectDownloads, requestDownloadUnlock, registerDownload, submitEditorRating } from "@/app/actions/project-actions";
+import { unlockProjectDownloads, requestDownloadUnlock, registerDownload, submitEditorRating, getSignedDownloadUrl } from "@/app/actions/project-actions";
 import { handleProjectCompleted, handleEditorRatingSubmitted } from "@/app/actions/notification-actions";
 import { User, ProjectAssignmentStatus } from "@/types/schema";
 import { Modal } from "@/components/ui/modal";
@@ -171,20 +171,23 @@ export default function ProjectDetailsPage() {
 
     const handleDirectDownload = async (url: string, fileName?: string) => {
         try {
-            const response = await fetch(url);
-            if (!response.ok) throw new Error("Failed to fetch file");
-
-            const blob = await response.blob();
-            const blobUrl = window.URL.createObjectURL(blob);
-            const link = document.createElement("a");
-            link.href = blobUrl;
-            link.download = fileName || "download";
-            document.body.appendChild(link);
-            link.click();
-            link.remove();
-            window.URL.revokeObjectURL(blobUrl);
+            setIsDownloading(true);
+            // Get signed URL that forces download via Content-Disposition attachment
+            const res = await getSignedDownloadUrl(url, fileName);
+            if (res.success && res.url) {
+                const link = document.createElement("a");
+                link.href = res.url;
+                link.download = fileName || "download";
+                link.target = "_blank"; // Add target to ensure it opens in new tab if needed
+                document.body.appendChild(link);
+                link.click();
+                link.remove();
+                return;
+            }
+            throw new Error(res.error || "Failed to get signed URL");
         } catch (error) {
-            // Fallback for CORS-restricted files.
+            console.error("Direct download failed, falling back to window.open", error);
+            // Fallback: try to open in new tab with download intent
             const link = document.createElement("a");
             link.href = url;
             link.download = fileName || "download";
@@ -192,6 +195,8 @@ export default function ProjectDetailsPage() {
             document.body.appendChild(link);
             link.click();
             link.remove();
+        } finally {
+            setIsDownloading(false);
         }
     };
 
