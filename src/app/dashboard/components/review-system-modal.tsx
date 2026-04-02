@@ -581,10 +581,13 @@ export function ReviewSystemModal({ isOpen, onClose, project, allowUploadDraft =
         if (!window.confirm("Delete this comment?")) return;
         try {
             await deleteDoc(doc(db, "comments", commentId));
+            setComments((prev) => prev.filter((comment) => comment.id !== commentId));
+            setDirectConnections((prev) => prev.filter((comment) => comment.id !== commentId));
             toast.success("Comment deleted.");
-        } catch (error) {
+        } catch (error: any) {
             console.error("Delete failed:", error);
-            toast.error("Failed to delete comment.");
+            const message = error?.message || "Failed to delete comment.";
+            toast.error(message);
         }
     };
 
