@@ -98,10 +98,12 @@ export default function GuestReviewPage() {
                 // This ensures fast retrieval and proper access control
                 const guestSafeRevision = {
                     ...revData,
-                    videoUrl: undefined, // Don't expose original video URL to guests
-                    // hlsUrl is already public in storage rules so guests can access it
+                    // Keep raw video URL available for guests only when HLS isn't ready yet.
+                    // This ensures the preview plays immediately instead of hanging on transcoding.
+                    videoUrl: revData.hlsUrl ? undefined : revData.videoUrl ?? undefined,
+                    // hlsUrl remains as is (public). If available, it will be used.
                 };
-                
+
                 setRevision(guestSafeRevision);
 
                 // Load project once (only needed on first snapshot)
