@@ -971,27 +971,6 @@ export default function NewProjectPage() {
         }
     };
 
-    // UI Block: Credit exhausted Check
-    if (canPayLater && pendingDues >= creditLimit) {
-        return (
-            <div className="max-w-2xl mx-auto py-24 px-4 text-center space-y-6">
-                <div className="h-20 w-20 bg-red-500/10 rounded-full flex items-center justify-center mx-auto border border-red-500/20">
-                    <AlertCircle className="h-10 w-10 text-red-500" />
-                </div>
-                <h1 className="text-3xl font-bold font-heading text-white">Credit Limit Exhausted</h1>
-                <p className="text-muted-foreground text-lg mb-8">
-                    Your outstanding dues ({pendingDues > 0 ? `₹${(pendingDues * 1.18).toLocaleString(undefined, {minimumFractionDigits: 0})}` : ""}) have exceeded your Pay Later credit limit ({creditLimit > 0 ? `₹${(creditLimit * 1.18).toLocaleString(undefined, {minimumFractionDigits: 0})}` : ""}).
-                    You must clear your outstanding projects to free up your credit limit (pay down to at least 50% of the limit) before you can request new video projects.
-                </p>
-                <Link href="/dashboard/payments">
-                    <button className="px-8 py-4 bg-primary hover:bg-primary/90 transition-colors text-primary-foreground font-bold uppercase tracking-widest text-sm rounded-xl inline-flex items-center gap-2">
-                        Go to Payments
-                        <ArrowRight className="h-4 w-4" />
-                    </button>
-                </Link>
-            </div>
-        );
-    }
 
     return (
         <div className="max-w-4xl mx-auto min-h-[calc(100vh-8rem)] flex flex-col gap-8 pb-10">
