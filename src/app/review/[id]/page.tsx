@@ -24,7 +24,7 @@ import {
 import { toast } from "sonner";
 import { motion, AnimatePresence } from "framer-motion";
 import { handleNewComment } from "@/app/actions/notification-actions";
-import { AdaptiveVideoPlayer } from "@/components/adaptive-video-player";
+import { OptimizedHLSPlayer } from "@/components/optimized-hls-player";
 
 type RevisionDoc = {
     id: string;
@@ -308,9 +308,10 @@ export default function GuestReviewPage() {
                                     </div>
                                 </div>
                             )}
-                            <AdaptiveVideoPlayer
+                            <OptimizedHLSPlayer
                                 hlsUrl={revision.hlsUrl}
                                 projectName={project?.name || "Guest Review"}
+                                fileSize={revision.fileSize}
                                 onTimeUpdate={(time, dur) => {
                                     setCurrentTime(time);
                                     if (dur != null && dur > 0) {
@@ -320,8 +321,6 @@ export default function GuestReviewPage() {
                                 }}
                                 onPlaying={() => setIsPlaying(true)}
                                 onPause={() => setIsPlaying(false)}
-                                onCanPlay={() => setIsBuffering(false)}
-                                onWaiting={() => setIsBuffering(true)}
                                 className="h-full w-full"
                             />
                         </div>

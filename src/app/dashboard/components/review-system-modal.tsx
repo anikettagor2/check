@@ -25,6 +25,8 @@ type ReviewProject = {
     paymentStatus?: string;
     editorRating?: number;
     editorReview?: string;
+    paymentOption?: string;
+    isPayLaterRequest?: boolean;
 };
 
 type RevisionDoc = {
@@ -202,8 +204,16 @@ export function ReviewSystemModal({ isOpen, onClose, project, allowUploadDraft =
     const [liveEditorRating, setLiveEditorRating] = useState(project?.editorRating || 0);
     const [liveEditorReview, setLiveEditorReview] = useState(project?.editorReview || "");
 
-    const remainingAmount = Math.max(0, liveTotalCost - liveAmountPaid);
-    const isPaymentComplete = livePaymentStatus === "full_paid";
+    const baseTotalCost = liveTotalCost;
+    const baseAmountPaid = liveAmountPaid;
+    const baseRemainingAmount = Math.max(0, baseTotalCost - baseAmountPaid);
+    
+    const gstRate = 0.18;
+    const totalCostWithGst = baseTotalCost * (1 + gstRate);
+    const amountPaidWithGst = baseAmountPaid * (1 + gstRate);
+    const remainingAmountWithGst = baseRemainingAmount * (1 + gstRate);
+
+    const isPaymentComplete = livePaymentStatus === "full_paid" || baseRemainingAmount === 0;
     const hasFeedback = liveEditorRating > 0 && !!liveEditorReview?.trim();
 
     const selectedRevision = useMemo(
@@ -322,11 +332,11 @@ export function ReviewSystemModal({ isOpen, onClose, project, allowUploadDraft =
         if (!project?.id || !selectedRevisionId) return;
 
         if (isClient) {
-            // For pay-later clients, skip payment and feedback - download immediately
             const isPayLaterClient = (user as any)?.payLater === true;
+            const usedPaymentGateway = project?.paymentOption === 'pay_now';
             
-            if (isPayLaterClient) {
-                // Pay-later clients download instantly without payment or feedback
+            if (isPayLaterClient && !usedPaymentGateway) {
+                // Pay-later clients who created project using pay_later download instantly without payment or feedback
                 await startDownload();
                 return;
             }
@@ -1214,23 +1224,23 @@ export function ReviewSystemModal({ isOpen, onClose, project, allowUploadDraft =
                 <div className="p-4 rounded-xl border border-border bg-muted/20 space-y-2">
                     <div className="flex justify-between text-sm">
                         <span className="text-muted-foreground">Total Value (Incl. GST)</span>
-                        <span className="font-bold text-foreground">₹{liveTotalCost.toLocaleString()}</span>
+                        <span className="font-bold text-foreground">₹{totalCostWithGst.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</span>
                     </div>
                     <div className="flex justify-between text-sm">
                         <span className="text-muted-foreground">Paid So Far</span>
-                        <span className="font-bold text-emerald-500">₹{liveAmountPaid.toLocaleString()}</span>
+                        <span className="font-bold text-emerald-500">₹{amountPaidWithGst.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</span>
                     </div>
                     <div className="h-px bg-border my-2" />
                     <div className="flex justify-between">
                         <span className="text-xs font-bold uppercase tracking-widest text-primary">Remaining (50% + GST)</span>
-                        <span className="text-lg font-black text-primary">₹{remainingAmount.toLocaleString()}</span>
+                        <span className="text-lg font-black text-primary">₹{remainingAmountWithGst.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</span>
                     </div>
                 </div>
 
                 <PaymentButton
                     projectId={project?.id || ""}
                     user={user}
-                    amount={remainingAmount}
+                    amount={remainingAmountWithGst}
                     description={`Final Payment: ${project?.name || "Project"}`}
                     prefill={{
                         name: user?.displayName || "",
