@@ -8,11 +8,16 @@ import {
   FileAudio,
   File,
   Eye,
-  X
+  X,
+  Loader2,
+  AlertCircle,
+  CheckCircle2,
+  Cog,
 } from "lucide-react";
 import Image from "next/image";
 import { warmVideoInMemory } from "@/lib/video-preload";
 import { useIntersectionObserver } from "@/hooks/use-intersection-observer";
+import { useVideoTranscodeStatus, TranscodeStatus } from "@/hooks/use-video-transcode-status";
 import Hls from "hls.js";
 
 interface FilePreviewProps {
@@ -20,6 +25,7 @@ interface FilePreviewProps {
     url: string;
     name: string;
     size?: number;
+    storagePath?: string;
     hlsUrl?: string; // Add HLS URL support
   };
   index: number;
@@ -32,6 +38,19 @@ export function FilePreview({ file, index }: FilePreviewProps) {
   const [isVideoLoaded, setIsVideoLoaded] = useState(false);
   const videoRef = React.useRef<HTMLVideoElement>(null);
   const hlsRef = React.useRef<Hls | null>(null);
+
+  // Monitor transcoding status for .mov files
+  const transcodeState = useVideoTranscodeStatus(file.storagePath, file.name);
+
+  // Determine the best URL to use for video playback
+  const effectiveVideoUrl = transcodeState.status === "ready" && transcodeState.videoUrl
+    ? transcodeState.videoUrl
+    : file.url;
+
+  // Whether this file is a .mov that's currently being transcoded
+  const isTranscoding = transcodeState.status === "processing" || transcodeState.status === "pending";
+  const hasTranscodeError = transcodeState.status === "error";
+  const isTranscodeReady = transcodeState.status === "ready";
 
   // Intersection observer for lazy loading
   const { ref: observerRef, isIntersecting } = useIntersectionObserver({
@@ -119,11 +138,48 @@ export function FilePreview({ file, index }: FilePreviewProps) {
   const ext = getFileExtension(file.name);
   const fileSizeMB = file.size ? `${(file.size / (1024 * 1024)).toFixed(2)} MB` : null;
 
+  // Transcode status badge component
+  const TranscodeBadge = () => {
+    if (!file.name.toLowerCase().endsWith('.mov') || transcodeState.status === null) return null;
+
+    if (isTranscoding) {
+      return (
+        <div className="absolute top-2 left-2 z-10 flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-amber-500/90 text-white text-[10px] font-bold uppercase tracking-wider shadow-lg backdrop-blur-sm animate-pulse">
+          <Cog className="h-3 w-3 animate-spin" />
+          Optimizing...
+        </div>
+      );
+    }
+
+    if (isTranscodeReady) {
+      return (
+        <div className="absolute top-2 left-2 z-10 flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-emerald-500/90 text-white text-[10px] font-bold uppercase tracking-wider shadow-lg backdrop-blur-sm">
+          <CheckCircle2 className="h-3 w-3" />
+          Optimized MP4
+        </div>
+      );
+    }
+
+    if (hasTranscodeError) {
+      return (
+        <div className="absolute top-2 left-2 z-10 flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-red-500/90 text-white text-[10px] font-bold uppercase tracking-wider shadow-lg backdrop-blur-sm">
+          <AlertCircle className="h-3 w-3" />
+          Error
+        </div>
+      );
+    }
+
+    return null;
+  };
+
   return (
     <>
       <div ref={observerRef as any} className="group relative rounded-xl border border-border/50 bg-card overflow-hidden hover:border-primary/50 hover:shadow-lg transition-all duration-300">
         {/* Preview Thumbnail Container */}
         <div className="relative h-44 w-full bg-gradient-to-br from-muted/50 to-muted/20 flex items-center justify-center overflow-hidden">
+          {/* Transcode Status Badge */}
+          <TranscodeBadge />
+
           {fileType === 'image' && !previewError ? (
             <>
               <Image
@@ -147,30 +203,50 @@ export function FilePreview({ file, index }: FilePreviewProps) {
             </>
           ) : fileType === 'video' ? (
             <div className="relative w-full h-full flex items-center justify-center bg-gradient-to-br from-black/20 to-black/40">
-              <video
-                ref={videoRef}
-                poster={`data:image/svg+xml;charset=utf-8,${encodeURIComponent(`
-                  <svg xmlns="http://www.w3.org/2000/svg" width="320" height="180" viewBox="0 0 320 180">
-                    <rect width="320" height="180" fill="#1a1a1a"/>
-                    <circle cx="160" cy="90" r="25" fill="rgba(255,255,255,0.1)"/>
-                    <polygon points="145,75 145,105 175,90" fill="rgba(255,255,255,0.8)"/>
-                  </svg>
-                `)}`}
-                preload="metadata"
-                playsInline
-                muted
-                className="w-full h-full object-cover"
-                onError={() => setPreviewError(true)}
-              />
-              <button
-                onClick={() => setShowPreview(true)}
-                className="absolute flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-300"
-                title="Play video"
-              >
-                <div className="h-12 w-12 rounded-full bg-primary/90 flex items-center justify-center shadow-lg hover:bg-primary">
-                  <FileVideo className="h-6 w-6 text-white" />
+              {/* Show processing overlay for transcoding videos */}
+              {isTranscoding ? (
+                <div className="flex flex-col items-center justify-center gap-3 text-white/80">
+                  <div className="relative">
+                    <div className="h-16 w-16 rounded-full border-2 border-amber-500/30 flex items-center justify-center">
+                      <Loader2 className="h-8 w-8 animate-spin text-amber-400" />
+                    </div>
+                    <div className="absolute -bottom-1 -right-1 h-6 w-6 rounded-full bg-amber-500 flex items-center justify-center">
+                      <Cog className="h-3.5 w-3.5 text-white animate-spin" style={{ animationDirection: 'reverse', animationDuration: '3s' }} />
+                    </div>
+                  </div>
+                  <div className="text-center">
+                    <p className="text-xs font-bold text-amber-400">Converting to MP4</p>
+                    <p className="text-[10px] text-white/50 mt-0.5">Optimizing for web playback...</p>
+                  </div>
                 </div>
-              </button>
+              ) : (
+                <>
+                  <video
+                    ref={videoRef}
+                    poster={`data:image/svg+xml;charset=utf-8,${encodeURIComponent(`
+                      <svg xmlns="http://www.w3.org/2000/svg" width="320" height="180" viewBox="0 0 320 180">
+                        <rect width="320" height="180" fill="#1a1a1a"/>
+                        <circle cx="160" cy="90" r="25" fill="rgba(255,255,255,0.1)"/>
+                        <polygon points="145,75 145,105 175,90" fill="rgba(255,255,255,0.8)"/>
+                      </svg>
+                    `)}`}
+                    preload="metadata"
+                    playsInline
+                    muted
+                    className="w-full h-full object-cover"
+                    onError={() => setPreviewError(true)}
+                  />
+                  <button
+                    onClick={() => setShowPreview(true)}
+                    className="absolute flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-300"
+                    title="Play video"
+                  >
+                    <div className="h-12 w-12 rounded-full bg-primary/90 flex items-center justify-center shadow-lg hover:bg-primary">
+                      <FileVideo className="h-6 w-6 text-white" />
+                    </div>
+                  </button>
+                </>
+              )}
 
               {/* Quality indicator */}
               {isVideoLoaded && (
@@ -194,11 +270,32 @@ export function FilePreview({ file, index }: FilePreviewProps) {
           <p className="text-xs font-semibold text-foreground truncate line-clamp-2" title={file.name}>
             {file.name}
           </p>
-          {fileSizeMB && (
-            <p className="text-[11px] text-muted-foreground mt-1.5 font-medium">
-              {fileSizeMB}
-            </p>
-          )}
+          <div className="flex items-center gap-2 mt-1.5">
+            {fileSizeMB && (
+              <p className="text-[11px] text-muted-foreground font-medium">
+                {fileSizeMB}
+              </p>
+            )}
+            {/* Inline transcode status text */}
+            {isTranscoding && (
+              <span className="text-[10px] font-bold text-amber-500 flex items-center gap-1">
+                <Loader2 className="h-2.5 w-2.5 animate-spin" />
+                Processing
+              </span>
+            )}
+            {isTranscodeReady && (
+              <span className="text-[10px] font-bold text-emerald-500 flex items-center gap-1">
+                <CheckCircle2 className="h-2.5 w-2.5" />
+                Ready
+              </span>
+            )}
+            {hasTranscodeError && (
+              <span className="text-[10px] font-bold text-red-500 flex items-center gap-1">
+                <AlertCircle className="h-2.5 w-2.5" />
+                Failed
+              </span>
+            )}
+          </div>
 
           {/* Action Buttons */}
           <div className="flex gap-2 mt-3">
@@ -215,11 +312,21 @@ export function FilePreview({ file, index }: FilePreviewProps) {
             {fileType === 'video' && (
               <button
                 onClick={() => setShowPreview(true)}
-                className="flex-1 flex items-center justify-center gap-1.5 px-2 py-2 text-xs font-bold text-foreground bg-muted/60 hover:bg-primary/20 hover:text-primary rounded-lg transition-all duration-200 active:scale-95"
-                title="Play video"
+                disabled={isTranscoding}
+                className="flex-1 flex items-center justify-center gap-1.5 px-2 py-2 text-xs font-bold text-foreground bg-muted/60 hover:bg-primary/20 hover:text-primary rounded-lg transition-all duration-200 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
+                title={isTranscoding ? "Video is being optimized..." : "Play video"}
               >
-                <Eye className="h-3.5 w-3.5" />
-                Preview
+                {isTranscoding ? (
+                  <>
+                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                    Optimizing...
+                  </>
+                ) : (
+                  <>
+                    <Eye className="h-3.5 w-3.5" />
+                    Preview
+                  </>
+                )}
               </button>
             )}
             {(fileType !== 'image' && fileType !== 'video') && (
@@ -265,7 +372,7 @@ export function FilePreview({ file, index }: FilePreviewProps) {
         </div>
       )}
 
-      {/* Video Preview Modal */}
+      {/* Video Preview Modal - Uses transcoded URL when ready */}
       {showPreview && fileType === 'video' && (
         <div
           className="fixed inset-0 z-50 flex items-center justify-center bg-black/85 backdrop-blur-sm p-4"
@@ -282,8 +389,17 @@ export function FilePreview({ file, index }: FilePreviewProps) {
             >
               <X className="h-6 w-6" />
             </button>
+
+            {/* Show optimized badge in the preview modal */}
+            {isTranscodeReady && (
+              <div className="absolute top-2 left-2 z-20 flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-emerald-500/90 text-white text-xs font-bold shadow-lg backdrop-blur-sm">
+                <CheckCircle2 className="h-3.5 w-3.5" />
+                Playing Optimized MP4
+              </div>
+            )}
+
             <video
-              src={file.url}
+              src={effectiveVideoUrl}
               controls
               preload="auto"
               playsInline

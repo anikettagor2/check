@@ -48,6 +48,8 @@ import { X } from "lucide-react";
 import { UploadDraftModal } from "./upload-draft-modal";
 import { ReviewSystemModal } from "./review-system-modal";
 import { preloadVideosIntoMemory, warmVideoInMemory } from "@/lib/video-preload";
+import { FilePreview } from "@/components/file-preview";
+import { useVideoTranscodeStatus } from "@/hooks/use-video-transcode-status";
 
 function isVideoResource(resource?: string) {
     if (!resource) return false;
@@ -64,7 +66,7 @@ export function EditorDashboardV2() {
     const { user } = useAuth();
     const [projects, setProjects] = useState<Project[]>([]);
     const [loading, setLoading] = useState(true);
-    const [previewVideoUrl, setPreviewVideoUrl] = useState<string | null>(null);
+    const [previewFile, setPreviewFile] = useState<any | null>(null);
     const [searchQuery, setSearchQuery] = useState("");
     const [userData, setUserData] = useState<any>(null);
     const [selectedProjectAssets, setSelectedProjectAssets] = useState<any>(null);
@@ -233,6 +235,128 @@ export function EditorDashboardV2() {
         if (selectedProjectDetails?.id === projectId) {
             setSelectedProjectDetails(null);
         }
+    };
+
+    // Sub-component for asset grid items with transcoding status
+    const AssetGridItem = ({ file, idx, onPreview }: { file: any, idx: number, onPreview: () => void }) => {
+        const transcodeState = useVideoTranscodeStatus(file.storagePath || "", file.name || "");
+        const effectiveUrl = (transcodeState.status === "ready" && transcodeState.videoUrl) 
+            ? transcodeState.videoUrl 
+            : file.url;
+        
+        return (
+            <motion.div 
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: idx * 0.05 }}
+                className="group border border-border rounded-lg overflow-hidden bg-muted/20 hover:bg-muted/40 transition-all relative"
+            >
+                <div className="relative aspect-video bg-black flex items-center justify-center overflow-hidden">
+                    {transcodeState.status === 'processing' && (
+                        <div className="absolute inset-0 z-10 bg-black/40 backdrop-blur-[2px] flex flex-col items-center justify-center gap-2">
+                            <Loader2 className="h-6 w-6 text-white animate-spin" />
+                            <span className="text-[10px] text-white font-bold uppercase tracking-tighter">Optimizing...</span>
+                        </div>
+                    )}
+                    <video 
+                        src={effectiveUrl} 
+                        controls
+                        preload="metadata"
+                        playsInline
+                        className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" 
+                    />
+                    <button
+                        onClick={onPreview}
+                        className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity cursor-pointer z-20"
+                    >
+                        <Eye className="h-8 w-8 text-white" />
+                    </button>
+                </div>
+                <div className="p-3">
+                    <div className="flex items-start justify-between gap-1">
+                        <p className="text-sm font-medium text-foreground truncate flex-1">{file.name}</p>
+                        {transcodeState.status === 'ready' && (
+                            <CheckCircle2 className="h-3.5 w-3.5 text-emerald-500 shrink-0 mt-0.5" />
+                        )}
+                    </div>
+                    <p className="text-xs text-muted-foreground mt-1">
+                        {file.size ? `${(file.size / (1024*1024)).toFixed(2)} MB` : 'N/A'}
+                    </p>
+                    <button
+                        onClick={onPreview}
+                        className={cn(
+                            "mt-2 w-full px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors flex items-center justify-center gap-1",
+                            transcodeState.status === 'ready' 
+                                ? "bg-emerald-500/10 text-emerald-600 hover:bg-emerald-500/20" 
+                                : "bg-primary/10 text-primary hover:bg-primary/20"
+                        )}
+                    >
+                        <Eye className="h-3 w-3" />
+                        {transcodeState.status === 'ready' ? 'Play Optimized' : 'Play'}
+                    </button>
+                </div>
+            </motion.div>
+        );
+    };
+
+    // Video Player with Optimization Integration
+    const OptimizedVideoModal = ({ file, onClose }: { file: any, onClose: () => void }) => {
+        const transcodeState = useVideoTranscodeStatus(file.storagePath, file.name);
+        const effectiveUrl = (transcodeState.status === "ready" && transcodeState.videoUrl) 
+            ? transcodeState.videoUrl 
+            : file.url;
+        
+        const isOptimized = transcodeState.status === "ready";
+
+        return (
+            <motion.div 
+                key="video-preview-modal"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                className="fixed inset-0 z-[9999] bg-black/95 backdrop-blur-xl flex items-center justify-center p-4 pointer-events-auto" 
+                onClick={onClose}
+            >
+                <motion.div 
+                    initial={{ scale: 0.95 }}
+                    animate={{ scale: 1 }}
+                    exit={{ scale: 0.95 }}
+                    className="relative w-full h-full md:h-auto md:max-w-7xl md:aspect-video bg-black rounded-3xl overflow-hidden shadow-[0_0_200px_rgba(0,0,0,0.8)]" 
+                    onClick={e => e.stopPropagation()}
+                >
+                    <button 
+                        onClick={onClose} 
+                        className="absolute top-6 right-6 h-12 w-12 bg-white/20 hover:bg-white/30 text-white rounded-full flex items-center justify-center backdrop-blur-md z-[10000] transition-all hover:bg-white/40 cursor-pointer active:scale-95"
+                    >
+                        <X className="h-6 w-6" />
+                    </button>
+                    
+                    {isOptimized && (
+                        <div className="absolute top-6 left-6 z-[10000] flex items-center gap-2 px-4 py-2 bg-emerald-500/90 text-white text-xs font-bold rounded-full backdrop-blur-md shadow-lg border border-emerald-400/30">
+                            <CheckCircle2 className="h-4 w-4" />
+                            Playing Optimized MP4
+                        </div>
+                    )}
+
+                    {!isOptimized && file.name?.toLowerCase().endsWith('.mov') && (
+                        <div className="absolute top-6 left-6 z-[10000] flex items-center gap-2 px-4 py-2 bg-amber-500/90 text-white text-xs font-bold rounded-full backdrop-blur-md shadow-lg border border-amber-400/30">
+                            <Clock className="h-4 w-4" />
+                            Playing Raw .MOV (Optimizing...)
+                        </div>
+                    )}
+
+                    <video 
+                        src={effectiveUrl} 
+                        controls 
+                        preload="auto"
+                        playsInline
+                        className="w-full h-full object-contain" 
+                        autoPlay
+                        controlsList="nodownload"
+                    />
+                </motion.div>
+            </motion.div>
+        );
     };
 
     // Calculate time remaining when details modal opens for pending projects
@@ -477,13 +601,13 @@ export function EditorDashboardV2() {
         }
     };
 
-    const openFilePreview = (url: string) => {
-        if (isVideoResource(url)) {
-            warmVideoInMemory(url);
-            setPreviewVideoUrl(url);
+    const openFilePreview = (file: any) => {
+        if (isVideoFile(file)) {
+            warmVideoInMemory(file.url);
+            setPreviewFile(file);
             return;
         }
-        window.open(url, "_blank", "noopener,noreferrer");
+        window.open(file.url, "_blank", "noopener,noreferrer");
     };
 
     if (loading) {
@@ -498,39 +622,11 @@ export function EditorDashboardV2() {
         <>
             {/* Video Preview Modal - Top Level */}
             <AnimatePresence>
-                {previewVideoUrl && (
-                    <motion.div 
-                        key="video-preview-modal"
-                        initial={{ opacity: 0 }}
-                        animate={{ opacity: 1 }}
-                        exit={{ opacity: 0 }}
-                        className="fixed inset-0 z-[9999] bg-black/95 backdrop-blur-xl flex items-center justify-center p-4 pointer-events-auto" 
-                        onClick={() => setPreviewVideoUrl(null)}
-                    >
-                        <motion.div 
-                            initial={{ scale: 0.95 }}
-                            animate={{ scale: 1 }}
-                            exit={{ scale: 0.95 }}
-                            className="relative w-full h-full md:h-auto md:max-w-7xl md:aspect-video bg-black rounded-3xl overflow-hidden shadow-[0_0_200px_rgba(0,0,0,0.8)]" 
-                            onClick={e => e.stopPropagation()}
-                        >
-                            <button 
-                                onClick={() => setPreviewVideoUrl(null)} 
-                                className="absolute top-6 right-6 h-12 w-12 bg-white/20 hover:bg-white/30 text-white rounded-full flex items-center justify-center backdrop-blur-md z-[10000] transition-all hover:bg-white/40 cursor-pointer active:scale-95"
-                            >
-                                <X className="h-6 w-6" />
-                            </button>
-                            <video 
-                                src={previewVideoUrl} 
-                                controls 
-                                preload="auto"
-                                playsInline
-                                className="w-full h-full object-contain" 
-                                autoPlay
-                                controlsList="nodownload"
-                            />
-                        </motion.div>
-                    </motion.div>
+                {previewFile && (
+                    <OptimizedVideoModal 
+                        file={previewFile}
+                        onClose={() => setPreviewFile(null)}
+                    />
                 )}
             </AnimatePresence>
 
@@ -569,42 +665,12 @@ export function EditorDashboardV2() {
                                 {selectedProjectAssets.rawFiles && selectedProjectAssets.rawFiles.length > 0 ? (
                                     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                                         {selectedProjectAssets.rawFiles.map((file: any, idx: number) => (
-                                            <motion.div 
-                                                key={idx}
-                                                initial={{ opacity: 0, y: 10 }}
-                                                animate={{ opacity: 1, y: 0 }}
-                                                transition={{ delay: idx * 0.05 }}
-                                                className="group border border-border rounded-lg overflow-hidden bg-muted/20 hover:bg-muted/40 transition-all"
-                                            >
-                                                <div className="relative aspect-video bg-black flex items-center justify-center overflow-hidden">
-                                                    <video 
-                                                        src={file.url} 
-                                                        controls
-                                                        preload="metadata"
-                                                        playsInline
-                                                        className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" 
-                                                    />
-                                                    <button
-                                                        onClick={() => setPreviewVideoUrl(file.url)}
-                                                        className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity cursor-pointer"
-                                                    >
-                                                        <Eye className="h-8 w-8 text-white" />
-                                                    </button>
-                                                </div>
-                                                <div className="p-3">
-                                                    <p className="text-sm font-medium text-foreground truncate">{file.name}</p>
-                                                    <p className="text-xs text-muted-foreground mt-1">
-                                                        {file.size ? `${(file.size / (1024*1024)).toFixed(2)} MB` : 'N/A'}
-                                                    </p>
-                                                    <button
-                                                        onClick={() => setPreviewVideoUrl(file.url)}
-                                                        className="mt-2 w-full px-3 py-1.5 rounded-lg bg-primary/10 text-primary hover:bg-primary/20 text-xs font-semibold transition-colors flex items-center justify-center gap-1"
-                                                    >
-                                                        <Eye className="h-3 w-3" />
-                                                        Play
-                                                    </button>
-                                                </div>
-                                            </motion.div>
+                                            <AssetGridItem 
+                                                key={idx} 
+                                                file={file} 
+                                                idx={idx} 
+                                                onPreview={() => setPreviewFile(file)} 
+                                            />
                                         ))}
                                     </div>
                                 ) : (
@@ -719,7 +785,7 @@ export function EditorDashboardV2() {
                                                             </div>
                                                             <div className="flex items-center gap-2 flex-shrink-0">
                                                                 <button
-                                                                    onClick={() => openFilePreview(file.url)}
+                                                                    onClick={() => openFilePreview(file)}
                                                                     className="h-8 px-2.5 rounded text-xs font-bold uppercase tracking-widest bg-muted/50 hover:bg-primary/20 text-muted-foreground hover:text-primary transition-all"
                                                                 >
                                                                     Preview
@@ -762,7 +828,7 @@ export function EditorDashboardV2() {
                                                             </div>
                                                             <div className="flex items-center gap-2 flex-shrink-0">
                                                                 <button
-                                                                    onClick={() => openFilePreview(file.url)}
+                                                                    onClick={() => openFilePreview(file)}
                                                                     className="h-8 px-2.5 rounded text-xs font-bold uppercase tracking-widest bg-muted/50 hover:bg-primary/20 text-muted-foreground hover:text-primary transition-all"
                                                                 >
                                                                     Preview
@@ -860,7 +926,7 @@ export function EditorDashboardV2() {
                                                             </div>
                                                             <div className="flex items-center gap-2 flex-shrink-0">
                                                                 <button
-                                                                    onClick={() => openFilePreview(file.url)}
+                                                                    onClick={() => openFilePreview(file)}
                                                                     className="h-8 px-2.5 rounded text-xs font-bold uppercase tracking-widest bg-muted/50 hover:bg-primary/20 text-muted-foreground hover:text-primary transition-all"
                                                                 >
                                                                     Preview
@@ -916,7 +982,7 @@ export function EditorDashboardV2() {
                                                             </div>
                                                             <div className="flex items-center gap-2 flex-shrink-0">
                                                                 <button
-                                                                    onClick={() => openFilePreview(file.url)}
+                                                                    onClick={() => openFilePreview(file)}
                                                                     className="h-8 px-2.5 rounded text-xs font-bold uppercase tracking-widest bg-muted/50 hover:bg-primary/20 text-muted-foreground hover:text-primary transition-all"
                                                                 >
                                                                     Preview
@@ -964,7 +1030,7 @@ export function EditorDashboardV2() {
                                                             </div>
                                                             <div className="flex items-center gap-2 flex-shrink-0">
                                                                 <button
-                                                                    onClick={() => openFilePreview(file.url)}
+                                                                    onClick={() => openFilePreview(file)}
                                                                     className="h-8 px-2.5 rounded text-xs font-bold uppercase tracking-widest bg-muted/50 hover:bg-primary/20 text-muted-foreground hover:text-primary transition-all"
                                                                 >
                                                                     Preview

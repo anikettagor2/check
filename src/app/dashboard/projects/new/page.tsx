@@ -59,6 +59,7 @@ const loadRazorpayScript = () => {
 interface UploadedFile {
     name: string;
     url: string;
+    storagePath?: string;
     size: number;
     type: string;
     uploadedAt: number;
@@ -463,6 +464,7 @@ export default function NewProjectPage() {
                         const downloadURL = await getDownloadURL(uploadTask.snapshot.ref);
                         onComplete({
                             name: file.name,
+                            storagePath: storageRef.fullPath,
                             url: downloadURL,
                             size: file.size,
                             type: file.type,
