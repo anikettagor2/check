@@ -13,10 +13,7 @@
 
 import { useRef, useState, useEffect, useCallback } from 'react';
 import HLS from 'hls.js';
-import { 
-  Play, Pause, Volume2, VolumeX, Maximize2, 
-  Loader2, AlertCircle, Zap, Settings, FastForward 
-} from 'lucide-react';
+import { Play, Pause, Volume2, VolumeX, Maximize2, Loader2, AlertCircle, Zap } from 'lucide-react';
 import {
   getOptimizedHLSConfig,
   detectNetworkSpeed,
@@ -30,7 +27,6 @@ import {
   getCachedSegment,
   clearSegmentCache,
   getSegmentCacheStats,
-  SegmentCacheLoader,
 } from '@/lib/streaming/segment-cache';
 
 interface OptimizedHLSPlayerProps {
@@ -41,11 +37,11 @@ interface OptimizedHLSPlayerProps {
   fileSize?: number; // In bytes, for large video optimization
   autoPlay?: boolean;
   preload?: 'none' | 'metadata' | 'auto';
+  speedFirst?: boolean;
   onTimeUpdate?: (currentTime: number, duration: number) => void;
   onPlaying?: () => void;
   onPause?: () => void;
   onError?: (error: Error) => void;
-  speedFirst?: boolean; // If true, prioritize speed (low buffer start)
   className?: string;
 }
 
@@ -57,11 +53,11 @@ export function OptimizedHLSPlayer({
   fileSize,
   autoPlay = false,
   preload = 'metadata',
+  speedFirst = false,
   onTimeUpdate,
   onPlaying,
   onPause,
   onError,
-  speedFirst = true, // Default to true for fastest experience
   className = '',
 }: OptimizedHLSPlayerProps) {
   // Use HLS if available, otherwise use direct video URL
@@ -81,12 +77,10 @@ export function OptimizedHLSPlayer({
   const [isBuffering, setIsBuffering] = useState(false);
   const [showControls, setShowControls] = useState(!autoPlay);
   const [error, setError] = useState<string | null>(null);
-  const [currentQualityIndex, setCurrentQualityIndex] = useState<number>(-1); // -1 for auto
-  const [availableLevels, setAvailableLevels] = useState<any[]>([]);
-  const [showQualityMenu, setShowQualityMenu] = useState(false);
+  const [currentQuality, setCurrentQuality] = useState<string>('auto');
   const [isLoading, setIsLoading] = useState(true);
   const [cacheSize, setCacheSize] = useState<string>('0MB');
-  const [qualityProgression, setQualityProgression] = useState<string>('Initializing...');
+  const [qualityProgression, setQualityProgression] = useState<string>('480p (startup)');
   const [isLargeVideo, setIsLargeVideo] = useState(isLargeVideoFile(fileSize));
 
   // ─────────────────────────────────────────────────────────────────────
@@ -115,14 +109,27 @@ export function OptimizedHLSPlayer({
 
       // Detect network speed and select appropriate preset
       const networkProfile = detectNetworkSpeed();
-      const hlsPreset = selectHLSPreset(networkProfile, largeVideo, speedFirst);
+      const hlsPreset = selectHLSPreset(networkProfile, largeVideo);
 
       // Get optimized HLS configuration
       let config = getOptimizedHLSConfig({
         enableLogging: process.env.NODE_ENV === 'development',
-        speedFirst,
         ...hlsPreset,
       }) as any;
+
+      // Speed-first mode: reduce buffer target/length and get earliest fragments (aggressive low-latency)
+      if (speedFirst) {
+        config = {
+          ...config,
+          targetBufferTime: 3,
+          maxBufferLength: 10,
+          maxBufferSize: 30 * 1024 * 1024,
+          lowLatencyMode: true,
+          startFragPrefetch: true,
+          capLevelToPlayerSize: true,
+          maxLoadingDelay: 1.5,
+        };
+      }
 
       // For large videos, apply additional aggressive settings
       if (largeVideo) {
@@ -130,12 +137,9 @@ export function OptimizedHLSPlayer({
         config = { ...config, ...largeVideoConfig };
       }
 
-    // Add segment caching to XHR setup and use custom loader for fragment caching
+    // Add segment caching to XHR setup
     const defaultXhrSetup = config.xhrSetup;
     config.xhrSetup = createCachingXhrSetup(defaultXhrSetup);
-    
-    // Set custom loader for fragment (segment) requests
-    config.fLoader = SegmentCacheLoader;
 
     // Create HLS instance with optimized config
     const hls = new HLS(config);
@@ -151,23 +155,12 @@ export function OptimizedHLSPlayer({
     // Event Handlers
     // ─────────────────────────────────────────────────────────────────────
 
-    const handleManifestParsed = (_event: any, data: { levels: any[] }) => {
-      console.log('[OptimizedHLSPlayer] Manifest parsed, levels available:', data.levels.length);
-      setAvailableLevels(data.levels);
+    const handleManifestParsed = () => {
+      console.log('[OptimizedHLSPlayer] Manifest parsed, levels available:', hls.levels.length);
       
       if (largeVideo) {
         console.log('[OptimizedHLSPlayer] 🎬 Large video - Starting quality: 360p (extra-low for stability)');
         setQualityProgression('360p (large video mode)');
-        // Level 1 is 360p in current manifest
-        const safeLevel = Math.min(1, hls.levels.length - 1);
-        hls.startLevel = safeLevel;
-        hls.nextLevel = safeLevel;
-      } else if (speedFirst) {
-        console.log('[OptimizedHLSPlayer] ⚡ SPEED FIRST mode active - forcing start at Level 0 (240p) for instant playback');
-        setQualityProgression('240p (Instant Start)');
-        const safeLevel = 0; // Absolute lowest for speed
-        hls.startLevel = safeLevel;
-        hls.nextLevel = safeLevel;
       } else {
         console.log('[OptimizedHLSPlayer] Starting quality: 480p (progressive upgrade enabled)');
       }
@@ -185,8 +178,9 @@ export function OptimizedHLSPlayer({
     const handleLevelSwitched = (_event: any, data: { level: number }) => {
       const level = hls.levels[data.level];
       if (level) {
-        const qualityLabel = `${level.height}p`;
-        console.log(`[OptimizedHLSPlayer] Quality level active: ${qualityLabel}`);
+        const qualityLabel = `${level.width}x${level.height} (${Math.round(level.bitrate / 1000)}kbps)`;
+        console.log(`[OptimizedHLSPlayer] Quality upgraded to: ${qualityLabel}`);
+        setCurrentQuality(qualityLabel);
         
         // Update quality progression display
         if (level.width >= 1920) {
@@ -203,29 +197,42 @@ export function OptimizedHLSPlayer({
 
     const handleBuffering = () => {
       setIsBuffering(true);
-      
-      // Auto-upgrade quality if buffer is full and bandwidth supports it
-      if (hls.currentLevel < hls.levels.length - 1 && video) {
-        const bufferLength = video.buffered?.length ? 
-          video.buffered.end(video.buffered.length - 1) - (video?.currentTime || 0) : 0;
-        
-        // For large videos, need much larger buffer before upgrading
-        // For normal videos, upgrade when buffer > 30s
-        const upgradeThreshold = largeVideo ? 60 : 30;
-        
-        // If buffer large enough, try upgrading quality
-        if (bufferLength > upgradeThreshold) {
-          const nextLevel = hls.currentLevel + 1;
-          if (nextLevel < hls.levels.length) {
-            const levelInfo = hls.levels[nextLevel];
-            if (largeVideo) {
-              console.log('[OptimizedHLSPlayer] 🎬 Large video: Buffer excellent, attempting quality upgrade...');
-            } else {
-              console.log('[OptimizedHLSPlayer] Good buffer health, attempting quality upgrade...');
-            }
-            hls.nextLevel = nextLevel;
-          }
-        }
+
+      if (!video) return;
+      const buffered = video.buffered;
+      if (!buffered || buffered.length === 0) {
+        return;
+      }
+
+      const end = buffered.end(buffered.length - 1);
+      const remaining = Math.max(0, end - video.currentTime);
+
+      // If we are in very low remaining buffer (< 3s), force immediate load of next fragments.
+      if (remaining < 3) {
+        console.log('[OptimizedHLSPlayer] Low buffer margin (<3s), forcing hls.startLoad()');
+        hls.startLoad();
+      }
+
+      // If we have enough buffer, resume normal no-blocking mode
+      if (remaining > 8) {
+        setIsBuffering(false);
+      }
+    };
+
+    const handleBufferAppended = () => {
+      setIsBuffering(false);
+      if (!video) return;
+
+      const buffered = video.buffered;
+      if (!buffered || buffered.length === 0) return;
+
+      const end = buffered.end(buffered.length - 1);
+      const remaining = Math.max(0, end - video.currentTime);
+
+      // Keep small but consistent buffer; pre-load some fragments if needed.
+      if (remaining < 6) {
+        console.log('[OptimizedHLSPlayer] Buffer appended. Remaining', remaining, 's. Preloading next fragments.');
+        hls.startLoad();
       }
     };
 
@@ -271,6 +278,7 @@ export function OptimizedHLSPlayer({
     hls.on(HLS.Events.MANIFEST_PARSED, handleManifestParsed);
     hls.on(HLS.Events.LEVEL_SWITCHED, handleLevelSwitched);
     hls.on(HLS.Events.BUFFER_APPENDING, handleBuffering);
+    hls.on(HLS.Events.BUFFER_APPENDED, handleBufferAppended);
     hls.on(HLS.Events.ERROR, handleError);
 
     // Load the HLS stream
@@ -294,6 +302,7 @@ export function OptimizedHLSPlayer({
       hls.off(HLS.Events.MANIFEST_PARSED, handleManifestParsed);
       hls.off(HLS.Events.LEVEL_SWITCHED, handleLevelSwitched);
       hls.off(HLS.Events.BUFFER_APPENDING, handleBuffering);
+      hls.off(HLS.Events.BUFFER_APPENDED, handleBufferAppended);
       hls.off(HLS.Events.ERROR, handleError);
       hls.destroy();
       hlsRef.current = null;
@@ -561,54 +570,10 @@ export function OptimizedHLSPlayer({
               {formatTime(currentTime)} / {formatTime(duration)}
             </span>
 
-            {/* Quality Selector */}
-            <div className="relative">
-              <button
-                onClick={() => setShowQualityMenu(!showQualityMenu)}
-                className="flex items-center gap-1 text-[10px] text-white/70 hover:text-white bg-white/10 px-2 py-0.5 rounded transition-colors"
-                title="Change quality"
-              >
-                <Settings className="h-3 w-3" />
-                <span>{currentQualityIndex === -1 ? 'Auto' : `${availableLevels[currentQualityIndex]?.height}p`}</span>
-              </button>
-
-              {showQualityMenu && (
-                <div className="absolute bottom-full left-0 mb-2 bg-[#1a1a1a] border border-white/10 rounded-lg shadow-xl py-1 min-w-[100px] z-50">
-                  <div className="px-3 py-1 border-b border-white/5 mb-1">
-                    <span className="text-[10px] text-white/40 uppercase font-bold tracking-wider">Quality</span>
-                  </div>
-                  <button
-                    onClick={() => {
-                      if (hlsRef.current) hlsRef.current.currentLevel = -1;
-                      setCurrentQualityIndex(-1);
-                      setShowQualityMenu(false);
-                    }}
-                    className={`w-full text-left px-3 py-1.5 text-xs transition-colors hover:bg-white/5 flex items-center justify-between ${
-                      currentQualityIndex === -1 ? 'text-blue-400 font-medium bg-blue-500/5' : 'text-white/70'
-                    }`}
-                  >
-                    <span>Auto</span>
-                    {currentQualityIndex === -1 && < Zap className="h-3 w-3 fill-current" />}
-                  </button>
-                  {availableLevels.map((level, idx) => (
-                    <button
-                      key={idx}
-                      onClick={() => {
-                        if (hlsRef.current) hlsRef.current.currentLevel = idx;
-                        setCurrentQualityIndex(idx);
-                        setShowQualityMenu(false);
-                      }}
-                      className={`w-full text-left px-3 py-1.5 text-xs transition-colors hover:bg-white/5 flex items-center justify-between ${
-                        currentQualityIndex === idx ? 'text-blue-400 font-medium bg-blue-500/5' : 'text-white/70'
-                      }`}
-                    >
-                      <span>{level.height}p</span>
-                      {currentQualityIndex === idx && <div className="h-1.5 w-1.5 rounded-full bg-blue-400" />}
-                    </button>
-                  ))}
-                </div>
-              )}
-            </div>
+            {/* Quality Display */}
+            <span className="text-xs text-white/50 font-mono">
+              {currentQuality}
+            </span>
           </div>
 
           {/* Right Controls */}

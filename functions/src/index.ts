@@ -726,45 +726,68 @@ export const onRawFootageUploaded = functions
         const bucket = admin.storage().bucket(object.bucket);
         const fileName = path.basename(filePath);
         const localVideo = path.join(os.tmpdir(), fileName);
-        const identifier = uploadId || fileName.replace(/[^a-zA-Z0-9]/g, "_");
-        const thumbGcsPath = `projects/${projectId}/thumbnails/raw_${identifier}.jpg`;
-        const hlsGcsBase = `projects/${projectId}/hls/raw_${identifier}`;
-        
+
+        const pathParts = filePath.split('/');
+        const userId = pathParts[1] || 'unknown';
+        const baseVideoId = uploadId || fileName.replace(/\.[^/.]+$/, '');
+        const videoId = `${userId}_${baseVideoId}`.replace(/[^a-zA-Z0-9_-]/g, '_');
+
+        const processedBase = `processed_videos/${videoId}`;
+        const originalGcsPath = `${processedBase}/original.mp4`;
+        const thumbGcsPath = `${processedBase}/thumbnails/thumbnail.jpg`;
+        const hlsGcsBase = `${processedBase}/hls`;
+
         try {
             // Download the source video
             await bucket.file(filePath).download({ destination: localVideo });
 
+            // Upload original video to processed_videos path with long CDN cache
+            await bucket.upload(localVideo, {
+                destination: originalGcsPath,
+                metadata: {
+                    contentType: 'video/mp4',
+                    cacheControl: 'public, max-age=31536000',
+                    metadata: {
+                        processedFrom: filePath,
+                        projectId: projectId || '',
+                        userId,
+                    },
+                },
+            });
+
+            const [originalUrl] = await bucket.file(originalGcsPath).getSignedUrl({ action: 'read', expires: '03-01-2500' });
+
             // 1. Generate Thumbnail
-            const localThumb = path.join(os.tmpdir(), `raw_${identifier}_thumb.jpg`);
+            const localThumb = path.join(os.tmpdir(), `raw_${videoId}_thumb.jpg`);
             try {
                 await runFfmpeg(
                     ffmpeg(localVideo)
-                        .seekInput(2) // capture at 2 seconds
+                        .seekInput(2)
                         .frames(1)
                         .output(localThumb)
                 );
-                await bucket.upload(localThumb, { 
-                    destination: thumbGcsPath, 
-                    metadata: { contentType: "image/jpeg" } 
+                await bucket.upload(localThumb, {
+                    destination: thumbGcsPath,
+                    metadata: {
+                        contentType: 'image/jpeg',
+                        cacheControl: 'public, max-age=31536000',
+                    },
                 });
             } catch (thumbErr) {
-                console.error("[RawHLS] Thumbnail generation failed:", thumbErr);
+                console.error('[RawHLS] Thumbnail generation failed:', thumbErr);
             }
 
-            const [thumbUrl] = await bucket.file(thumbGcsPath).getSignedUrl({ action: "read", expires: "03-01-2500" });
+            const [thumbUrl] = await bucket.file(thumbGcsPath).getSignedUrl({ action: 'read', expires: '03-01-2500' });
             if (fs.existsSync(localThumb)) fs.unlinkSync(localThumb);
 
-            // 2. Generate HLS (Multi-bitrate)
-            const hlsOutDir = path.join(os.tmpdir(), `hlsraw_${identifier}`);
+            // 2. Generate HLS (2s segments, 360p & 720p only)
+            const hlsOutDir = path.join(os.tmpdir(), `hlsraw_${videoId}`);
             if (fs.existsSync(hlsOutDir)) fs.rmSync(hlsOutDir, { recursive: true, force: true });
             fs.mkdirSync(hlsOutDir, { recursive: true });
 
             const renditions: Array<[string, number, number, string]> = [
-                ["240p",  426,  240,  "400k"],
-                ["360p",  640,  360,  "800k"],
-                ["480p",  854,  480,  "1200k"],
-                ["720p",  1280, 720,  "2500k"],
-                ["1080p", 1920, 1080, "5000k"],
+                ['360p', 640, 360, '800k'],
+                ['720p', 1280, 720, '2500k'],
             ];
 
             for (const [label, w, h, vbr] of renditions) {
@@ -780,7 +803,7 @@ export const onRawFootageUploaded = functions
                             "-b:v",         vbr,
                             "-c:a",         "aac",
                             "-b:a",         "128k",
-                            "-hls_time",    "4",
+                            "-hls_time",    "2",
                             "-hls_list_size", "0",
                             "-hls_segment_filename", path.join(renditionDir, "seg_%03d.ts"),
                             "-f",           "hls"
@@ -802,30 +825,37 @@ export const onRawFootageUploaded = functions
             }
 
             // Build and upload Master Playlist
-            // Prioritize speed: lower quality (240p) comes first
             const masterContent = [
                 "#EXTM3U",
                 "#EXT-X-VERSION:3",
                 "",
-                `#EXT-X-STREAM-INF:BANDWIDTH=400000,RESOLUTION=426x240`,
-                `240p/index.m3u8`,
                 `#EXT-X-STREAM-INF:BANDWIDTH=800000,RESOLUTION=640x360`,
                 `360p/index.m3u8`,
-                `#EXT-X-STREAM-INF:BANDWIDTH=1200000,RESOLUTION=854x480`,
-                `480p/index.m3u8`,
                 `#EXT-X-STREAM-INF:BANDWIDTH=2500000,RESOLUTION=1280x720`,
                 `720p/index.m3u8`,
-                `#EXT-X-STREAM-INF:BANDWIDTH=5000000,RESOLUTION=1920x1080`,
-                `1080p/index.m3u8`,
             ].join("\n");
             
             const masterLocal = path.join(hlsOutDir, "master.m3u8");
             fs.writeFileSync(masterLocal, masterContent);
             await bucket.upload(masterLocal, { 
                 destination: `${hlsGcsBase}/master.m3u8`, 
-                metadata: { contentType: "application/vnd.apple.mpegurl" } 
+                metadata: { contentType: "application/vnd.apple.mpegurl", cacheControl: "public, max-age=3600" } 
             });
             const [masterUrl] = await bucket.file(`${hlsGcsBase}/master.m3u8`).getSignedUrl({ action: "read", expires: "03-01-2500" });
+
+            // 2.5. Store HLS metadata in Firestore for discovery
+            await admin.firestore().collection("videos").doc(videoId).set({
+                videoId,
+                projectId,
+                userId,
+                sourceRawPath: filePath,
+                processedPath: processedBase,
+                originalUrl,
+                thumbnailUrl: thumbUrl,
+                hlsUrl: masterUrl,
+                renditions: renditions.map(([label, w, h, vbr]) => ({ label, width: w, height: h, bitrate: vbr })),
+                updatedAt: Date.now(),
+            }, { merge: true });
 
             // 3. Update Project in Firestore
             const projectRef = admin.firestore().collection("projects").doc(projectId);
