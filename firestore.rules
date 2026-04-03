@@ -15,9 +15,10 @@ service cloud.firestore {
     
     // Check if user exists and has one of the allowed roles
     function hasRole(roles) {
-      return isAuthenticated() && 
-             exists(/databases/$(database)/documents/users/$(request.auth.uid)) && 
-             getUserData().role in roles;
+      return isAuthenticated() && (
+        (request.auth.token.role in roles) ||
+        (exists(/databases/$(database)/documents/users/$(request.auth.uid)) && getUserData().role in roles)
+      );
     }
 
     function isAdmin() {
@@ -101,9 +102,12 @@ service cloud.firestore {
       allow delete: if isAuthenticated() && (
         request.auth.uid == resource.data.userId || // Creator of the comment
         isAdmin() || isStaff() || isEditor() || // Admin/staff/editor roles
-        resource.data.projectId != null &&
-          (get(/databases/$(database)/documents/projects/$(resource.data.projectId)).data.assignedEditorId == request.auth.uid ||
-           get(/databases/$(database)/documents/projects/$(resource.data.projectId)).data.assignedPMId == request.auth.uid)
+        resource.data.projectId != null && (
+          get(/databases/$(database)/documents/projects/$(resource.data.projectId)).data.assignedEditorId == request.auth.uid ||
+          get(/databases/$(database)/documents/projects/$(resource.data.projectId)).data.assignedPMId == request.auth.uid ||
+          get(/databases/$(database)/documents/projects/$(resource.data.projectId)).data.clientId == request.auth.uid ||
+          get(/databases/$(database)/documents/projects/$(resource.data.projectId)).data.ownerId == request.auth.uid
+        )
       );
     }
 

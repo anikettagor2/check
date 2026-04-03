@@ -12,9 +12,7 @@ import { handleNewComment } from "@/app/actions/notification-actions";
 import { PaymentButton } from "@/components/payment-button";
 import { uploadCommentImage } from "@/lib/firebase/storage-utils";
 import { DashboardVideo } from "@/components/dashboard-video-optimizer";
-import { OptimizedHLSPlayer } from "@/components/optimized-hls-player";
-import { OptimizedVideoPlayer } from "@/components/optimized-video-player";
-import { useVideoPreload } from "@/lib/streaming/video-preload";
+import { OptimizedHLSPlayerView } from "@/components/optimized-hls-player-view";
 
 type ReviewProject = {
     id: string;
@@ -25,6 +23,10 @@ type ReviewProject = {
     paymentStatus?: string;
     editorRating?: number;
     editorReview?: string;
+    ownerId?: string;
+    clientId?: string;
+    assignedEditorId?: string;
+    assignedPMId?: string;
 };
 
 type RevisionDoc = {
@@ -96,60 +98,6 @@ function formatDate(timestamp: number): string {
     return date.toLocaleDateString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
 }
 
-/**
- * Wrapper component for OptimizedHLSPlayer with preloading
- */
-function OptimizedHLSPlayerView({
-    hlsUrl,
-    videoUrl,
-    projectName,
-    fileSize,
-    onTimeUpdate,
-}: {
-    hlsUrl?: string;
-    videoUrl?: string;
-    projectName: string;
-    fileSize?: number;
-    onTimeUpdate: (currentTime: number, duration: number) => void;
-}) {
-    // Use HLS if available, otherwise use streaming API for MP4
-    const isLargeVideo = fileSize && fileSize > 50 * 1024 * 1024; // 50MB+
-    const shouldUseStreaming = !hlsUrl && videoUrl && isLargeVideo;
-
-    // Preload video for faster startup
-    const { isPreloading } = useVideoPreload(hlsUrl || videoUrl || '', true);
-
-    if (shouldUseStreaming && videoUrl) {
-        // Extract Firebase path from videoUrl
-        const firebasePath = videoUrl.includes('firebasestorage.googleapis.com')
-            ? videoUrl.split('/o/')[1]?.split('?')[0]
-            : videoUrl;
-
-        if (firebasePath) {
-            return (
-                <OptimizedVideoPlayer
-                    videoPath={decodeURIComponent(firebasePath)}
-                    title={projectName}
-                    onTimeUpdate={onTimeUpdate}
-                    className="w-full h-full"
-                />
-            );
-        }
-    }
-
-    return (
-        <OptimizedHLSPlayer
-            hlsUrl={hlsUrl || undefined}
-            videoUrl={videoUrl}
-            projectName={projectName}
-            fileSize={fileSize}
-            autoPlay={false}
-            preload="metadata"
-            onTimeUpdate={onTimeUpdate}
-            className="w-full h-full"
-        />
-    );
-}
 
 import { VideoManagerProvider } from "../../../components/video-manager";
 
@@ -158,6 +106,9 @@ export function ReviewSystemModal({ isOpen, onClose, project, allowUploadDraft =
     const fileInputRef = useRef<HTMLInputElement | null>(null);
     const videoSeekRef = useRef<HTMLVideoElement>(null);
     const isClient = user?.role === "client";
+    const isAdmin = user?.role === "admin";
+    const isStaff = ["manager", "sales_executive", "project_manager"].includes(user?.role || "") || isAdmin;
+    const isEditor = user?.role === "editor";
 
     // Tab state
     const [activeTab, setActiveTab] = useState<'timeline' | 'direct'>('timeline');
@@ -1018,7 +969,7 @@ export function ReviewSystemModal({ isOpen, onClose, project, allowUploadDraft =
                                                 <span className="text-[10px] text-muted-foreground">•</span>
                                                 <span className="text-[10px] text-muted-foreground">{c.userName || "User"}</span>
                                             </div>
-                                            {user?.uid === c.userId && (
+                                            {(user?.uid === c.userId || isAdmin || isStaff || isEditor || project?.assignedEditorId === user?.uid || project?.assignedPMId === user?.uid || project?.clientId === user?.uid || project?.ownerId === user?.uid) && (
                                                 <button
                                                     onClick={() => handleDeleteComment(c.id)}
                                                     className="text-[10px] text-destructive/60 hover:text-destructive font-bold"
@@ -1124,7 +1075,7 @@ export function ReviewSystemModal({ isOpen, onClose, project, allowUploadDraft =
                                                 <div className="text-[11px] font-bold text-primary">{c.userName || "User"}</div>
                                                 <div className="text-[9px] text-muted-foreground">{formatDate(c.createdAt || 0)}</div>
                                             </div>
-                                            {user?.uid === c.userId && (
+                                            {(user?.uid === c.userId || isAdmin || isStaff || isEditor || project?.assignedEditorId === user?.uid || project?.assignedPMId === user?.uid || project?.clientId === user?.uid || project?.ownerId === user?.uid) && (
                                                 <button
                                                     onClick={() => handleDeleteComment(c.id)}
                                                     className="text-[10px] text-destructive/60 hover:text-destructive font-bold"
