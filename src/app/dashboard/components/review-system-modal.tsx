@@ -36,7 +36,6 @@ type RevisionDoc = {
     version?: number;
     videoUrl?: string;
     hlsUrl?: string;
-    proxyUrl?: string;
     fileSize?: number;
     description?: string;
     createdAt?: number;
@@ -574,40 +573,9 @@ export function ReviewSystemModal({ isOpen, onClose, project, allowUploadDraft =
             try {
                 const q = query(collection(db, "revisions"), where("projectId", "==", project.id));
                 const snap = await getDocs(q);
-                const next = await Promise.all(snap.docs
-                    .map(async (doc) => {
-                        const revisionData = { id: doc.id, ...(doc.data() as any) } as RevisionDoc;
-                        
-                        // Try to find proxy URL for raw footage videos
-                        let proxyUrl: string | undefined;
-                        if (revisionData.videoUrl) {
-                            try {
-                                // Extract potential videoId from the videoUrl
-                                const urlParts = revisionData.videoUrl.split('/o/')[1]?.split('?')[0];
-                                if (urlParts && urlParts.includes('raw_footage/')) {
-                                    const pathParts = urlParts.split('/');
-                                    const userId = pathParts[1];
-                                    const fileName = pathParts[pathParts.length - 1];
-                                    const uploadId = fileName.split('_')[0]; // Assuming format: uploadId_filename
-                                    const videoId = `${userId}_${uploadId}`.replace(/[^a-zA-Z0-9_-]/g, '_');
-                                    
-                                    // Try to get the video document
-                                    const videoDoc = await getDocs(query(collection(db, "videos"), where("videoId", "==", videoId)));
-                                    if (!videoDoc.empty) {
-                                        const videoData = videoDoc.docs[0].data();
-                                        proxyUrl = videoData.proxyUrl;
-                                    }
-                                }
-                            } catch (error) {
-                                console.warn("Failed to fetch proxy URL for revision:", revisionData.id, error);
-                            }
-                        }
-                        
-                        return { ...revisionData, proxyUrl };
-                    }));
-
-                // Wait for all async operations to complete
-                const revisionsWithOptimized = next;
+                const next = snap.docs
+                    .map((doc) => ({ id: doc.id, ...(doc.data() as any) } as RevisionDoc))
+                    .sort((a, b) => (b.version || 0) - (a.version || 0));
 
                 console.log('[ReviewSystemModal] Fetched revisions:', next);
                 setRevisions(next);
@@ -760,10 +728,10 @@ export function ReviewSystemModal({ isOpen, onClose, project, allowUploadDraft =
                                             <Loader2 className="h-5 w-5 animate-spin" />
                                             Loading drafts...
                                         </div>
-                                    ) : selectedRevision?.hlsUrl || selectedRevision?.proxyUrl ? (
+                                    ) : selectedRevision?.hlsUrl || selectedRevision?.videoUrl ? (
                                         <OptimizedHLSPlayerView
                                             hlsUrl={selectedRevision.hlsUrl}
-                                            proxyUrl={selectedRevision.proxyUrl}
+                                            videoUrl={selectedRevision.videoUrl}
                                             projectName={project?.name || "Review"}
                                             fileSize={selectedRevision.fileSize}
                                             onTimeUpdate={(currentTime, duration) => {
@@ -771,9 +739,19 @@ export function ReviewSystemModal({ isOpen, onClose, project, allowUploadDraft =
                                                 setDuration(duration);
                                             }}
                                         />
+                                    ) : selectedRevision?.videoUrl ? (
+                                        <video
+                                            src={selectedRevision.videoUrl}
+                                            controls
+                                            className="w-full h-full bg-black rounded-xl"
+                                            onTimeUpdate={(e) => {
+                                                setCurrentTime(e.currentTarget.currentTime);
+                                                setDuration(e.currentTarget.duration);
+                                            }}
+                                        />
                                     ) : (
-                                        <div className="h-full w-full flex items-center justify-center text-muted-foreground text-sm px-4 text-center">
-                                            No low-quality review preview is available yet. Please wait until the HLS/proxy preview has been generated.
+                                        <div className="h-full w-full flex items-center justify-center text-muted-foreground text-sm">
+                                            No uploaded draft available for this project.
                                         </div>
                                     )}
                                 </div>
@@ -1278,10 +1256,10 @@ export function ReviewSystemModal({ isOpen, onClose, project, allowUploadDraft =
                                     <Loader2 className="h-4 w-4 animate-spin" />
                                     Loading drafts...
                                 </div>
-                            ) : selectedRevision?.hlsUrl || selectedRevision?.proxyUrl ? (
+                            ) : selectedRevision?.hlsUrl || selectedRevision?.videoUrl ? (
                                 <OptimizedHLSPlayerView
                                     hlsUrl={selectedRevision.hlsUrl}
-                                    proxyUrl={selectedRevision.proxyUrl}
+                                    videoUrl={selectedRevision.videoUrl}
                                     projectName={project?.name || "Review"}
                                     fileSize={selectedRevision.fileSize}
                                     onTimeUpdate={(currentTime, duration) => {
@@ -1289,9 +1267,19 @@ export function ReviewSystemModal({ isOpen, onClose, project, allowUploadDraft =
                                         setDuration(duration);
                                     }}
                                 />
+                            ) : selectedRevision?.videoUrl ? (
+                                <video
+                                    src={selectedRevision.videoUrl}
+                                    controls
+                                    className="w-full h-full bg-black rounded-xl"
+                                    onTimeUpdate={(e) => {
+                                        setCurrentTime(e.currentTarget.currentTime);
+                                        setDuration(e.currentTarget.duration);
+                                    }}
+                                />
                             ) : (
-                                <div className="h-full w-full flex items-center justify-center text-muted-foreground text-sm px-4 text-center">
-                                    No low-quality review preview is available yet. Please wait until the HLS/proxy preview has been generated.
+                                <div className="h-full w-full flex items-center justify-center text-muted-foreground text-sm">
+                                    No uploaded draft available for this project.
                                 </div>
                             )}
                         </div>

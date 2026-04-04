@@ -33,7 +33,6 @@ type RevisionDoc = {
     version?: number;
     videoUrl?: string;
     hlsUrl?: string;
-    proxyUrl?: string;
     fileSize?: number;
     description?: string;
     createdAt?: number;
@@ -81,8 +80,8 @@ export default function GuestReviewPage() {
     const videoSeekRef = useRef<((seconds: number) => void) | null>(null);
 
     const hlsUrl = revision?.hlsUrl;
-    const previewUrl = revision?.hlsUrl || revision?.proxyUrl || '';
-    const { isPreloading } = useVideoPreload(previewUrl, true);
+    const mp4Url = revision?.videoUrl;
+    const { isPreloading } = useVideoPreload(hlsUrl || mp4Url || '', true);
 
     useEffect(() => {
         if (!revisionId) return;
@@ -97,31 +96,7 @@ export default function GuestReviewPage() {
                     setLoading(false);
                     return;
                 }
-                let revData = { id: revSnap.id, ...revSnap.data() } as RevisionDoc;
-                
-                // Try to find proxy URL for raw footage videos
-                if (revData.videoUrl && !revData.proxyUrl) {
-                    try {
-                        // Extract potential videoId from the videoUrl
-                        const urlParts = revData.videoUrl.split('/o/')[1]?.split('?')[0];
-                        if (urlParts && urlParts.includes('raw_footage/')) {
-                            const pathParts = urlParts.split('/');
-                            const userId = pathParts[1];
-                            const fileName = pathParts[pathParts.length - 1];
-                            const uploadId = fileName.split('_')[0]; // Assuming format: uploadId_filename
-                            const videoId = `${userId}_${uploadId}`.replace(/[^a-zA-Z0-9_-]/g, '_');
-                            
-                            // Try to get the video document
-                            const videoDoc = await getDocs(query(collection(db, "videos"), where("videoId", "==", videoId)));
-                            if (!videoDoc.empty) {
-                                const videoData = videoDoc.docs[0].data();
-                                revData.proxyUrl = videoData.proxyUrl;
-                            }
-                        }
-                    } catch (error) {
-                        console.warn("Failed to fetch proxy URL for revision:", revData.id, error);
-                    }
-                }
+                const revData = { id: revSnap.id, ...revSnap.data() } as RevisionDoc;
                 
                 // For guests: prefer HLS URL (public), but keep raw download URL as fallback.
                 // This ensures the preview plays when HLS is still updating or broken, and avoids stuck state.

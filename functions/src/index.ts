@@ -6,12 +6,8 @@ import * as os from "os";
 import * as fs from "fs";
 import ffmpeg from "fluent-ffmpeg";
 import ffmpegInstaller from "@ffmpeg-installer/ffmpeg";
-import { TranscoderServiceClient } from "@google-cloud/video-transcoder";
 
 admin.initializeApp();
-
-// Initialize Transcoder API client
-const transcoderClient = new TranscoderServiceClient();
 
 // Point fluent-ffmpeg at the bundled binary
 ffmpeg.setFfmpegPath(ffmpegInstaller.path);
@@ -329,71 +325,6 @@ async function downloadToTmp(gsPath: string): Promise<string> {
     const localPath = path.join(os.tmpdir(), path.basename(gsPath));
     await bucket.file(gsPath).download({ destination: localPath });
     return localPath;
-}
-
-// ---------------------------------------------------------------------------
-// Helper – Create a Transcoder job for 360p MP4 encoding (fast, managed)
-// ---------------------------------------------------------------------------
-async function createTranscoderJob(
-    inputUri: string,
-    outputUri: string,
-    outputFileName: string
-): Promise<string> {
-    const projectId = process.env.GCLOUD_PROJECT || "studio-4633365007-23d80";
-    const location = "us-central1";
-
-    try {
-        const parent = transcoderClient.locationPath(projectId, location);
-
-        // Aggressive compression settings for proxy file (400MB → ~30MB)
-        const job = {
-            inputUri,
-            outputUri,
-            config: {
-                elementaryStreams: [
-                    {
-                        key: "video_stream",
-                        videoStream: {
-                            codec: "h264",
-                            heightPixels: 240, // Very low resolution (240p)
-                            widthPixels: 426,  // Maintain aspect ratio
-                            bitrateBps: 200000, // 200 kbps video (very low for massive compression)
-                            frameRate: 24,      // Reduced frame rate
-                            preset: "ultrafast", // Fast encoding
-                        },
-                    },
-                    {
-                        key: "audio_stream",
-                        audioStream: {
-                            codec: "aac",
-                            bitrateBps: 64000, // 64 kbps audio (also compressed)
-                        },
-                    },
-                ],
-                muxStreams: [
-                    {
-                        key: "mp4",
-                        container: "mp4",
-                        elementaryStreams: ["video_stream", "audio_stream"],
-                        fileName: outputFileName,
-                    },
-                ],
-            },
-        };
-
-        console.log('[Transcoder] Creating proxy job for:', inputUri);
-        const response = await transcoderClient.createJob({
-            parent,
-            job: job as any,
-        });
-
-        const jobName = response[0]?.name || "";
-        console.log('[Transcoder] Proxy job created:', jobName);
-        return jobName;
-    } catch (err) {
-        console.error('[Transcoder] Proxy job creation failed:', err);
-        throw err;
-    }
 }
 
 // ---------------------------------------------------------------------------
@@ -806,8 +737,6 @@ export const onRawFootageUploaded = functions
         const thumbGcsPath = `${processedBase}/thumbnails/thumbnail.jpg`;
         const hlsGcsBase = `${processedBase}/hls`;
 
-        let optimizedVideoUrl: string | undefined;
-
         try {
             // Download the source video
             await bucket.file(filePath).download({ destination: localVideo });
@@ -914,37 +843,7 @@ export const onRawFootageUploaded = functions
             });
             const [masterUrl] = await bucket.file(`${hlsGcsBase}/master.m3u8`).getSignedUrl({ action: "read", expires: "03-01-2500" });
 
-            // 2.5. Generate low-quality proxy MP4 using Transcoder API (aggressive compression: 400MB → ~30MB)
-            try {
-                console.log('[RawHLS] Submitting proxy transcoding job to Google Transcoder API...');
-
-                // Input is the original raw video
-                const inputUri = `gs://${object.bucket}/${filePath}`;
-                // Output directory for the proxy video
-                const outputUri = `gs://${object.bucket}/${processedBase}/`;
-
-                // Create Transcoder job for proxy (very low quality, small file size)
-                const jobName = await createTranscoderJob(
-                    inputUri,
-                    outputUri,
-                    'proxy.mp4'
-                );
-
-                console.log('[RawHLS] Proxy transcoder job submitted:', jobName);
-
-                // Store pending Transcoder job reference
-                await admin.firestore().collection("videos").doc(videoId).set({
-                    transcoderJobName: jobName,
-                    transcoderJobStatus: "pending",
-                    transcoderJobSubmittedAt: Date.now(),
-                }, { merge: true });
-
-            } catch (optErr) {
-                console.error('[RawHLS] Proxy transcoder job submission failed:', optErr);
-                // Non-critical failure - HLS and original will still work
-            }
-
-            // 2.6. Store HLS metadata in Firestore for discovery
+            // 2.5. Store HLS metadata in Firestore for discovery
             await admin.firestore().collection("videos").doc(videoId).set({
                 videoId,
                 projectId,
@@ -952,7 +851,6 @@ export const onRawFootageUploaded = functions
                 sourceRawPath: filePath,
                 processedPath: processedBase,
                 originalUrl,
-                optimizedUrl: optimizedVideoUrl, // Add optimized URL
                 thumbnailUrl: thumbUrl,
                 hlsUrl: masterUrl,
                 renditions: renditions.map(([label, w, h, vbr]) => ({ label, width: w, height: h, bitrate: vbr })),
@@ -991,75 +889,5 @@ export const onRawFootageUploaded = functions
             console.error("[RawHLS] Critical Error during processing:", err);
         } finally {
             if (fs.existsSync(localVideo)) fs.unlinkSync(localVideo);
-        }
-    });
-
-// ---------------------------------------------------------------------------
-// Trigger: Listen for Transcoder job completion via Pub/Sub
-// ---------------------------------------------------------------------------
-export const onTranscoderJobComplete = functions
-    .pubsub
-    .topic('transcoder-jobs')
-    .onPublish(async (message: any) => {
-        try {
-            const pubsubMessage = message.json;
-            const jobName = pubsubMessage?.name || "";
-            const jobState = pubsubMessage?.state || "";
-
-            console.log(`[Transcoder] Job ${jobName} state: ${jobState}`);
-
-            if (jobState !== "SUCCEEDED") {
-                if (jobState === "FAILED") {
-                    console.error(`[Transcoder] Job failed: ${jobName}`);
-                }
-                return;
-            }
-
-            // Query videos collection to find the matching job
-            const videosSnap = await admin
-                .firestore()
-                .collection("videos")
-                .where("transcoderJobName", "==", jobName)
-                .limit(1)
-                .get();
-
-            if (videosSnap.empty) {
-                console.log(`[Transcoder] No video found for job ${jobName}`);
-                return;
-            }
-
-            const videoDoc = videosSnap.docs[0];
-            const videoId = videoDoc.id;
-            const bucket = admin.storage().bucket();
-
-            // The proxy MP4 file should now exist at: gs://bucket/processed_videos/{videoId}/proxy.mp4
-            const proxyMp4Path = `processed_videos/${videoId}/proxy.mp4`;
-
-            // Check if file exists and get signed URL
-            try {
-                const fileExists = await bucket.file(proxyMp4Path).exists();
-                if (!fileExists[0]) {
-                    console.warn(`[Transcoder] Proxy file not found: ${proxyMp4Path}`);
-                    // File might still be syncing, retry logic would go here
-                    return;
-                }
-
-                const [proxyUrl] = await bucket
-                    .file(proxyMp4Path)
-                    .getSignedUrl({ action: "read", expires: "03-01-2500" });
-
-                // Update video document with the proxy URL
-                await videoDoc.ref.update({
-                    proxyUrl,
-                    transcoderJobStatus: "completed",
-                    transcoderJobCompletedAt: Date.now(),
-                });
-
-                console.log(`[Transcoder] Updated video ${videoId} with proxy URL`);
-            } catch (urlErr) {
-                console.error(`[Transcoder] Failed to get signed URL for ${proxyMp4Path}:`, urlErr);
-            }
-        } catch (err) {
-            console.error("[Transcoder] Pub/Sub handler error:", err);
         }
     });
