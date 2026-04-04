@@ -20,6 +20,7 @@ export interface User {
     initialPassword?: string; // Temp password for new users
     createdBy?: string; // UID of sales exec or admin who created this user
     managedBy?: string; // UID of sales exec managing this client
+    assignedManagerId?: string; // UID of project manager assigned to this client
     payLater?: boolean; // New feature: allows client to skip immediate payment
     creditLimit?: number; // Maximum pending dues allowed for Pay Later
     deletionRequested?: boolean; // When user requests account deletion, pending admin approval

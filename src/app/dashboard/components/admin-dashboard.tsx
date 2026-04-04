@@ -87,7 +87,7 @@ import {
 
 import { useSearchParams } from "next/navigation";
 import { useAuth } from "@/lib/context/auth-context";
-import { assignEditor, updateProject, togglePayLater, deleteProject, deleteUser, toggleUserStatus, rejectDeletionRequest, verifyEditor, getWhatsAppTemplates, updateWhatsAppTemplates, getSystemSettings, updateSystemSettings, settleProjectPayment, addProjectLog, bulkSettleEditorDues, assignProjectManager } from "@/app/actions/admin-actions";
+import { assignEditor, updateProject, togglePayLater, deleteProject, deleteUser, toggleUserStatus, rejectDeletionRequest, verifyEditor, getWhatsAppTemplates, updateWhatsAppTemplates, getSystemSettings, updateSystemSettings, settleProjectPayment, addProjectLog, bulkSettleEditorDues, assignProjectManager, updateUserDetails, assignManagerToClient } from "@/app/actions/admin-actions";
 import { AdminOverviewGraphs } from "./admin-overview-graphs";
 import { AdminPerformanceTab } from "./admin-performance";
 import { ClientDocuments } from "./client-documents";
@@ -207,10 +207,6 @@ function ProjectStatusBadges({ project }: { project: any }) {
 }
 
 export function AdminDashboard() {
-        // State for editing a team member
-        const [isEditUserModalOpen, setIsEditUserModalOpen] = useState(false);
-        const [editUser, setEditUser] = useState<User | null>(null);
-
     // Handler for editing a user (team member)
     const handleEditUser = (uid: string) => {
         const user = users.find(u => u.uid === uid);
@@ -224,18 +220,21 @@ export function AdminDashboard() {
     const handleSaveEditUser = async () => {
         if (!editUser) return;
         try {
-            // Update user in Firestore (or your backend)
-            await updateUserDetails(editUser.uid, {
+            const result = await updateUserDetails(editUser.uid, {
                 displayName: editUser.displayName,
                 email: editUser.email,
                 phoneNumber: editUser.phoneNumber,
                 role: editUser.role,
-            });
-            toast.success("User updated successfully");
-            setIsEditUserModalOpen(false);
-            setEditUser(null);
-        } catch (err) {
-            toast.error("Failed to update user");
+            }, { uid: currentUser!.uid, displayName: currentUser!.displayName || "Admin" });
+            if (result.success) {
+                toast.success(result.message || "User updated successfully");
+                setIsEditUserModalOpen(false);
+                setEditUser(null);
+            } else {
+                toast.error(result.error || "Failed to update user");
+            }
+        } catch (err: any) {
+            toast.error(err.message || "Failed to update user");
         }
     };
 
@@ -244,51 +243,11 @@ export function AdminDashboard() {
         if (!editUser) return;
         setEditUser({ ...editUser, [field]: value });
     };
-    // ...existing code...
 
-    {/* Edit Team Member Modal */}
-    {isEditUserModalOpen && editUser && (
-        <Modal isOpen={isEditUserModalOpen} onClose={() => { setIsEditUserModalOpen(false); setEditUser(null); }} title="Edit Team Member" maxWidth="max-w-lg">
-            <div className="space-y-4">
-                <div>
-                    <Label className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground ml-1">Full Name</Label>
-                    <Input value={editUser.displayName || ""} onChange={e => handleEditUserChange("displayName", e.target.value)} className="w-full" />
-                </div>
-                <div>
-                    <Label className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground ml-1">Email Address</Label>
-                    <Input value={editUser.email || ""} onChange={e => handleEditUserChange("email", e.target.value)} className="w-full" />
-                </div>
-                <div>
-                    <Label className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground ml-1">WhatsApp Number</Label>
-                    <Input value={editUser.phoneNumber || ""} onChange={e => handleEditUserChange("phoneNumber", e.target.value.replace(/\D/g, '').slice(0, 10))} className="w-full" maxLength={10} />
-                </div>
-                <div>
-                    <Label className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground ml-1">Department</Label>
-                    <select className="w-full h-11 px-4 rounded-lg border border-border bg-muted/50 text-sm text-foreground focus:border-primary/50 focus:outline-none transition-all appearance-none cursor-pointer font-medium" value={editUser.role} onChange={e => handleEditUserChange("role", e.target.value)}>
-                        <option value="sales_executive">Sales Executive</option>
-                        <option value="project_manager">Project Manager</option>
-                    </select>
-                </div>
-                <div className="flex gap-2 pt-2">
-                    <Button className="flex-1" variant="outline" onClick={() => { setIsEditUserModalOpen(false); setEditUser(null); }}>Cancel</Button>
-                    <Button className="flex-1" onClick={handleSaveEditUser}>Save Changes</Button>
-                </div>
-            </div>
-        </Modal>
-    )}
-// Utility to update user details in Firestore (or your backend)
-async function updateUserDetails(uid: string, data: Partial<User>) {
-    // Example for Firestore:
-    // import { db } from "@/lib/firebase/config";
-    // import { doc, updateDoc } from "firebase/firestore";
-    // await updateDoc(doc(db, "users", uid), data);
-    // Replace with your actual update logic
-    return Promise.resolve();
-}
   const { user: currentUser } = useAuth();
   const searchParams = useSearchParams();
-  const initialTab = (searchParams.get('tab') as 'overview' | 'projects' | 'users' | 'team' | 'terminations' | 'requests' | 'whatsapp' | 'finance' | 'performance') || 'overview';
-  const [activeTab, setActiveTab] = useState<'overview' | 'projects' | 'users' | 'team' | 'terminations' | 'requests' | 'whatsapp' | 'finance' | 'performance'>(initialTab);
+  const initialTab = (searchParams.get('tab') as 'overview' | 'projects' | 'users' | 'team' | 'clients' | 'terminations' | 'requests' | 'whatsapp' | 'finance' | 'performance') || 'overview';
+  const [activeTab, setActiveTab] = useState<'overview' | 'projects' | 'users' | 'team' | 'clients' | 'terminations' | 'requests' | 'whatsapp' | 'finance' | 'performance'>(initialTab);
   const [projects, setProjects] = useState<Project[]>([]);
   const [users, setUsers] = useState<User[]>([]);
   const [loading, setLoading] = useState(true);
@@ -339,7 +298,19 @@ async function updateUserDetails(uid: string, data: Partial<User>) {
 
   const [whatsappTemplates, setWhatsappTemplates] = useState<any>({});
   const [isUpdatingTemplates, setIsUpdatingTemplates] = useState(false);
-    const [systemSettings, setSystemSettings] = useState<{ allowDuplicatePhone?: boolean; downloadLimit?: number }>({});
+  const [systemSettings, setSystemSettings] = useState<{ allowDuplicatePhone?: boolean; downloadLimit?: number }>({});
+
+  // Client Profile Management State
+  const [isClientProfileModalOpen, setIsClientProfileModalOpen] = useState(false);
+  const [selectedClient, setSelectedClient] = useState<User | null>(null);
+  const [assignedSE, setAssignedSE] = useState<User | null>(null);
+  const [assignedPM, setAssignedPM] = useState<User | null>(null);
+  const [isChangingPM, setIsChangingPM] = useState(false);
+  const [selectedNewPM, setSelectedNewPM] = useState<string>("");
+
+  // Edit Team Member Modal State
+  const [isEditUserModalOpen, setIsEditUserModalOpen] = useState(false);
+  const [editUser, setEditUser] = useState<User | null>(null);
 
 
 
@@ -375,6 +346,90 @@ async function updateUserDetails(uid: string, data: Partial<User>) {
         unsubUsers();
     };
   }, []);
+
+  // Load client profile details when modal opens
+  useEffect(() => {
+    if (!selectedClient || !isClientProfileModalOpen) return;
+
+    // Load assigned SE
+    if (selectedClient.createdBy) {
+      const se = users.find(u => u.uid === selectedClient.createdBy);
+      setAssignedSE(se || null);
+    } else {
+      setAssignedSE(null);
+    }
+
+    // Load assigned PM
+    if (selectedClient.assignedManagerId) {
+      const pm = users.find(u => u.uid === selectedClient.assignedManagerId);
+      setAssignedPM(pm || null);
+      setSelectedNewPM(selectedClient.assignedManagerId);
+    } else {
+      setAssignedPM(null);
+      setSelectedNewPM("");
+    }
+  }, [selectedClient, isClientProfileModalOpen, users]);
+
+  const handleChangeClientPM = async () => {
+    if (!selectedClient || !selectedNewPM) {
+      toast.error("Please select a project manager");
+      return;
+    }
+
+    if (selectedNewPM === selectedClient.assignedManagerId) {
+      toast.info("No change in PM selection");
+      return;
+    }
+
+    setIsChangingPM(true);
+    try {
+      // Assign new PM to client
+      const assignResult = await assignManagerToClient(
+        selectedClient.uid,
+        selectedNewPM,
+        { uid: currentUser!.uid, displayName: currentUser!.displayName || "Admin" }
+      );
+
+      if (!assignResult.success) {
+        toast.error(assignResult.error || "Failed to assign manager");
+        setIsChangingPM(false);
+        return;
+      }
+
+      // Transfer all projects assigned to this client to the new PM
+      const clientProjects = projects.filter(p => p.clientId === selectedClient.uid && p.assignedPMId !== selectedNewPM);
+      
+      if (clientProjects.length > 0) {
+        for (const project of clientProjects) {
+          await assignProjectManager(project.id, selectedNewPM, {
+            uid: currentUser!.uid,
+            displayName: currentUser!.displayName || "Admin",
+            designation: "Admin"
+          });
+        }
+      }
+
+      const newPMData = users.find(u => u.uid === selectedNewPM);
+      toast.success(`Project Manager changed to ${newPMData?.displayName || "Unknown"}. All projects transferred.`);
+      
+      // Update local state
+      setSelectedClient({
+        ...selectedClient,
+        assignedManagerId: selectedNewPM
+      });
+      setAssignedPM(newPMData || null);
+      
+    } catch (error: any) {
+      toast.error(error.message || "Failed to change project manager");
+    } finally {
+      setIsChangingPM(false);
+    }
+  };
+
+  const openClientProfile = (client: User) => {
+    setSelectedClient(client);
+    setIsClientProfileModalOpen(true);
+  };
 
   useEffect(() => {
     if(projects.length > 0 || users.length > 0) {
@@ -701,6 +756,134 @@ async function updateUserDetails(uid: string, data: Partial<User>) {
 
   return (
     <div className="space-y-10 max-w-[1600px] mx-auto pb-20 pt-4">
+       {/* Edit Team Member Modal */}
+       {isEditUserModalOpen && editUser && (
+           <Modal isOpen={isEditUserModalOpen} onClose={() => { setIsEditUserModalOpen(false); setEditUser(null); }} title="Edit Team Member" maxWidth="max-w-lg">
+               <div className="space-y-4">
+                   <div>
+                       <Label className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground ml-1">Full Name</Label>
+                       <Input value={editUser.displayName || ""} onChange={e => handleEditUserChange("displayName", e.target.value)} className="w-full" />
+                   </div>
+                   <div>
+                       <Label className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground ml-1">Email Address</Label>
+                       <Input value={editUser.email || ""} onChange={e => handleEditUserChange("email", e.target.value)} className="w-full" />
+                   </div>
+                   <div>
+                       <Label className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground ml-1">WhatsApp Number</Label>
+                       <Input value={editUser.phoneNumber || ""} onChange={e => handleEditUserChange("phoneNumber", e.target.value.replace(/\D/g, '').slice(0, 10))} className="w-full" maxLength={10} />
+                   </div>
+                   <div>
+                       <Label className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground ml-1">Department</Label>
+                       <select className="w-full h-11 px-4 rounded-lg border border-border bg-muted/50 text-sm text-foreground focus:border-primary/50 focus:outline-none transition-all appearance-none cursor-pointer font-medium" value={editUser.role} onChange={e => handleEditUserChange("role", e.target.value)}>
+                           <option value="sales_executive">Sales Executive</option>
+                           <option value="project_manager">Project Manager</option>
+                       </select>
+                   </div>
+                   <div className="flex gap-2 pt-2">
+                       <Button className="flex-1" variant="outline" onClick={() => { setIsEditUserModalOpen(false); setEditUser(null); }}>Cancel</Button>
+                       <Button className="flex-1" onClick={handleSaveEditUser}>Save Changes</Button>
+                   </div>
+               </div>
+           </Modal>
+       )}
+
+       {/* Client Profile Management Modal */}
+       {isClientProfileModalOpen && selectedClient && (
+           <Modal isOpen={isClientProfileModalOpen} onClose={() => { setIsClientProfileModalOpen(false); setSelectedClient(null); }} title="Client Profile Management" maxWidth="max-w-lg">
+               <div className="space-y-6">
+                   {/* Client Info */}
+                   <div className="p-4 rounded-xl bg-muted/50 border border-border space-y-2">
+                       <div className="flex items-start gap-3">
+                           <Avatar className="w-12 h-12 border border-border">
+                               <AvatarImage src={selectedClient.photoURL || undefined} />
+                               <AvatarFallback className="bg-primary/20 text-primary font-bold">
+                                   {selectedClient.displayName?.[0]}
+                               </AvatarFallback>
+                           </Avatar>
+                           <div className="flex-1">
+                               <p className="text-sm font-bold text-foreground">{selectedClient.displayName}</p>
+                               <p className="text-xs text-muted-foreground">{selectedClient.email}</p>
+                               {selectedClient.phoneNumber && <p className="text-xs text-muted-foreground">+91 {selectedClient.phoneNumber}</p>}
+                           </div>
+                       </div>
+                   </div>
+
+                   {/* Sales Executive Info */}
+                   <div className="space-y-2">
+                       <Label className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Assigned Sales Executive</Label>
+                       <div className="p-3 rounded-lg bg-muted/50 border border-border">
+                           {assignedSE ? (
+                               <div>
+                                   <p className="text-sm font-semibold text-foreground">{assignedSE.displayName}</p>
+                                   <p className="text-xs text-muted-foreground">{assignedSE.email}</p>
+                               </div>
+                           ) : (
+                               <p className="text-sm text-amber-400">Not assigned</p>
+                           )}
+                       </div>
+                   </div>
+
+                   {/* Project Manager Selection */}
+                   <div className="space-y-2">
+                       <Label className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Change Project Manager</Label>
+                       <select 
+                           value={selectedNewPM} 
+                           onChange={e => setSelectedNewPM(e.target.value)}
+                           className="w-full h-11 px-4 rounded-lg border border-border bg-muted/50 text-sm text-foreground focus:border-primary/50 focus:outline-none transition-all appearance-none cursor-pointer font-medium"
+                       >
+                           <option value="">-- Select Project Manager --</option>
+                           {users
+                               .filter(u => u.role === 'project_manager')
+                               .map(pm => (
+                                   <option key={pm.uid} value={pm.uid}>
+                                       {pm.displayName} {pm.uid === selectedClient.assignedManagerId ? '(Current)' : ''}
+                                   </option>
+                               ))
+                           }
+                       </select>
+                   </div>
+
+                   {/* Current PM Info */}
+                   {assignedPM && (
+                       <div className="space-y-2">
+                           <Label className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Currently Assigned PM</Label>
+                           <div className="p-3 rounded-lg bg-blue-500/5 border border-blue-500/20">
+                               <p className="text-sm font-semibold text-foreground">{assignedPM.displayName}</p>
+                               <p className="text-xs text-muted-foreground">{assignedPM.email}</p>
+                               <p className="text-[10px] text-blue-400 mt-1 font-semibold">
+                                   {projects.filter(p => p.clientId === selectedClient.uid && p.assignedPMId === assignedPM.uid).length} Active Projects
+                               </p>
+                           </div>
+                       </div>
+                   )}
+
+                   <div className="flex gap-2 pt-2">
+                       <Button 
+                           className="flex-1" 
+                           variant="outline" 
+                           onClick={() => { setIsClientProfileModalOpen(false); setSelectedClient(null); }}
+                       >
+                           Close
+                       </Button>
+                       <Button 
+                           className="flex-1" 
+                           onClick={handleChangeClientPM}
+                           disabled={isChangingPM || !selectedNewPM || selectedNewPM === selectedClient.assignedManagerId}
+                       >
+                           {isChangingPM ? (
+                               <>
+                                   <RefreshCw className="h-3.5 w-3.5 animate-spin mr-2" />
+                                   Updating...
+                               </>
+                           ) : (
+                               'Update Manager'
+                           )}
+                       </Button>
+                   </div>
+               </div>
+           </Modal>
+       )}
+
        {clientsOverLimit.length > 0 && (
            <motion.div 
                initial={{ opacity: 0, y: -20 }}
@@ -765,6 +948,7 @@ async function updateUserDetails(uid: string, data: Partial<User>) {
                             { key: 'projects', label: 'Projects' },
                             { key: 'users', label: 'Users' },
                             { key: 'team', label: 'Team' },
+                            { key: 'clients', label: 'Client Profiles' },
                             { key: 'terminations', label: 'Terminations' },
                             { key: 'requests', label: 'Requests' },
                             { key: 'whatsapp', label: 'WhatsApp' },
@@ -1333,6 +1517,101 @@ async function updateUserDetails(uid: string, data: Partial<User>) {
                             ))}
                         </tbody>
                     </motion.table>
+                )}
+                
+                {activeTab === 'clients' && (
+                    <motion.div
+                        key="clients"
+                        initial={{ opacity: 0, y: 10 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        exit={{ opacity: 0 }}
+                        className="p-8"
+                    >
+                        <div className="flex items-center justify-between mb-8">
+                            <div>
+                                <h3 className="text-[11px] font-bold text-foreground flex items-center gap-2.5 uppercase tracking-widest">
+                                    <div className="p-1.5 rounded bg-primary/20 border border-primary/30">
+                                        <Users className="h-3.5 w-3.5 text-primary" />
+                                    </div>
+                                    Client Profiles & Manager Assignment
+                                </h3>
+                            </div>
+                            <Input
+                                placeholder="Search clients..."
+                                value={searchQuery}
+                                onChange={e => setSearchQuery(e.target.value)}
+                                className="w-72 h-10"
+                            />
+                        </div>
+
+                        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                            {users
+                                .filter(u => u.role === 'client' && (u.displayName?.toLowerCase().includes(searchQuery.toLowerCase()) || u.email?.toLowerCase().includes(searchQuery.toLowerCase())))
+                                .map(client => {
+                                    const clientProjects = projects.filter(p => p.clientId === client.uid);
+                                    const assignedSEData = users.find(u => u.uid === client.createdBy);
+                                    const assignedPMData = users.find(u => u.uid === client.assignedManagerId);
+                                    
+                                    return (
+                                        <motion.div
+                                            key={client.uid}
+                                            initial={{ opacity: 0, y: 10 }}
+                                            animate={{ opacity: 1, y: 0 }}
+                                            className="bg-muted/50 border border-border rounded-2xl p-6 space-y-4 hover:border-primary/30 transition-colors"
+                                        >
+                                            <div className="flex items-start justify-between">
+                                                <div className="flex items-center gap-3">
+                                                    <Avatar className="w-12 h-12 border border-border">
+                                                        <AvatarImage src={client.photoURL || undefined} />
+                                                        <AvatarFallback className="bg-primary/20 text-primary font-bold">
+                                                            {client.displayName?.[0]}
+                                                        </AvatarFallback>
+                                                    </Avatar>
+                                                    <div>
+                                                        <p className="text-sm font-bold text-foreground">{client.displayName}</p>
+                                                        <p className="text-xs text-muted-foreground">{client.email}</p>
+                                                    </div>
+                                                </div>
+                                                <span className="text-[9px] font-bold bg-emerald-500/10 text-emerald-500 border border-emerald-500/20 px-2 py-1 rounded">
+                                                    {clientProjects.length} Projects
+                                                </span>
+                                            </div>
+
+                                            <div className="space-y-2 pt-2 border-t border-border">
+                                                <div>
+                                                    <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest mb-1">Assigned Sales Executive</p>
+                                                    <p className="text-sm text-foreground">
+                                                        {assignedSEData ? (
+                                                            <>{assignedSEData.displayName} <span className="text-xs text-muted-foreground">({assignedSEData.email})</span></>
+                                                        ) : (
+                                                            <span className="text-amber-400">Not assigned</span>
+                                                        )}
+                                                    </p>
+                                                </div>
+
+                                                <div>
+                                                    <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest mb-1">Assigned Project Manager</p>
+                                                    <p className="text-sm text-foreground">
+                                                        {assignedPMData ? (
+                                                            <>{assignedPMData.displayName} <span className="text-xs text-muted-foreground">({assignedPMData.email})</span></>
+                                                        ) : (
+                                                            <span className="text-amber-400">Not assigned</span>
+                                                        )}
+                                                    </p>
+                                                </div>
+                                            </div>
+
+                                            <button
+                                                onClick={() => openClientProfile(client)}
+                                                className="w-full h-9 bg-primary/10 border border-primary/20 text-primary text-[10px] font-bold uppercase tracking-widest rounded-lg hover:bg-primary/20 transition-all"
+                                            >
+                                                Manage Client
+                                            </button>
+                                        </motion.div>
+                                    );
+                                })}
+                        </div>
+                    </motion.div>
                 )}
                 
                 {activeTab === 'team' && (
