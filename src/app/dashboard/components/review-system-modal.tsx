@@ -160,7 +160,9 @@ export function ReviewSystemModal({ isOpen, onClose, project, allowUploadDraft =
     const [liveEditorRating, setLiveEditorRating] = useState(project?.editorRating || 0);
     const [liveEditorReview, setLiveEditorReview] = useState(project?.editorReview || "");
 
-    const remainingAmount = Math.max(0, liveTotalCost - liveAmountPaid);
+    const remainingAmount = Math.max(0, (liveTotalCost - liveAmountPaid) * 1.18);
+    const remainingBaseAmount = Math.max(0, liveTotalCost - liveAmountPaid);
+    const paidSoFarInclusive = liveAmountPaid * 1.18;
     const isPaymentComplete = livePaymentStatus === "full_paid";
     const hasFeedback = liveEditorRating > 0 && !!liveEditorReview?.trim();
 
@@ -1696,11 +1698,11 @@ export function ReviewSystemModal({ isOpen, onClose, project, allowUploadDraft =
                     <div className="p-4 rounded-xl border border-border bg-muted/20 space-y-2">
                         <div className="flex justify-between text-sm">
                             <span className="text-muted-foreground">Total Value (Incl. GST)</span>
-                            <span className="font-bold text-foreground">₹{liveTotalCost.toLocaleString()}</span>
+                            <span className="font-bold text-foreground">₹{(liveTotalCost * 1.18).toLocaleString()}</span>
                         </div>
                         <div className="flex justify-between text-sm">
-                            <span className="text-muted-foreground">Paid So Far</span>
-                            <span className="font-bold text-emerald-500">₹{liveAmountPaid.toLocaleString()}</span>
+                            <span className="text-muted-foreground">Paid So Far (Incl. GST)</span>
+                            <span className="font-bold text-emerald-500">₹{paidSoFarInclusive.toLocaleString()}</span>
                         </div>
                         <div className="h-px bg-border my-2" />
                         <div className="flex justify-between">
@@ -1713,6 +1715,7 @@ export function ReviewSystemModal({ isOpen, onClose, project, allowUploadDraft =
                         projectId={project?.id || ""}
                         user={user}
                         amount={remainingAmount}
+                        accountingAmount={remainingBaseAmount}
                         description={`Final Payment: ${project?.name || "Project"}`}
                         prefill={{
                             name: user?.displayName || "",
@@ -1724,12 +1727,12 @@ export function ReviewSystemModal({ isOpen, onClose, project, allowUploadDraft =
 
                             await updateDoc(doc(db, "projects", project.id), {
                                 paymentStatus: "full_paid",
-                                amountPaid: liveTotalCost || liveAmountPaid || 0,
+                                amountPaid: liveTotalCost,
                                 updatedAt: Date.now(),
                             });
 
                             setLivePaymentStatus("full_paid");
-                            setLiveAmountPaid(liveTotalCost || liveAmountPaid || 0);
+                            setLiveAmountPaid(liveTotalCost);
 
                             setIsPaymentModalOpen(false);
                             setTimeout(() => setIsFeedbackModalOpen(true), 400);
