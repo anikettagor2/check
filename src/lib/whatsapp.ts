@@ -261,10 +261,13 @@ export async function sendWhatsAppNotification(
     };
 
     try {
-        // Debug logs for network troubleshooting
         console.log(`[WhatsApp] [${requestId}] API Key present:`, !!AISENSY_API_KEY);
         console.log(`[WhatsApp] [${requestId}] Target URL:`, AISENSY_URL);
         console.log(`[WhatsApp] [${requestId}] Campaign:`, payload.campaignName);
+        console.log(`[WhatsApp] [${requestId}] Sending ${campaignName} to ${phoneResult.formatted}...`, {
+            template: options?.templateName || 'Direct Campaign',
+            paramsCount: params.length
+        });
         
         const controller = new AbortController();
         const timeoutId = setTimeout(() => controller.abort(), 10000);
@@ -280,13 +283,15 @@ export async function sendWhatsAppNotification(
         });
 
         clearTimeout(timeoutId);
-        const data = await response.json();
-        const semanticFailure = isSemanticFailure(data);
-        const semanticError = toErrorText(data) || `AiSensy semantic failure for campaign ${campaignName}`;
+        const responseData = await response.json();
+        const semanticFailure = isSemanticFailure(responseData);
+        const semanticError = toErrorText(responseData) || `AiSensy semantic failure for campaign ${campaignName}`;
+        
         const shouldRetryWithoutTemplateName =
             semanticFailure &&
             !!options?.templateName &&
             !options?.usedFallback;
+            
         const shouldFallback =
             semanticFailure &&
             isEngagementBlockReason(semanticError) &&
@@ -295,11 +300,11 @@ export async function sendWhatsAppNotification(
             !options?.usedFallback;
 
         if (!response.ok || semanticFailure) {
-            console.error(`[WhatsApp] [${requestId}] AiSensy Error:`, data);
+            console.error(`[WhatsApp] [${requestId}] AiSensy Error:`, responseData);
 
             if (shouldRetryWithoutTemplateName) {
                 console.warn(`[WhatsApp] [${requestId}] Semantic failure with templateName. Retrying without templateName on same campaign "${campaignName}"`);
-                const { templateName, ...restOptions } = options || {};
+                const { templateName: _unused, ...restOptions } = options || {};
                 return sendWhatsAppNotification(phoneNumber, params, campaignName, 0, {
                     ...restOptions,
                     usedFallback: true,
@@ -321,24 +326,23 @@ export async function sendWhatsAppNotification(
             
             const statusError = response.ok
                 ? semanticError
-                : (toErrorText(data) || `Request failed with status ${response.status}`);
+                : (toErrorText(responseData) || `Request failed with status ${response.status}`);
 
             return {
                 success: false,
                 error: `[campaign=${campaignName} template=${options?.templateName || 'none'} requestId=${requestId}] ${statusError}`,
                 requestId,
-                data,
+                data: responseData,
             };
         }
         
-        console.log(`[WhatsApp] [${requestId}] Success:`, data);
-        return { success: true, data, requestId };
+        console.log(`[WhatsApp] [${requestId}] Success:`, responseData);
+        return { success: true, data: responseData, requestId };
         
     } catch (error: any) {
         const errorCode = error?.code;
         const errorMessage = error?.message || 'Network error occurred';
         
-        // Handle specific network errors
         if (errorCode === 'ENOTFOUND' || errorCode === 'ECONNREFUSED') {
             console.error(`[WhatsApp] [${requestId}] Network Error - Domain Resolution Failed: ${errorCode}`, {
                 hostname: 'backend.aisensy.com',
@@ -347,7 +351,6 @@ export async function sendWhatsAppNotification(
                 error: errorMessage
             });
             
-            // Don't retry DNS errors - they won't resolve on retry
             return {
                 success: false,
                 error: `[campaign=${campaignName} template=${options?.templateName || 'none'} requestId=${requestId}] Network connectivity error (${errorCode}): Cannot reach AiSensy backend. Check firewall/DNS.`,
@@ -355,7 +358,6 @@ export async function sendWhatsAppNotification(
             };
         }
         
-        // Handle timeout/abort errors
         if (error.name === 'AbortError' || errorCode === 'ECONNRESET' || errorCode === 'ETIMEDOUT') {
             console.error(`[WhatsApp] [${requestId}] Network Error - Timeout/Connection Reset: ${error.name || errorCode}`);
             
@@ -372,7 +374,6 @@ export async function sendWhatsAppNotification(
             };
         }
         
-        // Generic network error
         console.error(`[WhatsApp] [${requestId}] Network Error:`, error);
         return {
             success: false,
@@ -498,7 +499,8 @@ export async function notifyClient(
             settings?.campaigns?.clientFallback ||
             AISENSY_CLIENT_FALLBACK_CAMPAIGN;
         return await sendWhatsAppNotification(phoneNumber, params, campaignName, 0, {
-            fallbackCampaignName: sanitizeCampaignName(fallbackCampaignName, 'comment')
+            fallbackCampaignName: sanitizeCampaignName(fallbackCampaignName, 'comment'),
+            templateName: templateCampaignName
         });
 
     } catch (error: any) {
