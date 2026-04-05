@@ -44,7 +44,7 @@ export async function handleRevisionUploaded(projectId: string) {
 
         // 2. Update project status to 'in_review'
         await adminDb.collection('projects').doc(projectId).update({
-            status: 'in_review',
+            status: 'review',
             updatedAt: Date.now()
         });
 

@@ -282,8 +282,8 @@ export function ReviewSystemModal({ isOpen, onClose, project, allowUploadDraft =
         if (!project?.id || !selectedRevisionId) return;
 
         if (isClient) {
-            // 1. Payment Check (MANDATORY for download, even for Pay Later clients)
-            if (!isPaymentComplete) {
+            // 1. Payment Check (MANDATORY for download, unless Pay Later is enabled)
+            if (!isPaymentComplete && !user?.payLater) {
                 setPendingDownloadAfterFlow(true);
                 setIsPaymentModalOpen(true);
                 return;

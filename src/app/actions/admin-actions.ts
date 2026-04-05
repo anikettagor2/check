@@ -164,6 +164,7 @@ export async function handleProjectCreated(projectId: string) {
         if (pmId) {
             await projectRef.update({
                 assignedPMId: pmId,
+                status: 'editor_not_assigned',
                 updatedAt: Date.now()
             });
 
@@ -330,7 +331,7 @@ export async function assignEditor(
             assignmentStatus: 'pending',
             assignmentAt: now,
             assignmentExpiresAt: now + fifteenMinutes,
-            status: 'pending_assignment',
+            status: 'editor_assigned',
             members: members,
             editorPrice: editorPrice,
             updatedAt: now
@@ -402,7 +403,7 @@ export async function respondToAssignment(projectId: string, response: 'accepted
             // Assignment has expired — auto-reject and clear assignment
             await projectRef.update({
                 assignmentStatus: 'expired',
-                status: 'pending_assignment',
+                status: 'editor_not_assigned',
                 editorDeclineReason: 'Assignment expired - no response within 15 minutes',
                 assignedEditorId: admin.firestore.FieldValue.delete(),
                 editorPrice: admin.firestore.FieldValue.delete(),
@@ -443,7 +444,7 @@ export async function respondToAssignment(projectId: string, response: 'accepted
         
         const updateData: any = {
             assignmentStatus: response,
-            status: response === 'accepted' ? 'active' : 'pending_assignment',
+            status: response === 'accepted' ? 'in_production' : 'editor_not_assigned',
             updatedAt: now
         };
 

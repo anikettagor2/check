@@ -23,6 +23,7 @@ const ALLOWED_CAMPAIGNS = new Set<string>([
     'project_submitted_client',
     'editor_assigned',
     'pro_delay',
+    'pr_accept_editor',
 ]);
 
 const CAMPAIGN_BY_NOTIFICATION: Partial<Record<NotificationType, string>> = {
@@ -30,7 +31,10 @@ const CAMPAIGN_BY_NOTIFICATION: Partial<Record<NotificationType, string>> = {
     client_draft_submitted: 'first_draft_uploaded_client',
     client_new_comment: 'comment',
     editor_new_comment: 'comment',
+    client_pm_assigned: 'project_manager_msg',
+    client_editor_assigned: 'pr_accept_editor',
     pm_project_assigned: 'project_manager_msg',
+    pm_editor_accepted: 'project_manager_msg',
 };
 
 // ============================================================================
@@ -454,6 +458,21 @@ export async function notifyClient(
                 client.displayName || 'Client',
                 compactComment ? `${project.name || 'Your Project'} - ${compactComment}` : (project.name || 'Your Project'),
                 reviewLink,
+            ];
+        } else if (notificationType === 'client_editor_assigned') {
+            // Template: pr_accept_editor
+            // {{1}} Client Name, {{2}} Editor Name, {{3}} Project Name
+            let editorName = 'Expert Editor';
+            if (project.assignedEditorId) {
+                const editorSnap = await adminDb.collection('users').doc(project.assignedEditorId).get();
+                if (editorSnap.exists) {
+                    editorName = editorSnap.data()?.displayName || editorName;
+                }
+            }
+            params = [
+                client.displayName || 'Client',
+                editorName,
+                project.name || 'Your Project',
             ];
         } else {
             // Default parameter structure for existing templates.

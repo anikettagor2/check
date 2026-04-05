@@ -111,9 +111,9 @@ export function EditorDashboard() {
 
     // Derived State
     const pendingInvitations = projects.filter(p => p.assignmentStatus === 'pending');
-    const activeProjects = projects.filter(p => p.status === 'active' && p.assignmentStatus !== 'pending');
-    const reviewProjects = projects.filter(p => p.status === 'in_review');
-    const completedProjects = projects.filter(p => ['completed', 'approved'].includes(p.status));
+    const activeProjects = projects.filter(p => (p.status === 'in_production' || p.status === 'active') && p.assignmentStatus !== 'pending');
+    const reviewProjects = projects.filter(p => (p.status === 'review' || p.status === 'in_review'));
+    const completedProjects = projects.filter(p => ['completed', 'approved', 'completed_pending_payment'].includes(p.status));
     
     const totalEarnings = completedProjects.reduce((acc, curr) => acc + (curr.editorPrice || 0), 0);
     const pendingEarnings = projects.filter(p => ['completed', 'approved'].includes(p.status) && !p.editorPaid).reduce((acc, p) => acc + (p.editorPrice || 0), 0);
@@ -132,8 +132,8 @@ export function EditorDashboard() {
 
     const filteredProjects = projects.filter(project => {
         if (activeTab === 'pending' && project.assignmentStatus !== 'pending') return false;
-        if (activeTab === 'active' && (project.status !== 'active' || project.assignmentStatus === 'pending')) return false;
-        if (activeTab === 'completed' && !['completed', 'approved'].includes(project.status)) return false;
+        if (activeTab === 'active' && !(['in_production', 'active', 'review', 'in_review'].includes(project.status) && project.assignmentStatus !== 'pending')) return false;
+        if (activeTab === 'completed' && !['completed', 'approved', 'completed_pending_payment'].includes(project.status)) return false;
         if (searchQuery && !project.name.toLowerCase().includes(searchQuery.toLowerCase())) return false;
         return true;
     });
@@ -531,7 +531,7 @@ function StatsCard({ label, value, icon, color, highlight, suffix }: {
 
 // Project Status Badge Component
 function ProjectStatus({ status, assignmentStatus }: { status: string; assignmentStatus?: string }) {
-    if (assignmentStatus === 'pending') {
+    if (assignmentStatus === 'pending' || status === 'editor_assigned') {
         return (
             <span className="inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-medium rounded-full border bg-amber-500/10 text-amber-500 border-amber-500/20">
                 <CircleDot className="h-3 w-3" />
@@ -541,19 +541,23 @@ function ProjectStatus({ status, assignmentStatus }: { status: string; assignmen
     }
 
     const config: Record<string, { label: string; className: string }> = {
-        pending: { label: 'Pending', className: 'bg-zinc-500/10 text-zinc-500 border-zinc-500/20' },
-        assigned: { label: 'Assigned', className: 'bg-blue-500/10 text-blue-500 border-blue-500/20' },
-        active: { label: 'In Progress', className: 'bg-blue-500/10 text-blue-500 border-blue-500/20' },
+        project_created: { label: 'Project Created', className: 'bg-zinc-500/10 text-zinc-500 border-zinc-500/20' },
+        editor_not_assigned: { label: 'Editor Not Assigned', className: 'bg-amber-500/10 text-amber-500 border-amber-500/20' },
+        editor_assigned: { label: 'Awaiting Response', className: 'bg-amber-500/10 text-amber-500 border-amber-500/20' },
+        in_production: { label: 'In Production', className: 'bg-blue-500/10 text-blue-500 border-blue-500/20' },
+        active: { label: 'In Production', className: 'bg-blue-500/10 text-blue-500 border-blue-500/20' },
+        review: { label: 'In Review', className: 'bg-purple-500/10 text-purple-500 border-purple-500/20' },
         in_review: { label: 'In Review', className: 'bg-purple-500/10 text-purple-500 border-purple-500/20' },
         revision: { label: 'Revision', className: 'bg-orange-500/10 text-orange-500 border-orange-500/20' },
-        completed: { label: 'Done', className: 'bg-green-500/10 text-green-500 border-green-500/20' },
+        completed: { label: 'Completed', className: 'bg-green-500/10 text-green-500 border-green-500/20' },
+        completed_pending_payment: { label: 'Payment Pending', className: 'bg-emerald-500/10 text-emerald-500 border-emerald-500/20' },
         approved: { label: 'Approved', className: 'bg-green-500/10 text-green-500 border-green-500/20' }
     };
 
-    const { label, className } = config[status] || { label: status, className: 'bg-zinc-500/10 text-zinc-500 border-zinc-500/20' };
+    const { label, className } = config[status] || { label: status.replace(/_/g, ' '), className: 'bg-zinc-500/10 text-zinc-500 border-zinc-500/20' };
 
     return (
-        <span className={cn("inline-flex px-2.5 py-1 text-xs font-medium rounded-full border", className)}>
+        <span className={cn("inline-flex px-2.5 py-1 text-xs font-medium rounded-full border capitalize", className)}>
             {label}
         </span>
     );

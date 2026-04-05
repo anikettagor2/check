@@ -61,7 +61,20 @@ export interface User {
     };
 }
 
-export type ProjectStatus = 'active' | 'in_review' | 'approved' | 'completed' | 'archived' | 'pending_assignment';
+export type ProjectStatus = 
+    | 'project_created' 
+    | 'editor_not_assigned' 
+    | 'editor_assigned' 
+    | 'in_production' 
+    | 'review' 
+    | 'completed' 
+    | 'completed_pending_payment'
+    | 'active' // Keep for compatibility
+    | 'in_review' // Keep for compatibility
+    | 'approved' // Keep for compatibility
+    | 'pending_assignment' // Keep for compatibility
+    | 'archived';
+
 
 export interface Project {
     id: string;

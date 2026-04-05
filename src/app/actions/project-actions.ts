@@ -160,7 +160,7 @@ export async function registerDownload(projectId: string, revisionId: string) {
             clientHasDownloaded: true,
             downloadedAt: now,
             finalDownloadCount: nextCount,
-            status: 'completed',
+            status: projectData.paymentStatus === 'full_paid' ? 'completed' : 'completed_pending_payment',
             updatedAt: now,
         };
 

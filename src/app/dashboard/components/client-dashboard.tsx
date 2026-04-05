@@ -1107,15 +1107,24 @@ function StatsCard({ label, value, icon, color }: { label: string; value: string
 // Project Status Badge Component
 function ProjectStatus({ status }: { status: string }) {
     const config: Record<string, { label: string; className: string }> = {
+        project_created: { label: 'Project Created', className: 'bg-zinc-500/10 text-zinc-500 border-zinc-500/20' },
+        editor_not_assigned: { label: 'Editor Not Assigned', className: 'bg-zinc-500/10 text-zinc-500 border-zinc-500/20' },
+        pending_assignment: { label: 'Editor Not Assigned', className: 'bg-zinc-500/10 text-zinc-500 border-zinc-500/20' },
+        editor_assigned: { label: 'Editor Assigned', className: 'bg-blue-500/10 text-blue-500 border-blue-500/20' },
+        in_production: { label: 'In Production', className: 'bg-amber-500/10 text-amber-500 border-amber-500/20' },
+        review: { label: 'In Review', className: 'bg-purple-500/10 text-purple-500 border-purple-500/20' },
+        completed: { label: 'Completed', className: 'bg-green-500/10 text-green-500 border-green-500/20' },
+        completed_pending_payment: { label: 'Completed (Payment Due)', className: 'bg-emerald-500/10 text-emerald-500 border-emerald-500/20' },
+        // Legacy support
         pending: { label: 'Pending', className: 'bg-zinc-500/10 text-zinc-500 border-zinc-500/20' },
         assigned: { label: 'Assigned', className: 'bg-blue-500/10 text-blue-500 border-blue-500/20' },
         active: { label: 'In Progress', className: 'bg-amber-500/10 text-amber-500 border-amber-500/20' },
         in_review: { label: 'In Review', className: 'bg-purple-500/10 text-purple-500 border-purple-500/20' },
         revision: { label: 'Revision', className: 'bg-orange-500/10 text-orange-500 border-orange-500/20' },
-        completed: { label: 'Completed', className: 'bg-green-500/10 text-green-500 border-green-500/20' },
         approved: { label: 'Approved', className: 'bg-green-500/10 text-green-500 border-green-500/20' },
         delivered: { label: 'Delivered', className: 'bg-green-500/10 text-green-500 border-green-500/20' }
     };
+
 
     const { label, className } = config[status] || { label: status, className: 'bg-zinc-500/10 text-zinc-500 border-zinc-500/20' };
 

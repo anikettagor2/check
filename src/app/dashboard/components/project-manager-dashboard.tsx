@@ -131,16 +131,23 @@ function StatsCard({ icon, value, label, color = "blue", alert = false }: {
 // Status Badge Component
 function StatusBadge({ status, size = "sm" }: { status: string; size?: "sm" | "md" }) {
     const configs: Record<string, { label: string; className: string }> = {
+        project_created: { label: "Project Created", className: "bg-zinc-500/10 text-zinc-500 border-zinc-500/20" },
+        editor_not_assigned: { label: "No Editor", className: "bg-amber-500/10 text-amber-600 border-amber-500/20" },
+        editor_assigned: { label: "Assigned", className: "bg-blue-500/10 text-blue-600 border-blue-500/20" },
+        in_production: { label: "Editing", className: "bg-blue-500/10 text-blue-600 border-blue-500/20" },
+        review: { label: "Review", className: "bg-purple-500/10 text-purple-600 border-purple-500/20" },
+        completed: { label: "Completed", className: "bg-emerald-500/10 text-emerald-600 border-emerald-500/20" },
+        completed_pending_payment: { label: "Completed (Due)", className: "bg-amber-500/10 text-amber-600 border-amber-500/20" },
+        // Legacy/Fallback
         pending_assignment: { label: "Pending", className: "bg-amber-500/10 text-amber-600 border-amber-500/20" },
         active: { label: "In Progress", className: "bg-blue-500/10 text-blue-600 border-blue-500/20" },
         in_review: { label: "In Review", className: "bg-purple-500/10 text-purple-600 border-purple-500/20" },
-        completed: { label: "Completed", className: "bg-emerald-500/10 text-emerald-600 border-emerald-500/20" },
         approved: { label: "Approved", className: "bg-emerald-500/10 text-emerald-600 border-emerald-500/20" },
         archived: { label: "Archived", className: "bg-zinc-500/10 text-zinc-500 border-zinc-500/20" },
         delivered: { label: "Delivered", className: "bg-emerald-500/10 text-emerald-600 border-emerald-500/20" }
     };
     
-    const config = configs[status] || { label: status, className: "bg-zinc-500/10 text-zinc-500 border-zinc-500/20" };
+    const config = configs[status] || { label: status.replace('_', ' '), className: "bg-zinc-500/10 text-zinc-500 border-zinc-500/20" };
     
     return (
         <span className={cn(
@@ -156,10 +163,17 @@ function StatusBadge({ status, size = "sm" }: { status: string; size?: "sm" | "m
 // Status Select Styling Helper
 function getStatusSelectColor(status: string): string {
     const colorMap: Record<string, string> = {
+        project_created: "bg-zinc-500/15 border-zinc-500/50 text-zinc-500",
+        editor_not_assigned: "bg-amber-500/15 border-amber-500/50 text-amber-600",
+        editor_assigned: "bg-blue-500/15 border-blue-500/50 text-blue-600",
+        in_production: "bg-blue-600/20 border-blue-500/60 text-blue-600",
+        review: "bg-purple-500/15 border-purple-500/50 text-purple-600",
+        completed: "bg-emerald-500/15 border-emerald-500/50 text-emerald-600",
+        completed_pending_payment: "bg-amber-600/20 border-amber-500/60 text-amber-600",
+        // Legacy
         pending_assignment: "bg-amber-500/15 border-amber-500/50 text-amber-600",
         active: "bg-blue-500/15 border-blue-500/50 text-blue-600",
         in_review: "bg-purple-500/15 border-purple-500/50 text-purple-600",
-        completed: "bg-emerald-500/15 border-emerald-500/50 text-emerald-600",
         approved: "bg-emerald-500/15 border-emerald-500/50 text-emerald-600",
         archived: "bg-zinc-500/15 border-zinc-500/50 text-zinc-500"
     };
@@ -687,11 +701,22 @@ export function ProjectManagerDashboard() {
                                                     onChange={(e) => handleUpdateProjectInline(project.id, 'status', e.target.value)}
                                                     className={cn("text-xs font-medium px-3 py-1.5 rounded-md focus:outline-none focus:border-primary border", getStatusSelectColor(project.status))}
                                                 >
-                                                    <option value="pending_assignment">Pending</option>
-                                                    <option value="active">In Progress</option>
-                                                    <option value="in_review">In Review</option>
+                                                    <option value="project_created">Created</option>
+                                                    <option value="editor_not_assigned">No Editor</option>
+                                                    <option value="editor_assigned">Assigned</option>
+                                                    <option value="in_production">Editing</option>
+                                                    <option value="review">Review</option>
                                                     <option value="completed">Completed</option>
-                                                    <option value="approved">Approved</option>
+                                                    <option value="completed_pending_payment">Completed (Due)</option>
+                                                    {/* Legacy mappings for safety */}
+                                                    {['pending_assignment', 'active', 'in_review', 'approved'].includes(project.status) && (
+                                                        <optgroup label="Legacy">
+                                                            <option value="pending_assignment">Pending</option>
+                                                            <option value="active">Active</option>
+                                                            <option value="in_review">In Review</option>
+                                                            <option value="approved">Approved</option>
+                                                        </optgroup>
+                                                    )}
                                                 </select>
                                             </td>
                                             

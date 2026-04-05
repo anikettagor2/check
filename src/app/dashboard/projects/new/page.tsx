@@ -834,7 +834,7 @@ export default function NewProjectPage() {
             scriptText,
             assignedPMId: user.managedByPM || null,
             assignedSEId: user.managedBy || user.createdBy || null,
-            status: 'pending_assignment', 
+            status: 'project_created', 
             createdAt: Date.now(),
             updatedAt: Date.now(),
             members: [user.uid],

@@ -159,20 +159,22 @@ function ProjectStatusBadges({ project }: { project: any }) {
     // Overall Status
     if (project.status === 'completed' || project.status === 'archived') {
         badges.push({ label: "Completed", color: "text-emerald-400", bg: "bg-emerald-400/10", border: "border-emerald-400/20" });
-    } else if (project.status === 'in_review') {
-        badges.push({ label: "In Review", color: "text-purple-400", bg: "bg-purple-400/10", border: "border-purple-400/20" });
-    } else if (project.status === 'active') {
-        badges.push({ label: "Editing", color: "text-blue-400", bg: "bg-blue-400/10", border: "border-blue-400/20", pulse: true });
+    } else if (project.status === 'completed_pending_payment') {
+        badges.push({ label: "Completed (Payment Due)", color: "text-amber-400", bg: "bg-amber-400/10", border: "border-amber-400/20" });
+    } else if (project.status === 'review' || project.status === 'in_review') {
+        badges.push({ label: "Review", color: "text-purple-400", bg: "bg-purple-400/10", border: "border-purple-400/20" });
+    } else if (project.status === 'in_production' || project.status === 'active') {
+        badges.push({ label: project.status === 'in_production' ? "In Production" : "Editing", color: "text-blue-400", bg: "bg-blue-400/10", border: "border-blue-400/20", pulse: true });
+    } else if (project.status === 'editor_assigned' || (project.status === 'pending_assignment' && project.assignedEditorId)) {
+        badges.push({ label: "Editor Assigned", color: "text-blue-400", bg: "bg-blue-400/10", border: "border-blue-400/20" });
+    } else if (project.status === 'editor_not_assigned' || (project.status === 'pending_assignment' && !project.assignedEditorId)) {
+        badges.push({ label: "No Editor", color: "text-amber-400", bg: "bg-amber-400/10", border: "border-amber-400/20" });
+    } else if (project.status === 'project_created') {
+        badges.push({ label: "Created", color: "text-zinc-400", bg: "bg-zinc-400/10", border: "border-zinc-400/20" });
     } else if (project.status === 'approved') {
         badges.push({ label: "Approved", color: "text-emerald-400", bg: "bg-emerald-400/10", border: "border-emerald-400/20" });
-    } else if (project.status === 'pending_assignment') {
-        if (!project.assignedEditorId) {
-            badges.push({ label: "Editor Not Assigned", color: "text-amber-400", bg: "bg-amber-400/10", border: "border-amber-400/20" });
-        } else {
-            badges.push({ label: "Editor Assigned", color: "text-blue-400", bg: "bg-blue-400/10", border: "border-blue-400/20" });
-        }
     } else {
-        badges.push({ label: project.status, color: "text-muted-foreground", bg: "bg-zinc-400/10", border: "border-zinc-400/20" });
+        badges.push({ label: project.status.replace('_', ' '), color: "text-muted-foreground", bg: "bg-zinc-400/10", border: "border-zinc-400/20" });
     }
 
     // Client Payment
@@ -1245,11 +1247,11 @@ export function AdminDashboard() {
                                     <td className="px-3 py-3">
                                         <span className={cn(
                                             "text-[9px] px-2 py-1 rounded border uppercase font-bold tracking-widest whitespace-nowrap",
-                                            project.status === 'completed' || project.status === 'approved'
+                                            project.status === 'completed' || project.status === 'approved' || project.status === 'completed_pending_payment'
                                                 ? "bg-emerald-500/10 text-emerald-500 border-emerald-500/20"
-                                                : project.status === 'in_review'
+                                                : project.status === 'review' || project.status === 'in_review'
                                                 ? "bg-purple-500/10 text-purple-400 border-purple-500/20"
-                                                : project.status === 'active'
+                                                : project.status === 'in_production' || project.status === 'active'
                                                 ? "bg-blue-500/10 text-blue-400 border-blue-500/20"
                                                 : "bg-amber-500/10 text-amber-500 border-amber-500/20"
                                         )}>
