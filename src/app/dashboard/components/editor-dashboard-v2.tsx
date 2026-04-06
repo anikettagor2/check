@@ -186,8 +186,8 @@ export function EditorDashboardV2() {
         const usersQuery = query(usersRef);
         const unsubscribeUsers = onSnapshot(usersQuery, (snapshot) => {
             const usersMap: any = {};
-            snapshot.forEach((doc) => {
-                usersMap[doc.id] = doc.data();
+            snapshot.forEach((uDoc) => {
+                usersMap[uDoc.id] = uDoc.data();
             });
             setAllUsers(usersMap);
         });
