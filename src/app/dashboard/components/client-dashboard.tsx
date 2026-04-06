@@ -467,7 +467,9 @@ export function ClientDashboard() {
                                                     </td>
                                                     <td className="px-4 py-3 hidden md:table-cell">
                                                         <span className="text-sm text-foreground">
-                                                            {assignedPM?.displayName || 'Not Assigned'}
+                                                            {project.assignedPMId
+                                                                ? allUsers.find(u => u.uid === project.assignedPMId)?.displayName || 'Project Manager'
+                                                                : assignedPM?.displayName || 'Not Assigned'}
                                                         </span>
                                                     </td>
                                                     <td className="px-4 py-3 text-center">

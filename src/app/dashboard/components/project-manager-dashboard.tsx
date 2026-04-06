@@ -961,13 +961,13 @@ export function ProjectManagerDashboard() {
                                                 {project.deadline ? new Date(project.deadline).toLocaleDateString() : '—'}
                                             </td>
                                             
-                                            {/* Notes/Highlights */}
+                                            {/* PM Remarks for Editor */}
                                             <td className="px-4 py-3">
                                                 <input 
                                                     type="text" 
-                                                    defaultValue={(project as any).highlights || ''}
-                                                    onBlur={(e) => handleUpdateProjectInline(project.id, 'highlights', e.target.value)}
-                                                    placeholder="Add note..."
+                                                    defaultValue={(project as any).pmRemarks || (project as any).highlights || ''}
+                                                    onBlur={(e) => handleUpdateProjectInline(project.id, 'pmRemarks', e.target.value)}
+                                                    placeholder="Remark for editor..."
                                                     className="bg-transparent border-b border-border/50 text-xs w-full pb-0.5 focus:outline-none focus:border-primary text-foreground min-w-[80px]"
                                                 />
                                             </td>
