@@ -65,86 +65,186 @@ export default function UploadRevisionPage() {
     };
 
     const handleUpload = async (e: React.FormEvent) => {
-        e.preventDefault();
-        if (!file || !user || typeof id !== "string") return;
+    e.preventDefault();
+    // Use 'id' as per your provided snippet
+    if (!file || !user || typeof id !== "string") return;
 
-        if (file.size > MAX_FILE_SIZE_BYTES) {
-            toast.error(`File is too large. Max size allowed is ${MAX_FILE_SIZE_GB}GB.`);
-            return;
+    if (file.size > MAX_FILE_SIZE_BYTES) {
+        toast.error(`File is too large. Max size allowed is ${MAX_FILE_SIZE_GB}GB.`);
+        return;
+    }
+
+    setIsUploading(true);
+    setUploadProg(null);
+
+    const controller = new AbortController();
+    abortRef.current = controller;
+
+    try {
+        // 1. Versioning Logic (Keep your existing Firestore query)
+        const q = query(
+            collection(db, "revisions"),
+            where("projectId", "==", id)
+        );
+        const snap = await getDocs(q);
+        let nextVersion = 1;
+        if (!snap.empty) {
+            const revisions = snap.docs.map(doc => doc.data() as Revision);
+            const latest = revisions.sort((a, b) => (b.version || 0) - (a.version || 0))[0];
+            nextVersion = latest.version + 1;
         }
 
-        setIsUploading(true);
-        setUploadProg(null);
-
-        const controller = new AbortController();
-        abortRef.current = controller;
-
-        try {
-            const q = query(
-                collection(db, "revisions"),
-                where("projectId", "==", id)
-            );
-            const snap = await getDocs(q);
-            let nextVersion = 1;
-            if (!snap.empty) {
-                // Sort in memory by version (descending) and get the latest
-                const revisions = snap.docs.map(doc => doc.data() as Revision);
-                const latest = revisions.sort((a, b) => (b.version || 0) - (a.version || 0))[0];
-                nextVersion = latest.version + 1;
-            }
-
-            const storageRef = ref(storage, `projects/${id}/revisions/${Date.now()}_${file.name}`);
-            const uploadTask = uploadBytesResumable(storageRef, file);
+        // 2. Cloudinary Upload Logic
+        const downloadURL = await new Promise<string>((resolve, reject) => {
+            const formData = new FormData();
+            formData.append("file", file);
+            formData.append("upload_preset", process.env.NEXT_PUBLIC_CLOUDINARY_UPLOAD_PRESET!);
+            formData.append("resource_type", "video");
             
-            const handleAbort = () => {
-                uploadTask.cancel();
-            };
+            // Organized folder path
+            formData.append("folder", `editor_works/${id}`);
+
+            const xhr = new XMLHttpRequest();
+            xhr.open("POST", `https://api.cloudinary.com/v1_1/${process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME}/video/upload`);
+
+            // Attach Abort listener
+            const handleAbort = () => xhr.abort();
             controller.signal.addEventListener("abort", handleAbort);
 
-            const downloadURL = await new Promise<string>((resolve, reject) => {
-                uploadTask.on(
-                    "state_changed",
-                    (snapshot) => {
-                        const progress = (snapshot.bytesTransferred / snapshot.totalBytes) * 100;
-                        setUploadProg(progress);
-                    },
-                    (error) => {
-                        controller.signal.removeEventListener("abort", handleAbort);
-                        reject(error);
-                    },
-                    async () => {
-                        controller.signal.removeEventListener("abort", handleAbort);
-                        try {
-                            const url = await getDownloadURL(uploadTask.snapshot.ref);
-                            resolve(url);
-                        } catch (err) {
-                            reject(err);
-                        }
-                    }
-                );
-            });
-
-            const newRevision: Omit<Revision, "id"> = {
-                projectId: id,
-                version: nextVersion,
-                videoUrl: downloadURL,
-                status: "active",
-                uploadedBy: user.uid,
-                createdAt: Date.now(),
-                description,
+            xhr.upload.onprogress = (event) => {
+                if (event.lengthComputable) {
+                    const progress = (event.loaded / event.total) * 100;
+                    setUploadProg(progress);
+                }
             };
 
-            await addDoc(collection(db, "revisions"), newRevision);
-            await handleRevisionUploaded(id);
-            router.push(`/dashboard/projects/${id}`);
-        } catch (err: unknown) {
-            if (err instanceof Error && err.name !== "AbortError") {
-                console.error("Upload failed:", err);
-            }
-            setIsUploading(false);
-            setUploadProg(null);
+            xhr.onload = () => {
+                controller.signal.removeEventListener("abort", handleAbort);
+                if (xhr.status >= 200 && xhr.status < 300) {
+                    const response = JSON.parse(xhr.responseText);
+                    // playback_url is the HLS manifest link (.m3u8)
+                    resolve(response.playback_url || response.secure_url);
+                } else {
+                    reject(new Error("Cloudinary upload failed"));
+                }
+            };
+
+            xhr.onerror = () => {
+                controller.signal.removeEventListener("abort", handleAbort);
+                reject(new Error("Network error"));
+            };
+
+            xhr.send(formData);
+        });
+
+        // 3. Save Revision to Firestore
+        const newRevision: Omit<Revision, "id"> = {
+            projectId: id,
+            version: nextVersion,
+            videoUrl: downloadURL, // HLS link saved here
+            status: "active",
+            uploadedBy: user.uid,
+            createdAt: Date.now(),
+            description,
+        };
+
+        await addDoc(collection(db, "revisions"), newRevision);
+        await handleRevisionUploaded(id);
+        
+        toast.success("Revision uploaded successfully!");
+        router.push(`/dashboard/projects/${id}`);
+
+    } catch (err: unknown) {
+        if (err instanceof Error && err.name !== "AbortError") {
+            console.error("Upload failed:", err);
+            toast.error("Upload failed. Please try again.");
         }
-    };
+        setIsUploading(false);
+        setUploadProg(null);
+    }
+};
+   
+    // const handleUpload = async (e: React.FormEvent) => {
+    //     e.preventDefault();
+    //     if (!file || !user || typeof id !== "string") return;
+
+    //     if (file.size > MAX_FILE_SIZE_BYTES) {
+    //         toast.error(`File is too large. Max size allowed is ${MAX_FILE_SIZE_GB}GB.`);
+    //         return;
+    //     }
+
+    //     setIsUploading(true);
+    //     setUploadProg(null);
+
+    //     const controller = new AbortController();
+    //     abortRef.current = controller;
+
+    //     try {
+    //         const q = query(
+    //             collection(db, "revisions"),
+    //             where("projectId", "==", id)
+    //         );
+    //         const snap = await getDocs(q);
+    //         let nextVersion = 1;
+    //         if (!snap.empty) {
+    //             // Sort in memory by version (descending) and get the latest
+    //             const revisions = snap.docs.map(doc => doc.data() as Revision);
+    //             const latest = revisions.sort((a, b) => (b.version || 0) - (a.version || 0))[0];
+    //             nextVersion = latest.version + 1;
+    //         }
+
+    //         const storageRef = ref(storage, `projects/${id}/revisions/${Date.now()}_${file.name}`);
+    //         const uploadTask = uploadBytesResumable(storageRef, file);
+            
+    //         const handleAbort = () => {
+    //             uploadTask.cancel();
+    //         };
+    //         controller.signal.addEventListener("abort", handleAbort);
+
+    //         const downloadURL = await new Promise<string>((resolve, reject) => {
+    //             uploadTask.on(
+    //                 "state_changed",
+    //                 (snapshot) => {
+    //                     const progress = (snapshot.bytesTransferred / snapshot.totalBytes) * 100;
+    //                     setUploadProg(progress);
+    //                 },
+    //                 (error) => {
+    //                     controller.signal.removeEventListener("abort", handleAbort);
+    //                     reject(error);
+    //                 },
+    //                 async () => {
+    //                     controller.signal.removeEventListener("abort", handleAbort);
+    //                     try {
+    //                         const url = await getDownloadURL(uploadTask.snapshot.ref);
+    //                         resolve(url);
+    //                     } catch (err) {
+    //                         reject(err);
+    //                     }
+    //                 }
+    //             );
+    //         });
+
+    //         const newRevision: Omit<Revision, "id"> = {
+    //             projectId: id,
+    //             version: nextVersion,
+    //             videoUrl: downloadURL,
+    //             status: "active",
+    //             uploadedBy: user.uid,
+    //             createdAt: Date.now(),
+    //             description,
+    //         };
+
+    //         await addDoc(collection(db, "revisions"), newRevision);
+    //         await handleRevisionUploaded(id);
+    //         router.push(`/dashboard/projects/${id}`);
+    //     } catch (err: unknown) {
+    //         if (err instanceof Error && err.name !== "AbortError") {
+    //             console.error("Upload failed:", err);
+    //         }
+    //         setIsUploading(false);
+    //         setUploadProg(null);
+    //     }
+    // };
 
     const statusLabel = uploadProg === null
         ? "Uploading..."

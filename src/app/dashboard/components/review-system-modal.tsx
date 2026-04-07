@@ -252,31 +252,87 @@ export function ReviewSystemModal({ isOpen, onClose, project, allowUploadDraft =
         };
     }, []);
 
-    const startDownload = async () => {
-        if (!project?.id || !selectedRevisionId || !selectedRevision) return;
+   // added cloudinary download as well
+const startDownload = async () => {
+    if (!project?.id || !selectedRevisionId || !selectedRevision) return;
 
-        setIsDownloading(true);
-        try {
-            const res = await registerDownload(project.id, selectedRevisionId);
-            if (res.success && res.downloadUrl) {
-                const link = document.createElement("a");
-                link.href = res.downloadUrl;
-                link.download = `${project.name || 'video'}_v${selectedRevision.version || 1}.mp4`;
-                link.target = "_blank";
-                document.body.appendChild(link);
-                link.click();
-                link.remove();
-                toast.success("Download initiated.");
-            } else {
-                toast.error(res.error || "Failed to start download.");
+    setIsDownloading(true);
+    try {
+        const res = await registerDownload(project.id, selectedRevisionId);
+        
+        if (res.success && res.downloadUrl) {
+            let finalUrl = res.downloadUrl;
+
+            // 1. CLOUDINARY: Convert HLS to MP4 + Force Download Header
+            if (finalUrl.includes('cloudinary.com')) {
+                finalUrl = finalUrl
+                    .replace(/\.m3u8$/, '.mp4')
+                    .replace(/\/sp_[^\/]+\//, '/')
+                    // 'fl_attachment' tells Cloudinary to send the "Save As" header
+                    .replace('/upload/', '/upload/fl_attachment/');
+            } 
+            
+            // 2. FIREBASE: Add the 'download' parameter
+            // Note: Firebase usually requires the "Content-Disposition" 
+            // to be set in metadata during upload to force download perfectly.
+            else if (finalUrl.includes('firebasestorage.googleapis.com')) {
+                if (!finalUrl.includes('alt=media')) {
+                    finalUrl += (finalUrl.includes('?') ? '&' : '?') + 'alt=media';
+                }
             }
-        } catch (error) {
-            console.error("Download error:", error);
-            toast.error("An error occurred during download.");
-        } finally {
-            setIsDownloading(false);
+
+            // 3. THE "INSTANT" TRIGGER
+            // We use a hidden iframe or a direct location assignment. 
+            // This starts the browser's native download manager immediately.
+            const link = document.createElement("a");
+            link.href = finalUrl;
+            
+            // We give it a friendly name (though headers usually override this)
+            const fileName = `${project.name || 'video'}_v${selectedRevision.version || 1}.mp4`;
+            link.setAttribute("download", fileName);
+            
+            // DO NOT USE target="_blank" (this is what caused the new tab issue)
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            
+            toast.success("Download started in your browser.");
+        } else {
+            toast.error(res.error || "Failed to start download.");
         }
-    };
+    } catch (error) {
+        console.error("Download error:", error);
+        toast.error("An error occurred.");
+    } finally {
+        setIsDownloading(false);
+    }
+};
+   // old version for only firebase
+    // const startDownload = async () => {
+    //     if (!project?.id || !selectedRevisionId || !selectedRevision) return;
+
+    //     setIsDownloading(true);
+    //     try {
+    //         const res = await registerDownload(project.id, selectedRevisionId);
+    //         if (res.success && res.downloadUrl) {
+    //             const link = document.createElement("a");
+    //             link.href = res.downloadUrl;
+    //             link.download = `${project.name || 'video'}_v${selectedRevision.version || 1}.mp4`;
+    //             link.target = "_blank";
+    //             document.body.appendChild(link);
+    //             link.click();
+    //             link.remove();
+    //             toast.success("Download initiated.");
+    //         } else {
+    //             toast.error(res.error || "Failed to start download.");
+    //         }
+    //     } catch (error) {
+    //         console.error("Download error:", error);
+    //         toast.error("An error occurred during download.");
+    //     } finally {
+    //         setIsDownloading(false);
+    //     }
+    // };
 
     const handleDownloadClick = async () => {
         if (!project?.id || !selectedRevisionId) return;

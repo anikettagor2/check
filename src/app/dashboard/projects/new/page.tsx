@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { addDoc, collection, doc, getDoc, updateDoc, increment } from "firebase/firestore";
-import { ref, uploadBytesResumable, getDownloadURL } from "firebase/storage";
+import { ref, uploadBytesResumable, getDownloadURL, deleteObject } from "firebase/storage";
 import { db, storage } from "@/lib/firebase/config";
 import { useAuth } from "@/lib/context/auth-context";
 import { Button } from "@/components/ui/button";
@@ -228,16 +228,63 @@ export default function NewProjectPage() {
         };
     }, []);
 
-    // Immediate file upload function
+    // Immediate file upload function  [Cloudinary implemented to store video on it]
     const uploadFileImmediately = useCallback(async (
-        file: File, 
-        path: string,
-        onProgress: (progress: number) => void,
-        onComplete: (data: UploadedFile) => void,
-        onError: (error: string) => void
-    ) => {
-        if (!user) return;
+    file: File, 
+    path: string,
+    onProgress: (progress: number) => void,
+    onComplete: (data: UploadedFile) => void,
+    onError: (error: string) => void
+) => {
+    if (!user) return;
 
+    // 1. Check if the file is a video to decide the destination
+    const isVideo = file.type.startsWith('video/');
+
+    if (isVideo) {
+      
+        try {
+            const formData = new FormData();
+            formData.append("file", file);
+            formData.append("upload_preset", process.env.NEXT_PUBLIC_CLOUDINARY_UPLOAD_PRESET!);
+            formData.append("resource_type", "video");
+            formData.append("folder", `projects/${user.uid}/videos`);
+            const xhr = new XMLHttpRequest();
+            xhr.open("POST", `https://api.cloudinary.com/v1_1/${process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME}/video/upload`);
+
+            xhr.upload.onprogress = (event) => {
+                if (event.lengthComputable) {
+                    const progress = (event.loaded / event.total) * 100;
+                    onProgress(progress);
+                }
+            };
+
+            xhr.onload = () => {
+                if (xhr.status >= 200 && xhr.status < 300) {
+                    const response = JSON.parse(xhr.responseText);
+                    // We use playback_url (the .m3u8) for smooth streaming, 
+                    // falling back to secure_url if for some reason it's missing.
+                    onComplete({
+                        name: file.name,
+                        url: response.playback_url || response.secure_url,
+                        storagePath: response.public_id, // Store public_id to handle deletions later
+                        size: file.size,
+                        type: file.type,
+                        uploadedAt: Date.now()
+                    });
+                } else {
+                    onError("Cloudinary upload failed");
+                }
+            };
+
+            xhr.onerror = () => onError("Network error during Cloudinary upload");
+            xhr.send(formData);
+
+        } catch (error: any) {
+            onError(error.message || 'Cloudinary setup error');
+        }
+    } else {
+       
         try {
             const storageRef = ref(storage, `${path}/${user.uid}/${Date.now()}_${file.name}`);
             const uploadTask = uploadBytesResumable(storageRef, file);
@@ -248,29 +295,69 @@ export default function NewProjectPage() {
                     onProgress(progress);
                 }, 
                 (error) => {
-                    console.error('Upload error:', error);
-                    onError(error.message || 'Upload failed');
+                    onError(error.message || 'Firebase upload failed');
                 }, 
                 async () => {
-                    try {
-                        const downloadURL = await getDownloadURL(uploadTask.snapshot.ref);
-                        onComplete({
-                            name: file.name,
-                            storagePath: storageRef.fullPath,
-                            url: downloadURL,
-                            size: file.size,
-                            type: file.type,
-                            uploadedAt: Date.now()
-                        });
-                    } catch (err: any) {
-                        onError(err.message || 'Failed to get download URL');
-                    }
+                    const downloadURL = await getDownloadURL(uploadTask.snapshot.ref);
+                    onComplete({
+                        name: file.name,
+                        storagePath: storageRef.fullPath,
+                        url: downloadURL,
+                        size: file.size,
+                        type: file.type,
+                        uploadedAt: Date.now()
+                    });
                 }
             );
         } catch (error: any) {
-            onError(error.message || 'Upload failed');
+            onError(error.message || 'Firebase upload failed');
         }
-    }, [user]);
+    }
+}, [user]);
+
+// old method to store video on firebase storage
+    // const uploadFileImmediately = useCallback(async (
+    //     file: File, 
+    //     path: string,
+    //     onProgress: (progress: number) => void,
+    //     onComplete: (data: UploadedFile) => void,
+    //     onError: (error: string) => void
+    // ) => {
+    //     if (!user) return;
+
+    //     try {
+    //         const storageRef = ref(storage, `${path}/${user.uid}/${Date.now()}_${file.name}`);
+    //         const uploadTask = uploadBytesResumable(storageRef, file);
+
+    //         uploadTask.on('state_changed', 
+    //             (snapshot) => {
+    //                 const progress = (snapshot.bytesTransferred / snapshot.totalBytes) * 100;
+    //                 onProgress(progress);
+    //             }, 
+    //             (error) => {
+    //                 console.error('Upload error:', error);
+    //                 onError(error.message || 'Upload failed');
+    //             }, 
+    //             async () => {
+    //                 try {
+    //                     const downloadURL = await getDownloadURL(uploadTask.snapshot.ref);
+    //                     onComplete({
+    //                         name: file.name,
+    //                         storagePath: storageRef.fullPath,
+    //                         url: downloadURL,
+    //                         size: file.size,
+    //                         type: file.type,
+    //                         uploadedAt: Date.now()
+    //                     });
+    //                 } catch (err: any) {
+    //                     onError(err.message || 'Failed to get download URL');
+    //                 }
+    //             }
+    //         );
+    //     } catch (error: any) {
+    //         onError(error.message || 'Upload failed');
+    //     }
+    // }, [user]);
 
     // Handle file selection and immediate upload
     const enqueueFilesForUpload = useCallback((
@@ -482,19 +569,62 @@ export default function NewProjectPage() {
         }
     };
 
-    const removeFile = (index: number, type: 'raw' | 'brole' | 'script' | 'reference' | 'audio') => {
-        if (type === 'raw') {
-            setRawFiles(prev => prev.filter((_, i) => i !== index));
-        } else if (type === 'brole') {
-            setBRoleFiles(prev => prev.filter((_, i) => i !== index));
-        } else if (type === 'script') {
-            setScriptFiles(prev => prev.filter((_, i) => i !== index));
-        } else if (type === 'audio') {
-            setAudioFiles(prev => prev.filter((_, i) => i !== index));
-        } else {
-            setReferenceFiles(prev => prev.filter((_, i) => i !== index));
+    const removeFile = async (index: number, type: 'raw' | 'brole' | 'script' | 'reference' | 'audio') => {
+    // 1. Identify which list we are looking at
+    let fileList;
+    let setFileList;
+
+    if (type === 'raw') { fileList = rawFiles; setFileList = setRawFiles; }
+    else if (type === 'brole') { fileList = bRoleFiles; setFileList = setBRoleFiles; }
+    else if (type === 'script') { fileList = scriptFiles; setFileList = setScriptFiles; }
+    else if (type === 'audio') { fileList = audioFiles; setFileList = setAudioFiles; }
+    else { fileList = referenceFiles; setFileList = setReferenceFiles; }
+
+    const fileToRemove = fileList[index];
+    const data = fileToRemove?.uploadedData;
+
+    if (fileToRemove.status === 'complete' && data?.url) {
+        const path = data.storagePath;
+        
+        // BETTER CHECK: Does the URL contain "cloudinary.com"?
+        const isCloudinaryFile = data.url.includes('cloudinary.com');
+
+        try {
+            if (isCloudinaryFile) {
+                // --- CLOUDINARY DELETE ---
+                await fetch('/api/cloudinary/video/delete', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ publicId: path }),
+                });
+                toast.success("Removed from Cloudinary");
+            } else {
+                // --- FIREBASE DELETE ---
+                const storageRef = ref(storage, path);
+                await deleteObject(storageRef);
+                toast.success("Removed from Firebase");
+            }
+        } catch (error) {
+            console.error("Cleanup error:", error);
         }
-    };
+    }
+
+    // Always remove from UI at the end
+    setFileList(prev => prev.filter((_, i) => i !== index));
+};
+    // const removeFile = (index: number, type: 'raw' | 'brole' | 'script' | 'reference' | 'audio') => {
+    //     if (type === 'raw') {
+    //         setRawFiles(prev => prev.filter((_, i) => i !== index));
+    //     } else if (type === 'brole') {
+    //         setBRoleFiles(prev => prev.filter((_, i) => i !== index));
+    //     } else if (type === 'script') {
+    //         setScriptFiles(prev => prev.filter((_, i) => i !== index));
+    //     } else if (type === 'audio') {
+    //         setAudioFiles(prev => prev.filter((_, i) => i !== index));
+    //     } else {
+    //         setReferenceFiles(prev => prev.filter((_, i) => i !== index));
+    //     }
+    // };
 
     const addReferenceLink = () => {
         const trimmedLink = referenceLinkInput.trim();
@@ -1572,7 +1702,7 @@ export default function NewProjectPage() {
                                             <span className="text-xs text-muted-foreground font-bold uppercase tracking-widest block mb-1">Selected Pricing Tier</span>
                                             <span className="text-sm text-amber-600 font-semibold">{availablePrices[selectedPriceIndex].label || `Option ${selectedPriceIndex + 1}`}</span>
                                         </div>
-                                        <button
+                                        <button 
                                             onClick={() => setCurrentStep(2)}
                                             className="text-xs px-3 py-1 rounded-lg border border-amber-500/30 text-amber-600 hover:bg-amber-500/10 transition-colors font-medium"
                                         >

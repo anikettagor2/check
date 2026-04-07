@@ -74,100 +74,202 @@ export function UploadDraftModal({
         setUploadProg(null);
     };
 
+    // Using cloudinary to uplaod videos
     const handleUpload = async (e: React.FormEvent) => {
-        e.preventDefault();
-        if (!file || !user || !projectId) return;
+    e.preventDefault();
+    if (!file || !user || !projectId) return;
 
-        if (file.size > MAX_FILE_SIZE_BYTES) {
-            toast.error(`File is too large. Max size allowed is ${MAX_FILE_SIZE_GB}GB.`);
-            return;
+    if (file.size > MAX_FILE_SIZE_BYTES) {
+        toast.error(`File is too large. Max size allowed is ${MAX_FILE_SIZE_GB}GB.`);
+        return;
+    }
+
+    setIsUploading(true);
+    setUploadProg(null);
+
+    try {
+        // 1. Get the next version number (Your existing Firestore logic)
+        const q = query(
+            collection(db, "revisions"),
+            where("projectId", "==", projectId),
+            orderBy("version", "desc"),
+            limit(1)
+        );
+        const snap = await getDocs(q);
+        let nextVersion = 1;
+        if (!snap.empty) {
+            const latest = snap.docs[0].data() as Revision;
+            nextVersion = latest.version + 1;
         }
 
-        setIsUploading(true);
+        // 2. Upload to Cloudinary using XHR (for progress tracking)
+        const downloadURL = await new Promise<string>((resolve, reject) => {
+            const formData = new FormData();
+            formData.append("file", file);
+            formData.append("upload_preset", process.env.NEXT_PUBLIC_CLOUDINARY_UPLOAD_PRESET!);
+            formData.append("resource_type", "video");
+            
+            // Set the folder to editor_works as requested
+            formData.append("folder", `editor_works/${projectId}`);
+
+            const xhr = new XMLHttpRequest();
+            xhr.open("POST", `https://api.cloudinary.com/v1_1/${process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME}/video/upload`);
+
+            // Progress tracking
+            xhr.upload.onprogress = (event) => {
+                if (event.lengthComputable) {
+                    const progress = (event.loaded / event.total) * 100;
+                    setUploadProg(progress);
+                }
+            };
+
+            xhr.onload = () => {
+                if (xhr.status >= 200 && xhr.status < 300) {
+                    const response = JSON.parse(xhr.responseText);
+                    // Use playback_url for the HLS (.m3u8) streaming link
+                    resolve(response.playback_url || response.secure_url);
+                } else {
+                    reject(new Error("Cloudinary upload failed"));
+                }
+            };
+
+            xhr.onerror = () => reject(new Error("Network error during upload"));
+            
+            // Handle Abort if necessary
+            if (abortRef.current) {
+                abortRef.current.signal.addEventListener("abort", () => xhr.abort());
+            }
+
+            xhr.send(formData);
+        });
+
+        // 3. Save the new Revision to Firestore
+        const newRevision: Omit<Revision, "id"> = {
+            projectId,
+            version: nextVersion,
+            videoUrl: downloadURL, // This is now your smooth HLS link
+            status: "active",
+            uploadedBy: user.uid,
+            createdAt: Date.now(),
+            description,
+        };
+
+        await addDoc(collection(db, "revisions"), newRevision);
+        await handleRevisionUploaded(projectId);
+
+        toast.success("Draft uploaded successfully!");
+        
+        // 4. Reset form
+        setFile(null);
+        setPreviewUrl(null);
+        setDescription("");
+        setIsUploading(false);
         setUploadProg(null);
 
-        const controller = new AbortController();
-        abortRef.current = controller;
+        onSuccess?.();
+        setTimeout(() => onClose(), 500);
 
-        try {
-            const q = query(
-                collection(db, "revisions"),
-                where("projectId", "==", projectId),
-                orderBy("version", "desc"),
-                limit(1)
-            );
-            const snap = await getDocs(q);
-            let nextVersion = 1;
-            if (!snap.empty) {
-                const latest = snap.docs[0].data() as Revision;
-                nextVersion = latest.version + 1;
-            }
+    } catch (err: unknown) {
+        console.error("Upload failed:", err);
+        toast.error("Upload failed. Please try again.");
+        setIsUploading(false);
+        setUploadProg(null);
+    }
+};
+    // const handleUpload = async (e: React.FormEvent) => {
+    //     e.preventDefault();
+    //     if (!file || !user || !projectId) return;
 
-            const storageRef = ref(storage, `projects/${projectId}/revisions/${Date.now()}_${file.name}`);
-            const uploadTask = uploadBytesResumable(storageRef, file);
+    //     if (file.size > MAX_FILE_SIZE_BYTES) {
+    //         toast.error(`File is too large. Max size allowed is ${MAX_FILE_SIZE_GB}GB.`);
+    //         return;
+    //     }
+
+    //     setIsUploading(true);
+    //     setUploadProg(null);
+
+    //     const controller = new AbortController();
+    //     abortRef.current = controller;
+
+    //     try {
+    //         const q = query(
+    //             collection(db, "revisions"),
+    //             where("projectId", "==", projectId),
+    //             orderBy("version", "desc"),
+    //             limit(1)
+    //         );
+    //         const snap = await getDocs(q);
+    //         let nextVersion = 1;
+    //         if (!snap.empty) {
+    //             const latest = snap.docs[0].data() as Revision;
+    //             nextVersion = latest.version + 1;
+    //         }
+
+    //         const storageRef = ref(storage, `projects/${projectId}/revisions/${Date.now()}_${file.name}`);
+    //         const uploadTask = uploadBytesResumable(storageRef, file);
             
-            const handleAbort = () => {
-                uploadTask.cancel();
-            };
-            controller.signal.addEventListener("abort", handleAbort);
+    //         const handleAbort = () => {
+    //             uploadTask.cancel();
+    //         };
+    //         controller.signal.addEventListener("abort", handleAbort);
 
-            const downloadURL = await new Promise<string>((resolve, reject) => {
-                uploadTask.on(
-                    "state_changed",
-                    (snapshot) => {
-                        const progress = (snapshot.bytesTransferred / snapshot.totalBytes) * 100;
-                        setUploadProg(progress);
-                    },
-                    (error) => {
-                        controller.signal.removeEventListener("abort", handleAbort);
-                        reject(error);
-                    },
-                    async () => {
-                        controller.signal.removeEventListener("abort", handleAbort);
-                        try {
-                            const url = await getDownloadURL(uploadTask.snapshot.ref);
-                            resolve(url);
-                        } catch (err) {
-                            reject(err);
-                        }
-                    }
-                );
-            });
+    //         const downloadURL = await new Promise<string>((resolve, reject) => {
+    //             uploadTask.on(
+    //                 "state_changed",
+    //                 (snapshot) => {
+    //                     const progress = (snapshot.bytesTransferred / snapshot.totalBytes) * 100;
+    //                     setUploadProg(progress);
+    //                 },
+    //                 (error) => {
+    //                     controller.signal.removeEventListener("abort", handleAbort);
+    //                     reject(error);
+    //                 },
+    //                 async () => {
+    //                     controller.signal.removeEventListener("abort", handleAbort);
+    //                     try {
+    //                         const url = await getDownloadURL(uploadTask.snapshot.ref);
+    //                         resolve(url);
+    //                     } catch (err) {
+    //                         reject(err);
+    //                     }
+    //                 }
+    //             );
+    //         });
 
-            const newRevision: Omit<Revision, "id"> = {
-                projectId,
-                version: nextVersion,
-                videoUrl: downloadURL,
-                status: "active",
-                uploadedBy: user.uid,
-                createdAt: Date.now(),
-                description,
-            };
+    //         const newRevision: Omit<Revision, "id"> = {
+    //             projectId,
+    //             version: nextVersion,
+    //             videoUrl: downloadURL,
+    //             status: "active",
+    //             uploadedBy: user.uid,
+    //             createdAt: Date.now(),
+    //             description,
+    //         };
 
-            await addDoc(collection(db, "revisions"), newRevision);
-            await handleRevisionUploaded(projectId);
+    //         await addDoc(collection(db, "revisions"), newRevision);
+    //         await handleRevisionUploaded(projectId);
 
-            toast.success("Draft uploaded successfully!");
+    //         toast.success("Draft uploaded successfully!");
             
-            // Reset form
-            setFile(null);
-            setPreviewUrl(null);
-            setDescription("");
-            setIsUploading(false);
-            setUploadProg(null);
+    //         // Reset form
+    //         setFile(null);
+    //         setPreviewUrl(null);
+    //         setDescription("");
+    //         setIsUploading(false);
+    //         setUploadProg(null);
 
-            // Close modal after success
-            onSuccess?.();
-            setTimeout(() => onClose(), 500);
-        } catch (err: unknown) {
-            if (err instanceof Error && err.name !== "AbortError") {
-                console.error("Upload failed:", err);
-                toast.error("Upload failed. Please try again.");
-            }
-            setIsUploading(false);
-            setUploadProg(null);
-        }
-    };
+    //         // Close modal after success
+    //         onSuccess?.();
+    //         setTimeout(() => onClose(), 500);
+    //     } catch (err: unknown) {
+    //         if (err instanceof Error && err.name !== "AbortError") {
+    //             console.error("Upload failed:", err);
+    //             toast.error("Upload failed. Please try again.");
+    //         }
+    //         setIsUploading(false);
+    //         setUploadProg(null);
+    //     }
+    // };
 
     const statusLabel = uploadProg === null 
         ? "Uploading..." 
