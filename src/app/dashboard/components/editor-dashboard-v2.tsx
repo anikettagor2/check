@@ -50,6 +50,9 @@ import { ReviewSystemModal } from "./review-system-modal";
 import { preloadVideosIntoMemory, warmVideoInMemory } from "@/lib/video-preload";
 import { FilePreview } from "@/components/file-preview";
 import { useVideoTranscodeStatus } from "@/hooks/use-video-transcode-status";
+import { IndicatorCard } from "@/components/ui/indicator-card";
+import MuxPlayer from "@mux/mux-player-react";
+
 
 function isVideoResource(resource?: string) {
     if (!resource) return false;
@@ -365,14 +368,12 @@ export function EditorDashboardV2() {
                         </div>
                     )}
 
-                    <video 
-                        src={effectiveUrl} 
-                        controls 
-                        preload="auto"
-                        playsInline
-                        className="w-full h-full object-contain" 
+                    <MuxPlayer
+                        src={effectiveUrl}
+                        style={{ width: "100%", height: "100%", aspectRatio: "16/9" }}
                         autoPlay
-                        controlsList="nodownload"
+                        playsInline
+                        streamType="on-demand"
                     />
                 </motion.div>
             </motion.div>
@@ -771,8 +772,8 @@ export function EditorDashboardV2() {
                                                 <span className="text-[11px] font-bold uppercase tracking-widest text-muted-foreground">🎬 Raw Video Files</span>
                                             </div>
                                             {selectedProjectDetails.rawFiles && selectedProjectDetails.rawFiles.length > 0 ? (
-                                                <div className="grid gap-2">
-                                                    {selectedProjectDetails.rawFiles.slice(0, 3).map((file: any, idx: number) => (
+                                                <div className="grid gap-2 max-h-[200px] overflow-y-auto custom-scrollbar pr-1">
+                                                    {selectedProjectDetails.rawFiles.map((file: any, idx: number) => (
                                                         <div key={idx} className="flex items-center justify-between gap-3 p-3 rounded-lg border border-border/30 hover:bg-muted/30 transition-all group">
                                                             <div className="flex items-center gap-2 min-w-0 flex-1">
                                                                 <FileVideo className="h-4 w-4 text-muted-foreground flex-shrink-0" />
@@ -798,9 +799,7 @@ export function EditorDashboardV2() {
                                                             </div>
                                                         </div>
                                                     ))}
-                                                    {(selectedProjectDetails.rawFiles?.length || 0) > 3 && (
-                                                        <p className="text-xs text-muted-foreground text-center py-1">+{(selectedProjectDetails.rawFiles?.length || 0) - 3} more files</p>
-                                                    )}
+
                                                 </div>
                                             ) : (
                                                 <div className="p-3 rounded-lg border border-border/30 bg-muted/20">
@@ -817,8 +816,8 @@ export function EditorDashboardV2() {
 
                                             {/* Uploaded Script Files */}
                                             {selectedProjectDetails.scripts && selectedProjectDetails.scripts.length > 0 && (
-                                                <div className="grid gap-2">
-                                                    {selectedProjectDetails.scripts.slice(0, 2).map((file: any, idx: number) => (
+                                                <div className="grid gap-2 max-h-[150px] overflow-y-auto custom-scrollbar pr-1">
+                                                    {selectedProjectDetails.scripts.map((file: any, idx: number) => (
                                                         <div key={idx} className="flex items-center justify-between gap-3 p-3 rounded-lg border border-border/30 hover:bg-muted/30 transition-all group">
                                                             <div className="flex items-center gap-2 min-w-0 flex-1">
                                                                 <FileText className="h-4 w-4 text-muted-foreground flex-shrink-0" />
@@ -1309,7 +1308,7 @@ export function EditorDashboardV2() {
                 )}
             </AnimatePresence>
 
-            <div className="space-y-6 max-w-[1600px] mx-auto pb-16">
+            <div className="space-y-6 pb-16">
                 {/* Header */}
                 <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-6">
                     <div>
@@ -1385,58 +1384,32 @@ export function EditorDashboardV2() {
                             className="space-y-6"
                         >
                             {/* Stats Cards */}
-                            <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
-                                <div className="bg-gradient-to-br from-primary/10 to-primary/5 border border-primary/20 rounded-xl p-5 space-y-3">
-                                    <div className="flex items-center justify-between">
-                                        <div className="text-xs uppercase tracking-widest text-muted-foreground font-bold">Total Projects</div>
-                                        <div className="h-8 w-8 rounded-lg bg-primary/20 flex items-center justify-center text-primary">
-                                            <FileStack className="h-4 w-4" />
-                                        </div>
-                                    </div>
-                                    <div className="text-3xl font-black text-primary tabular-nums">{projects.length}</div>
-                                    <div className="h-1 bg-muted rounded-full overflow-hidden">
-                                        <div className="h-full bg-primary w-full"></div>
-                                    </div>
-                                </div>
-
-                                <div className="bg-gradient-to-br from-blue-500/10 to-blue-500/5 border border-blue-500/20 rounded-xl p-5 space-y-3">
-                                    <div className="flex items-center justify-between">
-                                        <div className="text-xs uppercase tracking-widest text-muted-foreground font-bold">Active</div>
-                                        <div className="h-8 w-8 rounded-lg bg-blue-500/20 flex items-center justify-center text-blue-500">
-                                            <Zap className="h-4 w-4" />
-                                        </div>
-                                    </div>
-                                    <div className="text-3xl font-black text-blue-500 tabular-nums">{activeProjects.length}</div>
-                                    <div className="h-1 bg-muted rounded-full overflow-hidden">
-                                        <div className="h-full bg-blue-500 w-full" style={{width: `${activeProjects.length > 0 ? Math.min((activeProjects.length / projects.length) * 100, 100) : 0}%`}}></div>
-                                    </div>
-                                </div>
-
-                                <div className="bg-gradient-to-br from-emerald-500/10 to-emerald-500/5 border border-emerald-500/20 rounded-xl p-5 space-y-3">
-                                    <div className="flex items-center justify-between">
-                                        <div className="text-xs uppercase tracking-widest text-muted-foreground font-bold">Completed</div>
-                                        <div className="h-8 w-8 rounded-lg bg-emerald-500/20 flex items-center justify-center text-emerald-500">
-                                            <CheckCircle className="h-4 w-4" />
-                                        </div>
-                                    </div>
-                                    <div className="text-3xl font-black text-emerald-500 tabular-nums">{completedProjects.length}</div>
-                                    <div className="h-1 bg-muted rounded-full overflow-hidden">
-                                        <div className="h-full bg-emerald-500" style={{width: `${completedProjects.length > 0 ? Math.min((completedProjects.length / projects.length) * 100, 100) : 0}%`}}></div>
-                                    </div>
-                                </div>
-
-                                <div className="bg-gradient-to-br from-amber-500/10 to-amber-500/5 border border-amber-500/20 rounded-xl p-5 space-y-3">
-                                    <div className="flex items-center justify-between">
-                                        <div className="text-xs uppercase tracking-widest text-muted-foreground font-bold">Pending</div>
-                                        <div className="h-8 w-8 rounded-lg bg-amber-500/20 flex items-center justify-center text-amber-500">
-                                            <IndianRupee className="h-4 w-4" />
-                                        </div>
-                                    </div>
-                                    <div className="text-3xl font-black text-amber-600 tabular-nums">₹{pendingEarnings.toLocaleString()}</div>
-                                    <div className="h-1 bg-muted rounded-full overflow-hidden">
-                                        <div className="h-full bg-amber-500 w-full"></div>
-                                    </div>
-                                </div>
+                            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                                <IndicatorCard 
+                                    label="Total Projects" 
+                                    value={projects.length} 
+                                    icon={<FileStack className="h-5 w-5" />}
+                                    subtext="Assigned across all time"
+                                />
+                                <IndicatorCard 
+                                    label="Active" 
+                                    value={activeProjects.length} 
+                                    icon={<Zap className="h-5 w-5" />}
+                                    subtext="Current production tasks"
+                                />
+                                <IndicatorCard 
+                                    label="Completed" 
+                                    value={completedProjects.length} 
+                                    icon={<CheckCircle className="h-5 w-5" />}
+                                    subtext="Finished and approved"
+                                />
+                                <IndicatorCard 
+                                    label="Pending Payout" 
+                                    value={`₹${pendingEarnings.toLocaleString()}`} 
+                                    icon={<IndianRupee className="h-5 w-5" />}
+                                    subtext="Awaiting PM settlement"
+                                    alert={pendingEarnings > 0}
+                                />
                             </div>
 
                             {/* Search Bar */}

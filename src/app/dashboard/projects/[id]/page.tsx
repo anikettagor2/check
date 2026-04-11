@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { useAuth } from "@/lib/context/auth-context";
 import { db } from "@/lib/firebase/config";
-import { doc, collection, query, where, orderBy, updateDoc, arrayUnion, onSnapshot, increment } from "firebase/firestore";
+import { doc, collection, query, where, orderBy, updateDoc, arrayUnion, onSnapshot, increment, getDoc } from "firebase/firestore";
 import { Project, Revision, Invoice } from "@/types/schema";
 import { 
     Loader2, 
@@ -52,7 +52,7 @@ import { ProjectChat } from "@/components/project-chat";
 import { motion, AnimatePresence } from "framer-motion";
 import Image from "next/image";
 import { MAX_FILE_SIZE_BYTES, MAX_FILE_SIZE_GB } from "@/lib/constants";
-import { uploadRawFileParallel } from "@/lib/services/parallel-raw-upload";
+import { UploadService } from "@/lib/services/upload-service";
 import { preloadVideosIntoMemory } from "@/lib/video-preload";
 import { VideoPlayer } from "@/components/video-player";
 
@@ -103,11 +103,7 @@ export default function ProjectDetailsPage() {
     const [isUploadingAsset, setIsUploadingAsset] = useState(false);
     const [uploadAssetProgress, setUploadAssetProgress] = useState(0);
     const [uploadAssetSpeedBps, setUploadAssetSpeedBps] = useState(0);
-    const [uploadAssetEtaSeconds, setUploadAssetEtaSeconds] = useState<number>(Infinity);
-    const [uploadAssetChunksDone, setUploadAssetChunksDone] = useState(0);
-    const [uploadAssetChunksTotal, setUploadAssetChunksTotal] = useState(0);
-    const [uploadAssetConcurrency, setUploadAssetConcurrency] = useState(0);
-    const [uploadAssetMaxConcurrency, setUploadAssetMaxConcurrency] = useState(0);
+    const [uploadAssetEtaSeconds, setUploadAssetEtaSeconds] = useState(0);
     const [isDownloading, setIsDownloading] = useState(false);
     const [assignedPM, setAssignedPM] = useState<User | null>(null);
     const [assignedEditor, setAssignedEditor] = useState<User | null>(null);
@@ -115,57 +111,43 @@ export default function ProjectDetailsPage() {
     const [invoices, setInvoices] = useState<Invoice[]>([]);
 
     const handleAssetUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-        if (!e.target.files || !e.target.files[0] || !project) return;
-        const file = e.target.files[0];
-        
-        if (file.size > MAX_FILE_SIZE_BYTES) {
-            toast.error(`File is too large. Max size allowed is ${MAX_FILE_SIZE_GB}GB.`);
-            return;
-        }
+        const file = e.target.files?.[0];
+        if (!file || !id) return;
 
-        setIsUploadingAsset(true);
         try {
-            const downloadURL = await uploadRawFileParallel({
-                projectId: project.id,
-                ownerId: project.ownerId || project.clientId || user?.uid || "unknown",
-                file,
-                onProgress: (progress) => {
-                    setUploadAssetProgress(progress.overallPct);
-                    setUploadAssetSpeedBps(progress.speedBps);
-                    setUploadAssetEtaSeconds(progress.etaSeconds);
-                    setUploadAssetChunksDone(progress.chunksComplete);
-                    setUploadAssetChunksTotal(progress.chunksTotal);
-                    setUploadAssetConcurrency(progress.currentConcurrency);
-                    setUploadAssetMaxConcurrency(progress.maxConcurrency);
-                },
+            setIsUploadingAsset(true);
+            setUploadAssetProgress(0);
+
+            const result = await UploadService.uploadFileUnified(file, {
+                projectId: id as string,
+                type: 'raw',
+                onProgress: (p) => {
+                    setUploadAssetProgress(p.percent);
+                    // Minimal stats since chunks are handled differently by Mux
+                    if (p.speedBps) setUploadAssetSpeedBps(p.speedBps);
+                    if (p.eta) setUploadAssetEtaSeconds(p.eta);
+                }
             });
 
-            const newFileMetadata = {
-                name: file.name,
-                url: downloadURL,
-                size: file.size,
-                type: file.type,
-                uploadedAt: Date.now()
-            };
+            console.log("Upload registered:", result);
 
-            await updateDoc(doc(db, "projects", project.id), {
-                rawFiles: arrayUnion(newFileMetadata)
-            });
+            toast.success("Upload started! Processing will continue in background.");
+            
+            // Re-fetch project to see the new asset in pending state
+            const docRef = doc(db, "projects", id as string);
+            const docSnap = await getDoc(docRef);
+            if (docSnap.exists()) {
+                setProject(docSnap.data() as Project);
+            }
 
-            toast.success("File uploaded successfully.");
-
-        } catch (error) {
-            console.error("Asset upload failed:", error);
-            toast.error("Upload failed.");
+        } catch (error: any) {
+            console.error("Asset upload error:", error);
+            toast.error(error.message || "Failed to upload asset");
         } finally {
             setIsUploadingAsset(false);
             setUploadAssetProgress(0);
             setUploadAssetSpeedBps(0);
-            setUploadAssetEtaSeconds(Infinity);
-            setUploadAssetChunksDone(0);
-            setUploadAssetChunksTotal(0);
-            setUploadAssetConcurrency(0);
-            setUploadAssetMaxConcurrency(0);
+            setUploadAssetEtaSeconds(0);
         }
     };
 
@@ -298,7 +280,7 @@ export default function ProjectDetailsPage() {
     const [isAssignModalOpen, setIsAssignModalOpen] = useState(false);
     const [selectedEditorId, setSelectedEditorId] = useState<string | null>(null);
     const [editorRevenueShare, setEditorRevenueShare] = useState<string>("");
-    const [previewFile, setPreviewFile] = useState<{ url: string; type: string; name: string } | null>(null);
+    const [previewFile, setPreviewFile] = useState<{ url: string; type: string; name: string; playbackId?: string } | null>(null);
     const [isRatingModalOpen, setIsRatingModalOpen] = useState(false);
     const [editorRating, setEditorRating] = useState(0);
     const [editorReview, setEditorReview] = useState('');
@@ -806,7 +788,7 @@ export default function ProjectDetailsPage() {
                                                         </div>
                                                     </div>
                                                     <div className="flex items-center gap-2">
-                                                        <button onClick={() => setPreviewFile({ url: file.url, type: file.type || 'application/octet-stream', name: file.name })} className="h-8 px-3 rounded bg-muted hover:bg-primary/20 hover:text-primary text-muted-foreground text-[9px] font-bold uppercase tracking-widest transition-all">Preview</button>
+                                                        <button onClick={() => setPreviewFile({ url: file.url, type: file.type || 'application/octet-stream', name: file.name, playbackId: (file as any).playbackId })} className="h-8 px-3 rounded bg-muted hover:bg-primary/20 hover:text-primary text-muted-foreground text-[9px] font-bold uppercase tracking-widest transition-all">Preview</button>
                                                         <button onClick={() => handleDirectDownload(file.url, file.name)} className="h-8 w-8 rounded bg-muted hover:bg-primary/20 hover:text-primary text-muted-foreground transition-all flex items-center justify-center">
                                                             <Download className="h-3.5 w-3.5" />
                                                         </button>
@@ -1445,8 +1427,8 @@ export default function ProjectDetailsPage() {
                                     <span className="text-[11px] font-bold uppercase tracking-widest text-muted-foreground">🎬 Raw Video Files</span>
                                 </div>
                                 {project.rawFiles && project.rawFiles.length > 0 ? (
-                                    <div className="grid gap-2">
-                                        {project.rawFiles.slice(0, 3).map((file, idx) => (
+                                    <div className="grid gap-2 max-h-[250px] overflow-y-auto pr-2 custom-scrollbar">
+                                        {project.rawFiles.map((file, idx) => (
                                             <div key={idx} className="flex items-center justify-between gap-3 p-3 rounded-lg border border-border/30 hover:bg-muted/30 transition-all group">
                                                 <div className="flex items-center gap-2 min-w-0 flex-1">
                                                     {file.name.match(/\.(zip|rar|7z)$/i) || file.type?.includes('zip') ? <Archive className="h-4 w-4 text-purple-500 flex-shrink-0" /> : <FileVideo className="h-4 w-4 text-muted-foreground flex-shrink-0" />}
@@ -1458,7 +1440,7 @@ export default function ProjectDetailsPage() {
                                                 <div className="flex items-center gap-2 flex-shrink-0">
                                                     {!(file.name.match(/\.(zip|rar|7z)$/i) || file.type?.includes('zip')) && (
                                                         <button 
-                                                            onClick={() => setPreviewFile({ url: file.url, type: file.type || 'video/mp4', name: file.name })} 
+                                                            onClick={() => setPreviewFile({ url: file.url, type: file.type || 'video/mp4', name: file.name, playbackId: (file as any).playbackId })} 
                                                             className="h-8 px-2.5 rounded text-xs font-bold uppercase tracking-widest bg-muted/50 hover:bg-primary/20 text-muted-foreground hover:text-primary transition-all disabled:opacity-50 disabled:cursor-not-allowed"
                                                             disabled={project.assignmentStatus === 'pending' && !isClient}
                                                             title={project.assignmentStatus === 'pending' && !isClient ? "Accept project to preview" : ""}
@@ -1477,9 +1459,6 @@ export default function ProjectDetailsPage() {
                                                 </div>
                                             </div>
                                         ))}
-                                        {(project.rawFiles?.length || 0) > 3 && (
-                                            <p className="text-xs text-muted-foreground text-center py-1">+{(project.rawFiles?.length || 0) - 3} more files</p>
-                                        )}
                                     </div>
                                 ) : (
                                     <div className="p-3 rounded-lg border border-border/30 bg-muted/20">
@@ -1561,8 +1540,8 @@ export default function ProjectDetailsPage() {
                                     <span className="text-[11px] font-bold uppercase tracking-widest text-muted-foreground">🎧 Audio Files</span>
                                 </div>
                                 {project.audioFiles && project.audioFiles.length > 0 ? (
-                                    <div className="grid gap-2">
-                                        {project.audioFiles.slice(0, 2).map((file, idx) => (
+                                    <div className="grid gap-2 max-h-[250px] overflow-y-auto pr-2 custom-scrollbar">
+                                        {project.audioFiles.map((file, idx) => (
                                             <div key={`${file.url}-${idx}`} className="p-3 rounded-lg border border-border/30 hover:bg-muted/30 transition-all group space-y-2 overflow-hidden">
                                                 <div className="flex items-center justify-between gap-3 min-w-0">
                                                     <div className="flex items-center gap-2 min-w-0 flex-1">
@@ -1579,9 +1558,6 @@ export default function ProjectDetailsPage() {
                                                 <audio controls className="w-full max-w-full h-8" src={file.url} preload="metadata" />
                                             </div>
                                         ))}
-                                        {(project.audioFiles.length || 0) > 2 && (
-                                            <p className="text-xs text-muted-foreground text-center py-1">+{(project.audioFiles.length || 0) - 2} more files</p>
-                                        )}
                                     </div>
                                 ) : (
                                     <div className="p-3 rounded-lg border border-border/30 bg-muted/20">
@@ -1596,8 +1572,8 @@ export default function ProjectDetailsPage() {
                                     <span className="text-[11px] font-bold uppercase tracking-widest text-muted-foreground">🎞️ B-Roll Assets</span>
                                 </div>
                                 {(project as any).bRoleFiles && (project as any).bRoleFiles.length > 0 ? (
-                                    <div className="grid gap-2">
-                                        {(project as any).bRoleFiles.slice(0, 2).map((file: any, idx: number) => (
+                                    <div className="grid gap-2 max-h-[250px] overflow-y-auto pr-2 custom-scrollbar">
+                                        {(project as any).bRoleFiles.map((file: any, idx: number) => (
                                             <div key={idx} className="flex items-center justify-between gap-3 p-3 rounded-lg border border-border/30 hover:bg-muted/30 transition-all group">
                                                 <div className="flex items-center gap-2 min-w-0 flex-1">
                                                     {file.name.match(/\.(zip|rar|7z)$/i) || file.type?.includes('zip') ? <Archive className="h-4 w-4 text-purple-500 flex-shrink-0" /> : file.type?.includes('image') ? (
@@ -1610,7 +1586,7 @@ export default function ProjectDetailsPage() {
                                                 <div className="flex items-center gap-2 flex-shrink-0">
                                                     {!(file.name.match(/\.(zip|rar|7z)$/i) || file.type?.includes('zip')) && (
                                                         <button 
-                                                            onClick={() => setPreviewFile({ url: file.url, type: file.type || 'video/mp4', name: file.name })}
+                                                            onClick={() => setPreviewFile({ url: file.url, type: file.type || 'video/mp4', name: file.name, playbackId: (file as any).playbackId })}
                                                             className="h-8 px-2.5 rounded text-xs font-bold uppercase tracking-widest bg-muted/50 hover:bg-primary/20 text-muted-foreground hover:text-primary transition-all disabled:opacity-50 disabled:cursor-not-allowed"
                                                             disabled={project.assignmentStatus === 'pending' && !isClient}
                                                             title={project.assignmentStatus === 'pending' && !isClient ? "Accept project to preview" : ""}
@@ -1629,9 +1605,6 @@ export default function ProjectDetailsPage() {
                                                 </div>
                                             </div>
                                         ))}
-                                        {((project as any).bRoleFiles?.length || 0) > 2 && (
-                                            <p className="text-xs text-muted-foreground text-center py-1">+{((project as any).bRoleFiles?.length || 0) - 2} more files</p>
-                                        )}
                                     </div>
                                 ) : (
                                     <div className="p-3 rounded-lg border border-border/30 bg-muted/20">
@@ -1660,8 +1633,8 @@ export default function ProjectDetailsPage() {
 
                                 {/* Reference Files */}
                                 {projectStyleReferenceFiles.length > 0 && (
-                                    <div className="grid gap-2">
-                                        {projectStyleReferenceFiles.slice(0, 2).map((file: any, idx: number) => (
+                                    <div className="grid gap-2 max-h-[250px] overflow-y-auto pr-2 custom-scrollbar">
+                                        {projectStyleReferenceFiles.map((file: any, idx: number) => (
                                             <div key={idx} className="flex items-center justify-between gap-3 p-3 rounded-lg border border-border/30 hover:bg-muted/30 transition-all group">
                                                 <div className="flex items-center gap-2 min-w-0 flex-1">
                                                     {file.type?.includes('image') ? (
@@ -1673,7 +1646,7 @@ export default function ProjectDetailsPage() {
                                                 </div>
                                                 <div className="flex items-center gap-2 flex-shrink-0">
                                                     <button 
-                                                        onClick={() => setPreviewFile({ url: file.url, type: file.type || 'image', name: file.name })}
+                                                        onClick={() => setPreviewFile({ url: file.url, type: file.type || 'image', name: file.name, playbackId: (file as any).playbackId })}
                                                         className="h-8 px-2.5 rounded text-xs font-bold uppercase tracking-widest bg-muted/50 hover:bg-primary/20 text-muted-foreground hover:text-primary transition-all disabled:opacity-50 disabled:cursor-not-allowed"
                                                         disabled={project.assignmentStatus === 'pending' && !isClient}
                                                         title={project.assignmentStatus === 'pending' && !isClient ? "Accept project to preview" : ""}
@@ -1691,9 +1664,6 @@ export default function ProjectDetailsPage() {
                                                 </div>
                                             </div>
                                         ))}
-                                        {(projectStyleReferenceFiles.length || 0) > 2 && (
-                                            <p className="text-xs text-muted-foreground text-center py-1">+{(projectStyleReferenceFiles.length || 0) - 2} more files</p>
-                                        )}
                                     </div>
                                 )}
 
@@ -1711,8 +1681,8 @@ export default function ProjectDetailsPage() {
                                     <span className="text-[11px] font-bold uppercase tracking-widest text-muted-foreground">📤 PM Uploaded Files</span>
                                 </div>
                                 {projectPmFiles.length > 0 ? (
-                                    <div className="grid gap-2">
-                                        {projectPmFiles.slice(0, 2).map((file: any, idx: number) => (
+                                    <div className="grid gap-2 max-h-[250px] overflow-y-auto pr-2 custom-scrollbar">
+                                        {projectPmFiles.map((file: any, idx: number) => (
                                             <div key={`${file.url}-${idx}`} className="flex items-center justify-between gap-3 p-3 rounded-lg border border-border/30 hover:bg-muted/30 transition-all group">
                                                 <div className="flex items-center gap-2 min-w-0 flex-1">
                                                     {file.type?.includes('image') ? (
@@ -1724,7 +1694,7 @@ export default function ProjectDetailsPage() {
                                                 </div>
                                                 <div className="flex items-center gap-2 flex-shrink-0">
                                                     <button
-                                                        onClick={() => setPreviewFile({ url: file.url, type: file.type || 'application/octet-stream', name: file.name })}
+                                                        onClick={() => setPreviewFile({ url: file.url, type: file.type || 'application/octet-stream', name: file.name, playbackId: (file as any).playbackId })}
                                                         className="h-8 px-2.5 rounded text-xs font-bold uppercase tracking-widest bg-muted/50 hover:bg-primary/20 text-muted-foreground hover:text-primary transition-all"
                                                     >
                                                         Preview
@@ -1738,9 +1708,6 @@ export default function ProjectDetailsPage() {
                                                 </div>
                                             </div>
                                         ))}
-                                        {projectPmFiles.length > 2 && (
-                                            <p className="text-xs text-muted-foreground text-center py-1">+{projectPmFiles.length - 2} more files</p>
-                                        )}
                                     </div>
                                 ) : (
                                     <div className="p-3 rounded-lg border border-border/30 bg-muted/20">
@@ -1760,7 +1727,7 @@ export default function ProjectDetailsPage() {
                                         {previewFile.type === 'image' || previewFile.type.startsWith('image/') || /\.(jpg|jpeg|png|gif|webp|svg)$/i.test(previewFile.name) ? (
                                             <img src={previewFile.url} alt={previewFile.name} className="max-w-full max-h-full object-contain" />
                                         ) : previewFile.type === 'video' || previewFile.type.startsWith('video/') || /\.(mp4|webm|mov|avi|mkv)$/i.test(previewFile.name) ? (
-                                            <VideoPlayer videoPath={previewFile.url} title={previewFile.name} className="w-full h-full" />
+                                            <VideoPlayer videoPath={previewFile.url} playbackId={previewFile.playbackId} title={previewFile.name} className="w-full h-full" />
                                         ) : previewFile.type === 'pdf' || previewFile.type === 'application/pdf' || previewFile.name.toLowerCase().endsWith('.pdf') ? (
                                             <iframe src={previewFile.url} className="w-full h-screen border-none" />
                                         ) : (
@@ -1800,14 +1767,10 @@ export default function ProjectDetailsPage() {
                                                     className="h-full bg-primary shadow-[0_0_10px_rgba(99,102,241,0.6)]"
                                                 />
                                             </div>
-                                            <div className="grid grid-cols-2 md:grid-cols-4 gap-2 text-[10px] text-muted-foreground">
+                                            <div className="grid grid-cols-1 xs:grid-cols-2 md:grid-cols-3 gap-2 text-[10px] text-muted-foreground">
                                                 <div>Progress: <span className="text-foreground font-bold">{uploadAssetProgress.toFixed(1)}%</span></div>
                                                 <div>Speed: <span className="text-foreground font-bold">{formatBytes(uploadAssetSpeedBps)}/s</span></div>
                                                 <div>ETA: <span className="text-foreground font-bold">{formatEta(uploadAssetEtaSeconds)}</span></div>
-                                                <div>Chunks: <span className="text-foreground font-bold">{uploadAssetChunksDone}/{uploadAssetChunksTotal}</span></div>
-                                            </div>
-                                            <div className="text-[9px] uppercase tracking-widest text-muted-foreground">
-                                                Parallel lanes: <span className="text-foreground font-bold">{uploadAssetConcurrency}/{uploadAssetMaxConcurrency}</span>
                                             </div>
                                         </div>
                                     ) : (

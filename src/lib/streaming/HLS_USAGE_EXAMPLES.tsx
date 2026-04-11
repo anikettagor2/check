@@ -62,7 +62,7 @@ export function OptimizedVideoPlayer({ hlsUrl }: { hlsUrl: string }) {
  * ─────────────────────────────────────────────────────────────────────
  */
 
-import { uploadHLSFilesParallel } from '@/lib/firebase/hls-metadata';
+// import { uploadHLSFilesParallel } from '@/lib/firebase/hls-metadata';
 
 // async function uploadVideoWithOptimizedMetadata() {
 //   // Example files - replace with actual Blob/File objects

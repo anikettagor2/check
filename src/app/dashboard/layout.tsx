@@ -12,6 +12,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   const { user, firebaseUser, loading } = useAuth();
   const router = useRouter();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
 
   useEffect(() => {
     // Only redirect when Firebase session is truly gone.
@@ -20,6 +21,20 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       router.push("/login");
     }
   }, [firebaseUser, loading, router]);
+
+  // Handle sidebar collapse preference from localStorage
+  useEffect(() => {
+    const saved = localStorage.getItem("sidebar-collapsed");
+    if (saved !== null) {
+      setIsSidebarCollapsed(saved === "true");
+    }
+  }, []);
+
+  const toggleSidebar = () => {
+    const newState = !isSidebarCollapsed;
+    setIsSidebarCollapsed(newState);
+    localStorage.setItem("sidebar-collapsed", String(newState));
+  };
 
   // Close mobile menu on navigation
   useEffect(() => {
@@ -76,8 +91,11 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         </AnimatePresence>
 
         {/* Desktop Sidebar (Permanent) */}
-        <div className="hidden md:block border-r border-border">
-          <DashboardSidebar collapsed />
+        <div className="hidden md:block">
+          <DashboardSidebar 
+            collapsed={isSidebarCollapsed} 
+            onToggle={toggleSidebar}
+          />
         </div>
 
         {/* Mobile Sidebar (Slide-in) */}
@@ -95,13 +113,11 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           </button>
         </div>
 
-          <div className="flex flex-1 flex-col overflow-hidden relative">
-          <main className="flex-1 overflow-y-auto relative flex flex-col scrollbar-thin scrollbar-thumb-white/5 scrollbar-track-transparent">
-             <div className="flex-1 p-4 md:p-8 lg:p-10 max-w-480 mx-auto w-full page-fade-in">
-                {children}
-             </div>
-          </main>
-        </div>
+        <main className="flex-1 overflow-y-auto relative flex flex-col scrollbar-thin scrollbar-thumb-primary/10 scrollbar-track-transparent p-4 md:p-6 lg:p-8">
+          <div className="w-full flex-1 flex flex-col">
+            {children}
+          </div>
+        </main>
       </div>
     </div>
   );

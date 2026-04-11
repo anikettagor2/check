@@ -203,7 +203,7 @@ export default function InvoiceSettingsPage() {
                 </div>
             </div>
 
-            <div className={cn("grid gap-8", showPreview ? "grid-cols-2" : "grid-cols-1")}>
+            <div className={cn("grid gap-8", showPreview ? "grid-cols-1 lg:grid-cols-2" : "grid-cols-1")}>
                 {/* Settings Form */}
                 <div className="space-y-6">
                     {/* Company Logo */}
@@ -268,7 +268,7 @@ export default function InvoiceSettingsPage() {
                             <Building2 className="w-5 h-5 text-muted-foreground" />
                             <h2 className="text-lg font-bold text-foreground">Company Details</h2>
                         </div>
-                        <div className="grid grid-cols-2 gap-4">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                             <div className="col-span-2 space-y-2">
                                 <Label className="text-xs font-bold uppercase tracking-widest text-muted-foreground">Company Name</Label>
                                 <Input

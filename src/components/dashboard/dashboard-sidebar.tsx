@@ -22,6 +22,8 @@ import {
   Loader2,
   Zap,
   ReceiptText,
+  ChevronLeft,
+  ChevronRight,
 } from "lucide-react";
 import { useAuth } from "@/lib/context/auth-context";
 import { motion } from "framer-motion";
@@ -36,9 +38,10 @@ import { toast } from "sonner";
 
 interface DashboardSidebarProps {
   collapsed?: boolean;
+  onToggle?: () => void;
 }
 
-export function DashboardSidebar({ collapsed = false }: DashboardSidebarProps) {
+export function DashboardSidebar({ collapsed = false, onToggle }: DashboardSidebarProps) {
   const pathname = usePathname();
   const { user, logout } = useAuth();
   const { logoUrl } = useBranding();
@@ -170,8 +173,16 @@ export function DashboardSidebar({ collapsed = false }: DashboardSidebarProps) {
       onMouseLeave={() => collapsed && setIsHovered(false)}
       className={cn(
       "h-full flex-col border-r border-sidebar-border bg-sidebar text-sidebar-foreground flex shrink-0 relative z-50 transition-all duration-500 ease-out",
-      effectiveCollapsed ? "w-20" : "w-80"
+      effectiveCollapsed ? "w-20" : "w-full md:w-80"
     )}>
+      {/* Collapse Toggle Button (Desktop) */}
+      <button
+        onClick={onToggle}
+        className="hidden md:flex absolute -right-3 top-10 z-[60] h-6 w-6 items-center justify-center rounded-full border border-sidebar-border bg-sidebar text-sidebar-foreground shadow-sm hover:bg-sidebar-accent transition-all duration-300"
+      >
+        {collapsed ? <ChevronRight className="h-3 w-3" /> : <ChevronLeft className="h-3 w-3" />}
+      </button>
+
       {/* Brand Header */}
       <div className={cn("flex h-24 items-center mb-4 border-b border-sidebar-border bg-white/2", effectiveCollapsed ? "px-3 justify-center" : "px-6")}> 
         <Link href="/dashboard" className={cn("group flex items-center overflow-hidden", effectiveCollapsed ? "justify-center" : "w-full")}> 

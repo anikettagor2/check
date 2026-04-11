@@ -23,7 +23,8 @@ import {
     WifiOff,
     Moon,
     X,
-    Loader2
+    Loader2,
+    TrendingUp
 } from "lucide-react";
 import { toast } from "sonner";
 import { db } from "@/lib/firebase/config";
@@ -42,50 +43,10 @@ import {
     DropdownMenuLabel
 } from "@/components/ui/dropdown-menu";
 import { Label } from "@/components/ui/label";
+import { IndicatorCard } from "@/components/ui/indicator-card";
 
-// Stats Card Component
-function StatsCard({ icon, value, label, color = "blue", alert = false }: {
-    icon: React.ReactNode;
-    value: number | string;
-    label: string;
-    color?: "blue" | "amber" | "green" | "purple";
-    alert?: boolean;
-}) {
-    const colorStyles = {
-        blue: "bg-blue-500/10 text-blue-600 border-blue-500/20",
-        amber: "bg-amber-500/10 text-amber-600 border-amber-500/20",
-        green: "bg-emerald-500/10 text-emerald-600 border-emerald-500/20",
-        purple: "bg-purple-500/10 text-purple-600 border-purple-500/20"
-    };
 
-    return (
-        <motion.div 
-            initial={{ opacity: 0, y: 12 }}
-            animate={{ opacity: 1, y: 0 }}
-            whileHover={{ y: -2 }}
-            className={cn(
-                "relative bg-card border border-border rounded-xl p-5 hover:shadow-md transition-all duration-200",
-                alert && "ring-2 ring-amber-500/30"
-            )}
-        >
-            <div className="flex items-start justify-between">
-                <div className={cn("h-10 w-10 rounded-lg flex items-center justify-center border", colorStyles[color])}>
-                    {icon}
-                </div>
-                {alert && (
-                    <span className="flex h-2 w-2">
-                        <span className="animate-ping absolute inline-flex h-2 w-2 rounded-full bg-amber-400 opacity-75"></span>
-                        <span className="relative inline-flex rounded-full h-2 w-2 bg-amber-500"></span>
-                    </span>
-                )}
-            </div>
-            <div className="mt-4">
-                <p className="text-3xl font-bold text-foreground tabular-nums">{value}</p>
-                <p className="text-sm text-muted-foreground mt-1">{label}</p>
-            </div>
-        </motion.div>
-    );
-}
+
 
 export function SalesDashboard() {
     const { user } = useAuth();
@@ -493,7 +454,7 @@ export function SalesDashboard() {
     }
 
     return (
-        <div className="space-y-8 max-w-[1600px] mx-auto pb-16">
+        <div className="space-y-8 pb-16">
             {/* Header */}
             <motion.div 
                 initial={{ opacity: 0, y: -10 }}
@@ -531,31 +492,31 @@ export function SalesDashboard() {
 
             {/* Stats Grid - Only show when form is closed */}
             {!isCreateOpen && (
-                <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-                    <StatsCard 
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                    <IndicatorCard 
                         icon={<Users className="h-5 w-5" />}
                         value={myClients.length}
                         label="Total Clients"
-                        color="blue"
+                        subtext="Active accounts"
                     />
-                    <StatsCard 
+                    <IndicatorCard 
                         icon={<Clock className="h-5 w-5" />}
                         value={pendingClients.length}
                         label="Pending Setup"
-                        color="amber"
                         alert={pendingClients.length > 0}
+                        subtext="Awaiting verification"
                     />
-                    <StatsCard 
+                    <IndicatorCard 
                         icon={<IndianRupee className="h-5 w-5" />}
                         value="₹0"
                         label="Revenue Generated"
-                        color="green"
+                        subtext="Total lifetime"
                     />
-                    <StatsCard 
+                    <IndicatorCard 
                         icon={<CheckCircle2 className="h-5 w-5" />}
                         value={myClients.filter(c => !c.deletionRequested).length}
                         label="Active Clients"
-                        color="purple"
+                        subtext="Excludes requested deletions"
                     />
                 </div>
             )}

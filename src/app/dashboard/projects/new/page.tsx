@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { addDoc, collection, doc, getDoc, updateDoc, increment } from "firebase/firestore";
 import { ref, uploadBytesResumable, getDownloadURL, deleteObject } from "firebase/storage";
+import { UploadService } from "@/lib/services/upload-service";
 import { db, storage } from "@/lib/firebase/config";
 import { useAuth } from "@/lib/context/auth-context";
 import { Button } from "@/components/ui/button";
@@ -59,6 +60,7 @@ const loadRazorpayScript = () => {
 interface UploadedFile {
     name: string;
     url: string;
+    playbackId?: string;
     storagePath?: string;
     size: number;
     type: string;
@@ -175,6 +177,7 @@ export default function NewProjectPage() {
 
     const canPayLater = user?.payLater === true;
     const [isProcessingPayment, setIsProcessingPayment] = useState(false);
+    const [uploadToken] = useState(() => `req_${Math.random().toString(36).substring(2, 15)}_${Date.now()}`);
     
     // Pay Later limit check
     const creditLimit = user?.creditLimit || 0;
@@ -228,136 +231,50 @@ export default function NewProjectPage() {
         };
     }, []);
 
-    // Immediate file upload function  [Cloudinary implemented to store video on it]
     const uploadFileImmediately = useCallback(async (
-    file: File, 
-    path: string,
-    onProgress: (progress: number) => void,
-    onComplete: (data: UploadedFile) => void,
-    onError: (error: string) => void
-) => {
-    if (!user) return;
+        file: File, 
+        path: string,
+        onProgress: (progress: number) => void,
+        onComplete: (data: UploadedFile) => void,
+        onError: (error: string) => void
+    ) => {
+        if (!user) return;
 
-    // 1. Check if the file is a video to decide the destination
-    const isVideo = file.type.startsWith('video/');
-
-    if (isVideo) {
-      
-        try {
-            const formData = new FormData();
-            formData.append("file", file);
-            formData.append("upload_preset", process.env.NEXT_PUBLIC_CLOUDINARY_UPLOAD_PRESET!);
-            formData.append("resource_type", "video");
-            formData.append("folder", `projects/${user.uid}/videos`);
-            const xhr = new XMLHttpRequest();
-            xhr.open("POST", `https://api.cloudinary.com/v1_1/${process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME}/video/upload`);
-
-            xhr.upload.onprogress = (event) => {
-                if (event.lengthComputable) {
-                    const progress = (event.loaded / event.total) * 100;
-                    onProgress(progress);
-                }
-            };
-
-            xhr.onload = () => {
-                if (xhr.status >= 200 && xhr.status < 300) {
-                    const response = JSON.parse(xhr.responseText);
-                    // We use playback_url (the .m3u8) for smooth streaming, 
-                    // falling back to secure_url if for some reason it's missing.
-                    onComplete({
-                        name: file.name,
-                        url: response.playback_url || response.secure_url,
-                        storagePath: response.public_id, // Store public_id to handle deletions later
-                        size: file.size,
-                        type: file.type,
-                        uploadedAt: Date.now()
-                    });
-                } else {
-                    onError("Cloudinary upload failed");
-                }
-            };
-
-            xhr.onerror = () => onError("Network error during Cloudinary upload");
-            xhr.send(formData);
-
-        } catch (error: any) {
-            onError(error.message || 'Cloudinary setup error');
+        // Map path to UploadService type
+        let uploadType: 'raw' | 'asset' = 'asset';
+        if (path === 'raw_footage' || path === 'brole_footage') {
+            uploadType = 'raw';
         }
-    } else {
-       
-        try {
-            const storageRef = ref(storage, `${path}/${user.uid}/${Date.now()}_${file.name}`);
-            const uploadTask = uploadBytesResumable(storageRef, file);
 
-            uploadTask.on('state_changed', 
-                (snapshot) => {
-                    const progress = (snapshot.bytesTransferred / snapshot.totalBytes) * 100;
-                    onProgress(progress);
-                }, 
-                (error) => {
-                    onError(error.message || 'Firebase upload failed');
-                }, 
-                async () => {
-                    const downloadURL = await getDownloadURL(uploadTask.snapshot.ref);
-                    onComplete({
-                        name: file.name,
-                        storagePath: storageRef.fullPath,
-                        url: downloadURL,
-                        size: file.size,
-                        type: file.type,
-                        uploadedAt: Date.now()
-                    });
+        try {
+            // Use the unified upload service for everything
+            const result = await UploadService.uploadFileUnified(
+                file,
+                uploadToken,
+                onProgress,
+                {
+                    type: uploadType,
+                    // If it's a non-video, we can specify a custom storage path if desired
+                    // Otherwise UploadService uses a default consistent path
                 }
             );
-        } catch (error: any) {
-            onError(error.message || 'Firebase upload failed');
+
+            const isMux = result.startsWith('mux://');
+
+            onComplete({
+                name: file.name,
+                url: isMux ? "" : result,
+                playbackId: "", 
+                storagePath: result, // For Mux it's mux://id, for Firebase it's the download URL
+                size: file.size,
+                type: file.type,
+                uploadedAt: Date.now()
+            });
+        } catch (err: any) {
+            console.error('Upload error:', err);
+            onError(err.message || 'Upload failed');
         }
-    }
-}, [user]);
-
-// old method to store video on firebase storage
-    // const uploadFileImmediately = useCallback(async (
-    //     file: File, 
-    //     path: string,
-    //     onProgress: (progress: number) => void,
-    //     onComplete: (data: UploadedFile) => void,
-    //     onError: (error: string) => void
-    // ) => {
-    //     if (!user) return;
-
-    //     try {
-    //         const storageRef = ref(storage, `${path}/${user.uid}/${Date.now()}_${file.name}`);
-    //         const uploadTask = uploadBytesResumable(storageRef, file);
-
-    //         uploadTask.on('state_changed', 
-    //             (snapshot) => {
-    //                 const progress = (snapshot.bytesTransferred / snapshot.totalBytes) * 100;
-    //                 onProgress(progress);
-    //             }, 
-    //             (error) => {
-    //                 console.error('Upload error:', error);
-    //                 onError(error.message || 'Upload failed');
-    //             }, 
-    //             async () => {
-    //                 try {
-    //                     const downloadURL = await getDownloadURL(uploadTask.snapshot.ref);
-    //                     onComplete({
-    //                         name: file.name,
-    //                         storagePath: storageRef.fullPath,
-    //                         url: downloadURL,
-    //                         size: file.size,
-    //                         type: file.type,
-    //                         uploadedAt: Date.now()
-    //                     });
-    //                 } catch (err: any) {
-    //                     onError(err.message || 'Failed to get download URL');
-    //                 }
-    //             }
-    //         );
-    //     } catch (error: any) {
-    //         onError(error.message || 'Upload failed');
-    //     }
-    // }, [user]);
+    }, [user, uploadToken]);
 
     // Handle file selection and immediate upload
     const enqueueFilesForUpload = useCallback((
@@ -764,6 +681,7 @@ export default function NewProjectPage() {
             clientId: user.uid,
             isPayLaterRequest: paymentOption === 'pay_later',
             clientName: user.displayName || 'Anonymous Client',
+            uploadToken,
             gstRate: 18,
             gstAppliedAtBilling: true,
             ...pricingTierInfo
@@ -1141,7 +1059,7 @@ export default function NewProjectPage() {
                         <div className="space-y-8">
                             <div className="space-y-3">
                                 <Label className="text-xs font-bold uppercase tracking-widest text-muted-foreground ml-1">Video Type Format</Label>
-                                <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+                                <div className="grid grid-cols-1 xs:grid-cols-2 md:grid-cols-3 gap-3">
                                     {availableVideoTypes.map(vt => {
                                         const tieredPrices = user?.multiTierRates?.[vt.key];
                                         const fallbackPrice = getResolvedClientRate(user?.customRates, vt.key);
@@ -1180,7 +1098,7 @@ export default function NewProjectPage() {
                             {availablePrices.length > 1 && (
                                 <div className="space-y-3 border border-border rounded-lg p-4">
                                     <Label className="text-xs font-bold uppercase tracking-widest text-muted-foreground">Select Pricing Tier</Label>
-                                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                                    <div className="grid grid-cols-1 xs:grid-cols-2 sm:grid-cols-3 gap-2">
                                         {availablePrices.map((option, idx) => (
                                             <button
                                                 key={idx}

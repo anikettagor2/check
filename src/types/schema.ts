@@ -101,9 +101,9 @@ export interface Project {
     assignedEditorId?: string;
     footageLink?: string; // Link to cloud storage
     footageLinks?: string[]; // Multiple cloud storage links
-    rawFiles?: { name: string; url: string; size?: number; type?: string; uploadedAt?: number }[]; // Raw video files uploaded by client
-    deliveredFiles?: { name: string; url: string; size?: number; type?: string; uploadedAt?: number }[];
-    audioFiles?: { name: string; url: string; size?: number; type?: string; uploadedAt?: number }[];
+    rawFiles?: { name: string; url: string; playbackId?: string; size?: number; type?: string; uploadedAt?: number }[]; // Raw video files uploaded by client
+    deliveredFiles?: { name: string; url: string; playbackId?: string; size?: number; type?: string; uploadedAt?: number }[];
+    audioFiles?: { name: string; url: string; playbackId?: string; size?: number; type?: string; uploadedAt?: number }[];
     referenceLinks?: string[];
     thumbnailUrl?: string; // Cover image
     status: ProjectStatus;
@@ -169,6 +169,7 @@ export interface Revision {
     status: RevisionStatus;
     uploadedBy: string; // User UID
     createdAt: number;
+    playbackId?: string; // Mux playback ID
     downloadCount?: number; // Track downloads by client for limits
     videoDeletedAt?: number; // Track when revision video object was deleted by lifecycle policy
 }
@@ -301,6 +302,7 @@ export interface VideoJob {
     status: VideoJobStatus;
     thumbnailUrl?: string;
     hlsUrl?: string;          // .m3u8 playlist URL
+    playbackId?: string;      // Mux playback ID
     resolutions?: string[];   // e.g. ['1080p', '720p', '480p']
     durationSeconds?: number;
     widthPx?: number;

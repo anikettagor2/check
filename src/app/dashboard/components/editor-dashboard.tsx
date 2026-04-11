@@ -39,6 +39,7 @@ import { toast } from "sonner";
 import { respondToAssignment } from "@/app/actions/admin-actions";
 import { motion, AnimatePresence } from "framer-motion";
 import { EditorPerformance } from "./editor-performance";
+import { IndicatorCard } from "@/components/ui/indicator-card";
 
 export function EditorDashboard() {
     const { user } = useAuth();
@@ -154,7 +155,7 @@ export function EditorDashboard() {
     };
 
     return (
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 py-8 space-y-8">
+        <div className="w-full space-y-8">
             {/* Header */}
             <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-6">
                 <div>
@@ -214,38 +215,37 @@ export function EditorDashboard() {
             {mainTab === 'tasks' ? (
                 <>
                     {/* Stats Cards */}
-                    <div className="grid grid-cols-2 lg:grid-cols-5 gap-4">
-                        <StatsCard 
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
+                        <IndicatorCard 
                             label="Invitations"
                             value={pendingInvitations.length}
                             icon={<AlertCircle className="h-5 w-5" />}
-                            color="amber"
-                            highlight={pendingInvitations.length > 0}
+                            alert={pendingInvitations.length > 0}
+                            subtext="Action needed"
                         />
-                        <StatsCard 
+                        <IndicatorCard 
                             label="In Progress"
                             value={activeProjects.length + reviewProjects.length}
                             icon={<Play className="h-5 w-5" />}
-                            color="blue"
+                            subtext="Under active production"
                         />
-                        <StatsCard 
+                        <IndicatorCard 
                             label="Completed"
                             value={completedProjects.length}
                             icon={<CheckCircle2 className="h-5 w-5" />}
-                            color="green"
+                            subtext="Finished deliverables"
                         />
-                        <StatsCard 
+                        <IndicatorCard 
                             label="Total Earned"
                             value={`₹${totalEarnings.toLocaleString()}`}
                             icon={<Wallet className="h-5 w-5" />}
-                            color="purple"
+                            subtext="Total payout amount"
                         />
-                        <StatsCard 
+                        <IndicatorCard 
                             label="Avg Rating"
                             value={averageRating > 0 ? averageRating.toFixed(1) : '—'}
                             icon={<Star className="h-5 w-5" />}
-                            color="amber"
-                            suffix={averageRating > 0 ? "/5" : ""}
+                            subtext={averageRating > 0 ? "Out of 5 stars" : "No ratings yet"}
                         />
                     </div>
 
@@ -482,50 +482,6 @@ export function EditorDashboard() {
                 user && <EditorPerformance user={user} projects={completedProjects} />
             )}
         </div>
-    );
-}
-
-// Stats Card Component
-function StatsCard({ label, value, icon, color, highlight, suffix }: { 
-    label: string; 
-    value: string | number; 
-    icon: React.ReactNode; 
-    color: 'blue' | 'amber' | 'green' | 'purple';
-    highlight?: boolean;
-    suffix?: string;
-}) {
-    const colorClasses = {
-        blue: 'bg-blue-500/10 text-blue-500',
-        amber: 'bg-amber-500/10 text-amber-500',
-        green: 'bg-green-500/10 text-green-500',
-        purple: 'bg-purple-500/10 text-purple-500'
-    };
-
-    return (
-        <motion.div 
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-            className={cn(
-                "bg-card border rounded-xl p-4 sm:p-5 transition-all",
-                highlight ? "border-amber-500/50 bg-amber-500/5" : "border-border"
-            )}
-        >
-            <div className="flex items-center justify-between mb-3">
-                <div className={cn("h-10 w-10 rounded-lg flex items-center justify-center", colorClasses[color])}>
-                    {icon}
-                </div>
-                {highlight && (
-                    <span className="px-2 py-0.5 bg-amber-500/20 text-amber-500 rounded text-xs font-medium">
-                        Action needed
-                    </span>
-                )}
-            </div>
-            <div className="flex items-baseline gap-1">
-                <p className="text-2xl sm:text-3xl font-bold text-foreground">{value}</p>
-                {suffix && <span className="text-lg text-muted-foreground">{suffix}</span>}
-            </div>
-            <p className="text-sm text-muted-foreground mt-1">{label}</p>
-        </motion.div>
     );
 }
 

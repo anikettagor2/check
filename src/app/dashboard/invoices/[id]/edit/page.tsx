@@ -295,7 +295,7 @@ export default function EditInvoicePage(props: { params: Promise<{ id: string }>
                                 ))}
                             </select>
                         </div>
-                        <div className="grid grid-cols-2 gap-4">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                             <div className="space-y-2">
                                 <Label>Client Name</Label>
                                 <Input value={clientName} onChange={e => setClientName(e.target.value)} className="bg-zinc-950 border-border" />
@@ -314,7 +314,7 @@ export default function EditInvoicePage(props: { params: Promise<{ id: string }>
                     {/* Invoice Details */}
                     <div className="space-y-4">
                         <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">Invoice Details</h3>
-                        <div className="grid grid-cols-3 gap-4">
+                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                             <div className="space-y-2">
                                 <Label>Invoice #</Label>
                                 <Input value={invoiceNumber} onChange={e => setInvoiceNumber(e.target.value)} className="bg-zinc-950 border-border font-mono" />

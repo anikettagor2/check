@@ -27,6 +27,7 @@ export interface UseVideoLoaderOptions {
   useCache?: boolean;
   autoLoad?: boolean;
   preloadMetadata?: boolean;
+  playbackId?: string;
 }
 
 /**
@@ -52,6 +53,7 @@ export function useVideoLoader(options: UseVideoLoaderOptions) {
     useCache = true,
     autoLoad = true,
     preloadMetadata = false,
+    playbackId,
   } = options;
 
   const [state, setState] = useState<VideoLoaderState>({
@@ -97,6 +99,7 @@ export function useVideoLoader(options: UseVideoLoaderOptions) {
             preferOptimized,
             cacheDurationHours,
             useCache,
+            playbackId,
           }
         );
       } else {
@@ -104,6 +107,7 @@ export function useVideoLoader(options: UseVideoLoaderOptions) {
           preferOptimized,
           cacheDurationHours,
           useCache,
+          playbackId,
         });
       }
 
@@ -149,7 +153,7 @@ export function useVideoLoader(options: UseVideoLoaderOptions) {
         attempt: loadAttemptRef.current,
       });
     }
-  }, [videoId, storagePath, preferOptimized, cacheDurationHours, useCache, preloadMetadata]);
+  }, [videoId, storagePath, playbackId, preferOptimized, cacheDurationHours, useCache, preloadMetadata]);
 
   /**
    * Retry loading with exponential backoff

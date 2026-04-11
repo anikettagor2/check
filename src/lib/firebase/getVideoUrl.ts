@@ -17,6 +17,7 @@ export interface VideoUrlOptions {
   preferOptimized?: boolean;
   cacheDurationHours?: number;
   useCache?: boolean;
+  playbackId?: string;
 }
 
 export interface VideoUrlResult {
@@ -55,7 +56,29 @@ export async function getVideoUrl(
     preferOptimized = true,
     cacheDurationHours = 1,
     useCache = true,
+    playbackId,
   } = options;
+
+  // 0. Handle Mux streaming if playbackId is available
+  if (playbackId) {
+    return {
+      url: `https://stream.mux.com/${playbackId}.m3u8`,
+      videoPath: `mux://${playbackId}`,
+      isOptimized: true,
+      wasCached: false
+    };
+  }
+
+  // Handle mux:// protocol as a fallback
+  if (storagePath.startsWith('mux://')) {
+    const id = storagePath.replace('mux://', '');
+    return {
+      url: `https://stream.mux.com/${id}.m3u8`, // Fallback assumption
+      videoPath: storagePath,
+      isOptimized: true,
+      wasCached: false
+    };
+  }
 
   try {
     // 1. Check if we have a valid cached URL

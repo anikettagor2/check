@@ -159,7 +159,7 @@ export default function CreateInvoicePage() {
     return (
         <div className="flex h-screen bg-zinc-950 text-foreground overflow-hidden">
             {/* Editor Sidebar */}
-            <div className="w-1/3 min-w-[400px] border-r border-border flex flex-col bg-zinc-900 overflow-y-auto">
+            <div className="w-full lg:w-1/3 lg:min-w-[400px] border-b lg:border-r lg:border-b-0 border-border flex flex-col bg-zinc-900 overflow-y-auto">
                 <div className="p-6 border-b border-border sticky top-0 bg-zinc-900 z-10">
                     <div className="flex items-center gap-4 mb-4">
                         <Link href="/dashboard/invoices" className="p-2 hover:bg-card rounded-full transition-colors">
@@ -212,7 +212,7 @@ export default function CreateInvoicePage() {
                     {/* Invoice Meta */}
                     <div className="space-y-4">
                         <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">Invoice Details</h3>
-                        <div className="grid grid-cols-2 gap-4">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                             <div className="space-y-2">
                                 <Label>Invoice #</Label>
                                 <Input value={invoiceNumber} onChange={e => setInvoiceNumber(e.target.value)} className="bg-zinc-950 border-border" />
@@ -222,7 +222,7 @@ export default function CreateInvoicePage() {
                                 <Input type="number" value={taxRate} onChange={e => setTaxRate(Number(e.target.value))} className="bg-zinc-950 border-border" />
                             </div>
                         </div>
-                        <div className="grid grid-cols-2 gap-4">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                              <div className="space-y-2">
                                 <Label>Issue Date</Label>
                                 <Input type="date" value={issueDate} onChange={e => setIssueDate(e.target.value)} className="bg-zinc-950 border-border" />

@@ -1,14 +1,17 @@
 "use client";
 
+import Hls from "hls.js";
 import React, { useState, useRef, useEffect } from "react";
 import { Play, Loader2, AlertCircle, Pause, Volume2, VolumeX } from "lucide-react";
 import { cn } from "@/lib/utils";
+import MuxPlayer from "@mux/mux-player-react";
 
 interface VideoPlayerProps {
   videoPath: string; // The URL or path to the video
   thumbnailUrl?: string;
   title?: string;
   className?: string;
+  playbackId?: string;
   onTimeUpdate?: (currentTime: number, duration: number) => void;
   onPlaying?: () => void;
   onPause?: () => void;
@@ -24,7 +27,24 @@ export function VideoPlayer({
   onPlaying,
   onPause,
   onError,
+  playbackId,
 }: VideoPlayerProps) {
+  if (playbackId) {
+    return (
+      <div className={cn("w-full aspect-video rounded-lg overflow-hidden bg-black", className)}>
+        <MuxPlayer
+          playbackId={playbackId}
+          metadata={{ video_title: title }}
+          poster={thumbnailUrl}
+          streamType="on-demand"
+          style={{ width: '100%', height: '100%' }}
+          onPlay={onPlaying}
+          onPause={onPause}
+        />
+      </div>
+    );
+  }
+
   const [isPlaying, setIsPlaying] = useState(false);
   const [isBuffering, setIsBuffering] = useState(false);
   const [hasStarted, setHasStarted] = useState(false);
@@ -37,9 +57,54 @@ export function VideoPlayer({
   const [isMuted, setIsMuted] = useState(false);
 
   const videoRef = useRef<HTMLVideoElement>(null);
+  const hlsRef = useRef<Hls | null>(null);
 
-  // Use videoPath directly — Firebase CDN URLs support 206 range requests natively
-  const streamUrl = videoPath;
+  // Determine initial stream URL
+  const isProcessing = videoPath?.startsWith('mux://');
+  const streamUrl = isProcessing ? "" : (playbackId ? `https://stream.mux.com/${playbackId}.m3u8` : videoPath);
+
+  // Initialize HLS or direct src
+  useEffect(() => {
+    if (!videoRef.current || !streamUrl) return;
+
+    // Clean up previous HLS instance
+    if (hlsRef.current) {
+      hlsRef.current.destroy();
+      hlsRef.current = null;
+    }
+
+    const isHls = streamUrl.includes(".m3u8") || streamUrl.includes("stream.mux.com");
+
+    if (isHls && Hls.isSupported()) {
+      const hls = new Hls({
+        enableWorker: true,
+        lowLatencyMode: true,
+      });
+      hls.loadSource(streamUrl);
+      hls.attachMedia(videoRef.current);
+      hls.on(Hls.Events.ERROR, (event, data) => {
+        if (data.fatal) {
+          console.error("Fatal HLS error:", data);
+          setError("Failed to load HLS stream");
+        }
+      });
+      hlsRef.current = hls;
+    } else if (videoRef.current.canPlayType('application/vnd.apple.mpegurl') && isHls) {
+      // Native HLS support (Safari)
+      videoRef.current.src = streamUrl;
+    } else {
+      // Direct file (MP4/WebM)
+      videoRef.current.src = streamUrl;
+    }
+
+    return () => {
+      if (hlsRef.current) {
+        hlsRef.current.destroy();
+        hlsRef.current = null;
+      }
+    };
+  }, [streamUrl]);
+
   const handlePlayClick = async () => {
     if (!hasStarted) {
       setHasStarted(true);
@@ -134,6 +199,20 @@ export function VideoPlayer({
       onMouseEnter={() => setShowControls(true)}
       onMouseLeave={() => setShowControls(false)}
     >
+      {/* Processing State */}
+      {isProcessing && (
+        <div className="absolute inset-0 z-50 bg-zinc-900 flex flex-col items-center justify-center gap-4 text-center p-6">
+          <div className="relative">
+            <Loader2 className="h-10 w-10 animate-spin text-primary" />
+            <div className="absolute inset-0 blur-xl bg-primary/20 animate-pulse" />
+          </div>
+          <div className="space-y-1">
+            <p className="font-bold text-sm text-foreground">Video Processing</p>
+            <p className="text-[10px] text-muted-foreground uppercase tracking-widest font-black">Mux is preparing your stream</p>
+          </div>
+        </div>
+      )}
+
       {/* Thumbnail State (Lazy Load) */}
       {!hasStarted && (
         <div 
@@ -160,7 +239,6 @@ export function VideoPlayer({
       <div className={hasStarted ? "w-full h-full" : "w-0 h-0 opacity-0 overflow-hidden"}>
         <video
           ref={videoRef}
-          src={streamUrl}
           preload="metadata"
           className="w-full h-full object-contain"
           onTimeUpdate={handleTimeUpdate}

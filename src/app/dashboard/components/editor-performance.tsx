@@ -9,36 +9,7 @@ import { Activity, Clock, Layers, Star, TrendingUp, AlertTriangle, RefreshCw, Ba
 import { cn } from "@/lib/utils";
 import Image from "next/image";
 
-function IndicatorCard({ label, value, subtext, icon, alert, trend, trendUp }: any) {
-    return (
-        <motion.div 
-            initial={{ opacity: 0, y: 15 }}
-            animate={{ opacity: 1, y: 0 }}
-            whileHover={{ y: -4, transition: { duration: 0.2 } }}
-            className={cn(
-                "group relative bg-card shadow-lg border border-border p-6 rounded-2xl transition-all duration-300",
-                alert && "after:absolute after:inset-0 after:rounded-2xl after:ring-2 after:ring-red-500/40 after:animate-pulse"
-            )}
-        >
-            <div className="flex justify-between items-start mb-6">
-                <div className="h-10 w-10 bg-muted border border-border rounded-xl flex items-center justify-center text-muted-foreground group-hover:text-primary group-hover:border-primary/30 transition-all duration-500 shadow-inner">
-                    {icon}
-                </div>
-            </div>
-            
-            <div className="space-y-1">
-                <span className="text-[10px] uppercase font-bold tracking-widest text-muted-foreground group-hover:text-foreground transition-colors">{label}</span>
-                <div className="flex flex-col">
-                    <span className="text-3xl font-black tracking-tighter text-foreground font-heading tabular-nums leading-none">{value}</span>
-                </div>
-                
-                <div className="flex items-center gap-3 pt-4 border-t border-border mt-4">
-                    <span className="text-muted-foreground text-[10px] font-bold uppercase tracking-wider">{subtext}</span>
-                </div>
-            </div>
-        </motion.div>
-    );
-}
+import { IndicatorCard } from "@/components/ui/indicator-card";
 
 export function EditorPerformance({ user, projects }: { user: User, projects: Project[] }) {
     const [revisions, setRevisions] = useState<Revision[]>([]);

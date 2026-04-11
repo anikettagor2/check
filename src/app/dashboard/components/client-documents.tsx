@@ -10,6 +10,7 @@ import { FileText, Download, Upload, Trash2, Eye, Loader2, Link as LinkIcon, Fil
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { MAX_FILE_SIZE_BYTES, MAX_FILE_SIZE_GB } from "@/lib/constants";
+import { UploadService } from "@/lib/services/upload-service";
 
 
 interface ClientDocumentsProps {
@@ -38,22 +39,17 @@ export function ClientDocuments({ userProfile, isClient }: ClientDocumentsProps)
         try {
             const fileId = Date.now().toString();
             const storagePath = `client_documents/${userProfile.uid}/${docType}/${fileId}_${file.name}`;
-            const storageRef = ref(storage, storagePath);
-            const uploadTask = uploadBytesResumable(storageRef, file);
-
-            await new Promise<void>((resolve, reject) => {
-                uploadTask.on('state_changed', 
-                    (snapshot) => {
-                        const progress = (snapshot.bytesTransferred / snapshot.totalBytes) * 100;
-                        setUploadProgress(progress);
-                    }, 
-                    (error) => reject(error), 
-                    () => resolve()
-                );
-            });
-
-            const downloadURL = await getDownloadURL(uploadTask.snapshot.ref);
             
+            const downloadURL = await UploadService.uploadFileUnified(
+                file,
+                userProfile.uid,
+                (progress) => setUploadProgress(progress),
+                { 
+                    type: 'document',
+                    storagePath 
+                }
+            );
+
             const newDoc = {
                 id: fileId,
                 name: file.name,

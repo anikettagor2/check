@@ -148,7 +148,7 @@ service cloud.firestore {
     // 8. Video Jobs (thumbnail/transcode processing status)
     match /video_jobs/{jobId} {
       allow read: if isAuthenticated();
-      allow write: if false;
+      allow write: if isAuthenticated();
     }
 
     // Default deny for anything else

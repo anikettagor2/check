@@ -23,7 +23,9 @@ import { motion, AnimatePresence } from "framer-motion";
 import { toast } from "sonner";
 import { ReviewSystemModal } from "./review-system-modal";
 import { preloadVideosIntoMemory } from "@/lib/video-preload";
-import { VideoPlayer } from "@/components/video-player";
+import { IndicatorCard } from "@/components/ui/indicator-card";
+import MuxPlayer from "@mux/mux-player-react";
+
 
 const CLIENT_VIDEO_TYPE_ALIASES: Record<string, string[]> = {
     "Reel Format": ["Reel Format", "Reels", "Short Videos"],
@@ -73,40 +75,7 @@ function isVideoFile(file: any) {
 
 // ── Sub-components ──────────────────────────────────────────────────────────
 
-function StatsCard({ label, value, icon, color, alert = false }: {
-    label: string; value: string | number; icon: React.ReactNode;
-    color: "blue" | "amber" | "green" | "purple"; alert?: boolean;
-}) {
-    const colorMap = {
-        blue:   "bg-blue-500/10 text-blue-500 border-blue-500/20",
-        amber:  "bg-amber-500/10 text-amber-500 border-amber-500/20",
-        green:  "bg-emerald-500/10 text-emerald-500 border-emerald-500/20",
-        purple: "bg-purple-500/10 text-purple-500 border-purple-500/20",
-    };
-    return (
-        <motion.div
-            initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }}
-            whileHover={{ y: -2 }}
-            className={cn("relative bg-card border border-border rounded-xl p-5 hover:shadow-md transition-all duration-200", alert && "ring-2 ring-amber-500/30")}
-        >
-            <div className="flex items-start justify-between">
-                <div className={cn("h-10 w-10 rounded-lg flex items-center justify-center border", colorMap[color])}>
-                    {icon}
-                </div>
-                {alert && (
-                    <span className="flex h-2 w-2">
-                        <span className="animate-ping absolute inline-flex h-2 w-2 rounded-full bg-amber-400 opacity-75" />
-                        <span className="relative inline-flex rounded-full h-2 w-2 bg-amber-500" />
-                    </span>
-                )}
-            </div>
-            <div className="mt-4">
-                <p className="text-3xl font-bold text-foreground tabular-nums">{value}</p>
-                <p className="text-sm text-muted-foreground mt-1">{label}</p>
-            </div>
-        </motion.div>
-    );
-}
+
 
 function StatusBadge({ status }: { status: string }) {
     const configs: Record<string, { label: string; className: string }> = {
@@ -382,7 +351,7 @@ export function ClientDashboard() {
 
     // ── Render ───────────────────────────────────────────────────────────────
     return (
-        <div className="space-y-8 max-w-[1600px] mx-auto pb-16">
+        <div className="space-y-8 pb-16">
 
             {/* Credit Warning */}
             {isOverLimit && (
@@ -423,11 +392,32 @@ export function ClientDashboard() {
             </motion.div>
 
             {/* Stats Grid */}
-            <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-                <StatsCard label="Total Projects" value={projects.length} icon={<Video className="h-5 w-5" />} color="blue" />
-                <StatsCard label="In Progress" value={activeCount} icon={<Activity className="h-5 w-5" />} color="amber" />
-                <StatsCard label="Completed" value={completedCount} icon={<CheckCircle2 className="h-5 w-5" />} color="green" />
-                <StatsCard label="Pending Payments" value={formatInrWithGst(pendingBase)} icon={<Wallet className="h-5 w-5" />} color="purple" alert={pendingBase > 0} />
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                <IndicatorCard 
+                    label="Total Projects" 
+                    value={projects.length} 
+                    icon={<Video className="h-5 w-5" />}
+                    subtext="All-time projects"
+                />
+                <IndicatorCard 
+                    label="In Progress" 
+                    value={activeCount} 
+                    icon={<Activity className="h-5 w-5" />}
+                    subtext="Under active production"
+                />
+                <IndicatorCard 
+                    label="Completed" 
+                    value={completedCount} 
+                    icon={<CheckCircle2 className="h-5 w-5" />}
+                    subtext="Ready for download"
+                />
+                <IndicatorCard 
+                    label="Pending Payments" 
+                    value={formatInrWithGst(pendingBase)} 
+                    icon={<Wallet className="h-5 w-5" />}
+                    alert={pendingBase > 0} 
+                    subtext="Outstanding balance"
+                />
             </div>
 
             {/* Tabs */}
@@ -782,7 +772,7 @@ export function ClientDashboard() {
                                     </div>
                                 </div>
 
-                                <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3">
                                     {[["Type", selectedProject.videoType || "Video"], ["Format", selectedProject.videoFormat || "—"], ["Ratio", selectedProject.aspectRatio || "—"], ["Duration", selectedProject.duration ? `${selectedProject.duration}m` : "—"]].map(([lbl, val]) => (
                                         <div key={lbl} className="p-3 rounded-lg border border-border bg-muted/20">
                                             <p className="text-[10px] text-muted-foreground uppercase tracking-widest font-bold">{lbl}</p>
@@ -807,7 +797,7 @@ export function ClientDashboard() {
                                 <div className="bg-muted/30 border border-border rounded-lg p-4 space-y-3">
                                     <p className="text-xs text-muted-foreground font-bold uppercase tracking-widest">Project Files</p>
                                     {selectedProject.rawFiles && selectedProject.rawFiles.length > 0 ? (
-                                        <div className="space-y-2">
+                                        <div className="space-y-2 max-h-[200px] overflow-y-auto custom-scrollbar pr-1">
                                             {selectedProject.rawFiles.map((file: any, i: number) => (
                                                 <div key={i} className="flex items-center justify-between gap-3 p-2 rounded-md bg-card border border-border">
                                                     <span className="text-xs font-medium truncate">{file.name}</span>
@@ -913,7 +903,13 @@ export function ClientDashboard() {
                                     {previewFile.type.startsWith("image/") || /\.(jpg|jpeg|png|gif|webp)$/i.test(previewFile.name) ? (
                                         <img src={previewFile.url} alt={previewFile.name} className="max-w-full max-h-full object-contain" />
                                     ) : previewFile.type.startsWith("video/") || /\.(mp4|webm|mov)$/i.test(previewFile.name) ? (
-                                        <VideoPlayer videoPath={previewFile.url} title={previewFile.name} className="w-full h-full" />
+                                        <MuxPlayer
+                                            src={previewFile.url}
+                                            style={{ width: "100%", aspectRatio: "16/9" }}
+                                            autoPlay
+                                            playsInline
+                                            streamType="on-demand"
+                                        />
                                     ) : (
                                         <div className="text-center text-white">
                                             <FileVideo className="h-12 w-12 mx-auto mb-4 opacity-50" />

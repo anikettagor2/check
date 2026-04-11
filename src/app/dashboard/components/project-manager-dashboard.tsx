@@ -41,9 +41,9 @@ import {
     FileText,
     Link as LinkIcon
 } from "lucide-react";
-import { db, storage } from "@/lib/firebase/config";
-import { collection, query, orderBy, onSnapshot, updateDoc, doc, where } from "firebase/firestore";
-import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
+import { db } from "@/lib/firebase/config";
+import { collection, query, orderBy, onSnapshot, updateDoc, doc, where, arrayUnion } from "firebase/firestore";
+import { UploadService } from "@/lib/services/upload-service";
 import { Project, User } from "@/types/schema";
 import { 
     assignEditor,
@@ -72,9 +72,12 @@ import { Modal } from "@/components/ui/modal";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Label } from "@/components/ui/label";
 import { FilePreview } from "@/components/file-preview";
+import MuxPlayer from "@mux/mux-player-react";
 import { ReviewSystemModal } from "./review-system-modal";
 import { preloadVideosIntoMemory } from "@/lib/video-preload";
 import { VideoPlayer } from "@/components/video-player";
+import { IndicatorCard } from "@/components/ui/indicator-card";
+
 
 function isVideoFile(file: any) {
     const type = file?.type || "";
@@ -83,50 +86,7 @@ function isVideoFile(file: any) {
 }
 
 
-// Stats Card Component
-function StatsCard({ icon, value, label, color = "blue", alert = false }: {
-    icon: React.ReactNode;
-    value: number | string;
-    label: string;
-    color?: "blue" | "amber" | "green" | "purple" | "red";
-    alert?: boolean;
-}) {
-    const colorStyles = {
-        blue: "bg-blue-500/10 text-blue-600 border-blue-500/20",
-        amber: "bg-amber-500/10 text-amber-600 border-amber-500/20",
-        green: "bg-emerald-500/10 text-emerald-600 border-emerald-500/20",
-        purple: "bg-purple-500/10 text-purple-600 border-purple-500/20",
-        red: "bg-red-500/10 text-red-600 border-red-500/20"
-    };
 
-    return (
-        <motion.div 
-            initial={{ opacity: 0, y: 12 }}
-            animate={{ opacity: 1, y: 0 }}
-            whileHover={{ y: -2 }}
-            className={cn(
-                "relative bg-card border border-border rounded-xl p-5 hover:shadow-md transition-all duration-200",
-                alert && "ring-2 ring-amber-500/30"
-            )}
-        >
-            <div className="flex items-start justify-between">
-                <div className={cn("h-10 w-10 rounded-lg flex items-center justify-center border", colorStyles[color])}>
-                    {icon}
-                </div>
-                {alert && (
-                    <span className="flex h-2 w-2">
-                        <span className="animate-ping absolute inline-flex h-2 w-2 rounded-full bg-amber-400 opacity-75"></span>
-                        <span className="relative inline-flex rounded-full h-2 w-2 bg-amber-500"></span>
-                    </span>
-                )}
-            </div>
-            <div className="mt-4">
-                <p className="text-3xl font-bold text-foreground tabular-nums">{value}</p>
-                <p className="text-sm text-muted-foreground mt-1">{label}</p>
-            </div>
-        </motion.div>
-    );
-}
 
 // Status Badge Component
 function StatusBadge({ status, size = "sm" }: { status: string; size?: "sm" | "md" }) {
@@ -424,16 +384,16 @@ export function ProjectManagerDashboard() {
 
         setIsUploadingPMFile(true);
         try {
+            const downloadURL = await UploadService.uploadFileUnified(file, {
+                projectId: inspectProject.id,
+                type: 'pm_file',
+                onProgress: (progress) => {
+                    console.log(`[PMUpload] Progress: ${progress.percent.toFixed(2)}%`);
+                }
+            });
+
             const timestamp = Date.now();
-            const fileName = `${timestamp}-${file.name}`;
-            const storageRef = ref(storage, `projects/${inspectProject.id}/pm-files/${fileName}`);
-
-            // Upload to Firebase Storage
-            await uploadBytes(storageRef, file);
-            const downloadURL = await getDownloadURL(storageRef);
-
             // Store PM uploads in a dedicated field so they do not pollute client style references.
-            const currentPmFiles = ((inspectProject as any).pmFiles || []) as any[];
             const newPMFile = {
                 name: file.name,
                 url: downloadURL,
@@ -444,7 +404,7 @@ export function ProjectManagerDashboard() {
             };
 
             await updateDoc(doc(db, "projects", inspectProject.id), {
-                pmFiles: [...currentPmFiles, newPMFile],
+                pmFiles: arrayUnion(newPMFile),
                 updatedAt: Date.now()
             });
 
@@ -526,7 +486,7 @@ export function ProjectManagerDashboard() {
     );
 
     return (
-        <div className="space-y-8 max-w-[1600px] mx-auto pb-16">
+        <div className="space-y-8 pb-16">
             {/* Header */}
             <motion.div 
                 initial={{ opacity: 0, y: -10 }}
@@ -566,33 +526,33 @@ export function ProjectManagerDashboard() {
             </motion.div>
 
             {/* Stats Grid */}
-            <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-                <StatsCard 
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                <IndicatorCard 
                     icon={<Plus className="h-5 w-5" />}
                     value={unassignedCount}
                     label="Needs Assignment"
-                    color="amber"
                     alert={unassignedCount > 0}
+                    subtext="Pending editor selection"
                 />
-                <StatsCard 
+                <IndicatorCard 
                     icon={<Activity className="h-5 w-5" />}
                     value={activeCount}
                     label="Active Projects"
-                    color="blue"
+                    subtext="Currently in production"
                 />
-                <StatsCard 
+                <IndicatorCard 
                     icon={<IndianRupee className="h-5 w-5" />}
                     value={editorPendingCount}
                     label="Pending Editor Payments"
-                    color="purple"
                     alert={editorPendingCount > 0}
+                    subtext="Awaiting settlement"
                 />
-                <StatsCard 
+                <IndicatorCard 
                     icon={<Download className="h-5 w-5" />}
                     value={pendingUnlockCount}
                     label="Download Requests"
-                    color="green"
                     alert={pendingUnlockCount > 0}
+                    subtext="Payment verification needed"
                 />
             </div>
 
@@ -1343,7 +1303,7 @@ export function ProjectManagerDashboard() {
                         </div>
 
                         {/* Stats Grid */}
-                        <div className="grid grid-cols-4 gap-3">
+                        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
                             <div className="bg-card border border-border rounded-xl p-4 text-center">
                                 <p className="text-2xl font-black text-foreground">
                                     {projects.filter(p => p.assignedEditorId === selectedEditorDetail.uid && p.status === 'completed').length}
@@ -1395,7 +1355,7 @@ export function ProjectManagerDashboard() {
                                 )}
                             </div>
                             {selectedEditorDetail.portfolio && selectedEditorDetail.portfolio.length > 0 ? (
-                                <div className="grid grid-cols-2 gap-3">
+                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                                     {selectedEditorDetail.portfolio.map((item: {name?: string; url: string; thumbnail?: string}, i: number) => (
                                         <a 
                                             key={i} 
@@ -1544,7 +1504,7 @@ export function ProjectManagerDashboard() {
                             </div>
 
                             {/* Specs Grid */}
-                            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3">
                                 {[
                                     { label: 'Type', value: inspectProject.videoType || '—', icon: <Layers className="h-4 w-4" /> },
                                     { label: 'Format', value: inspectProject.videoFormat || '—', icon: <Monitor className="h-4 w-4" /> },
@@ -1692,8 +1652,8 @@ export function ProjectManagerDashboard() {
                                         <span className="text-[11px] font-bold uppercase tracking-widest text-muted-foreground">🎬 Raw Video Files</span>
                                     </div>
                                     {inspectProject.rawFiles && inspectProject.rawFiles.length > 0 ? (
-                                        <div className="grid gap-2">
-                                            {inspectProject.rawFiles.slice(0, 3).map((file: any, idx: number) => (
+                                        <div className="flex flex-col gap-2 max-h-[200px] overflow-y-auto pr-2 custom-scrollbar">
+                                            {inspectProject.rawFiles.map((file: any, idx: number) => (
                                                 <div key={idx} className="flex items-center justify-between gap-3 p-3 rounded-lg border border-border/30 hover:bg-muted/30 transition-all group">
                                                     <div className="flex items-center gap-2 min-w-0 flex-1">
                                                         <FileVideo className="h-4 w-4 text-muted-foreground flex-shrink-0" />
@@ -1718,9 +1678,6 @@ export function ProjectManagerDashboard() {
                                                     </div>
                                                 </div>
                                             ))}
-                                            {(inspectProject.rawFiles?.length || 0) > 3 && (
-                                                <p className="text-xs text-muted-foreground text-center py-1">+{(inspectProject.rawFiles?.length || 0) - 3} more files</p>
-                                            )}
                                         </div>
                                     ) : (
                                         <div className="p-3 rounded-lg border border-border/30 bg-muted/20">
@@ -1737,8 +1694,8 @@ export function ProjectManagerDashboard() {
 
                                     {/* Uploaded Script Files */}
                                     {inspectProject.scripts && inspectProject.scripts.length > 0 && (
-                                        <div className="grid gap-2">
-                                            {inspectProject.scripts.slice(0, 2).map((file: any, idx: number) => (
+                                        <div className="flex flex-col gap-2 max-h-[150px] overflow-y-auto pr-2 custom-scrollbar">
+                                            {inspectProject.scripts.map((file: any, idx: number) => (
                                                 <div key={idx} className="flex items-center justify-between gap-3 p-3 rounded-lg border border-border/30 hover:bg-muted/30 transition-all group">
                                                     <div className="flex items-center gap-2 min-w-0 flex-1">
                                                         <FileText className="h-4 w-4 text-muted-foreground flex-shrink-0" />
@@ -1885,8 +1842,8 @@ export function ProjectManagerDashboard() {
 
                                     {/* Reference Files */}
                                     {inspectStyleReferenceFiles.length > 0 && (
-                                        <div className="grid gap-2">
-                                            {inspectStyleReferenceFiles.slice(0, 2).map((file: any, idx: number) => (
+                                        <div className="grid gap-2 max-h-[150px] overflow-y-auto custom-scrollbar pr-2">
+                                            {inspectStyleReferenceFiles.map((file: any, idx: number) => (
                                                 <div key={idx} className="flex items-center justify-between gap-3 p-3 rounded-lg border border-border/30 hover:bg-muted/30 transition-all group">
                                                     <div className="flex items-center gap-2 min-w-0 flex-1">
                                                         {file.type?.includes('image') ? (
@@ -1912,9 +1869,6 @@ export function ProjectManagerDashboard() {
                                                     </div>
                                                 </div>
                                             ))}
-                                            {(inspectStyleReferenceFiles.length || 0) > 2 && (
-                                                <p className="text-xs text-muted-foreground text-center py-1">+{(inspectStyleReferenceFiles.length || 0) - 2} more files</p>
-                                            )}
                                         </div>
                                     )}
 
@@ -1932,8 +1886,8 @@ export function ProjectManagerDashboard() {
                                         <span className="text-[11px] font-bold uppercase tracking-widest text-muted-foreground">📤 PM Uploaded Files</span>
                                     </div>
                                     {inspectPmFiles.length > 0 ? (
-                                        <div className="grid gap-2">
-                                            {inspectPmFiles.slice(0, 2).map((file: any, idx: number) => (
+                                        <div className="grid gap-2 max-h-[150px] overflow-y-auto custom-scrollbar pr-2">
+                                            {inspectPmFiles.map((file: any, idx: number) => (
                                                 <div key={`${file.url}-${idx}`} className="flex items-center justify-between gap-3 p-3 rounded-lg border border-border/30 hover:bg-muted/30 transition-all group">
                                                     <div className="flex items-center gap-2 min-w-0 flex-1">
                                                         {file.type?.includes('image') ? (
@@ -1959,9 +1913,6 @@ export function ProjectManagerDashboard() {
                                                     </div>
                                                 </div>
                                             ))}
-                                            {inspectPmFiles.length > 2 && (
-                                                <p className="text-xs text-muted-foreground text-center py-1">+{inspectPmFiles.length - 2} more files</p>
-                                            )}
                                         </div>
                                     ) : (
                                         <div className="p-3 rounded-lg border border-border/30 bg-muted/20">
@@ -2012,7 +1963,7 @@ export function ProjectManagerDashboard() {
                                     </p>
                                 </div>
                                 
-                                <div className="grid grid-cols-2 gap-3">
+                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                                     <div className="p-3 bg-emerald-500/10 border border-emerald-500/20 rounded-lg">
                                         <p className="text-xs text-emerald-600">Editor Pay</p>
                                         <p className="text-lg font-bold text-emerald-600 tabular-nums">
@@ -2071,16 +2022,18 @@ export function ProjectManagerDashboard() {
                                 <button onClick={() => setPreviewFile(null)} className="absolute top-4 right-4 h-10 w-10 bg-white/10 hover:bg-white/20 text-white rounded-full flex items-center justify-center backdrop-blur-md z-10 transition-all">
                                     <X className="h-5 w-5" />
                                 </button>
-                                {previewFile.type.startsWith('image/') || /\.(jpg|jpeg|png|gif|webp)$/i.test(previewFile.name) ? (
-                                    <img src={previewFile.url} alt={previewFile.name} className="max-w-full max-h-full object-contain" />
-                                ) : previewFile.type.startsWith('video/') || /\.(mp4|webm|mov)$/i.test(previewFile.name) ? (
-                                    <VideoPlayer videoPath={previewFile.url} title={previewFile.name} className="w-full h-full" />
-                                ) : (
-                                    <div className="text-center text-white">
-                                        <FileVideo className="h-12 w-12 mx-auto mb-4 opacity-50" />
-                                        <p className="text-sm">{previewFile.name}</p>
-                                    </div>
-                                )}
+                                <div className="relative w-full max-w-5xl aspect-video bg-black/50 rounded-2xl overflow-hidden shadow-2xl border border-white/10 mt-8 mb-4">
+                                    {previewFile.type.startsWith('image/') || /\.(jpg|jpeg|png|gif|webp)$/i.test(previewFile.name) ? (
+                                        <img src={previewFile.url} alt={previewFile.name} className="w-full h-full object-contain" />
+                                    ) : previewFile.type.startsWith('video/') || /\.(mp4|webm|mov)$/i.test(previewFile.name) ? (
+                                        <MuxPlayer src={previewFile.url} style={{ aspectRatio: "16/9" }} autoPlay="muted" className="w-full h-full object-contain" />
+                                    ) : (
+                                        <div className="text-center text-white">
+                                            <FileVideo className="h-12 w-12 mx-auto mb-4 opacity-50" />
+                                            <p className="text-sm">{previewFile.name}</p>
+                                        </div>
+                                    )}
+                                </div>
                             </div>
                         </div>
                     )}

@@ -3,11 +3,10 @@
 import { useState, useRef, useCallback, useEffect } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { useAuth } from "@/lib/context/auth-context";
-import { db, storage } from "@/lib/firebase/config";
-import { collection, addDoc, query, where, getDocs } from "firebase/firestore";
-import { ref, uploadBytesResumable, getDownloadURL } from "firebase/storage";
-import { formatBytes } from "@/lib/services/chunked-upload";
-import { Revision } from "@/types/schema";
+import { db } from "@/lib/firebase/config";
+import { collection, query, where, getDocs, doc, setDoc } from "firebase/firestore";
+import { UploadService, UploadProgress } from "@/lib/services/upload-service";
+import { Revision, VideoJob } from "@/types/schema";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import {
@@ -41,8 +40,8 @@ export default function UploadRevisionPage() {
     const [previewUrl, setPreviewUrl] = useState<string | null>(null);
     const [description, setDescription] = useState("");
     const [isUploading, setIsUploading] = useState(false);
-    const [uploadProg, setUploadProg] = useState<number | null>(null);
-    const abortRef = useRef<AbortController | null>(null);
+    const [uploadProg, setUploadProg] = useState<UploadProgress | null>(null);
+    const abortRef = useRef<AbortController | (() => void) | null>(null);
 
     useEffect(() => {
         return () => {
@@ -59,110 +58,88 @@ export default function UploadRevisionPage() {
     }, [previewUrl]);
 
     const handleCancel = () => {
-        abortRef.current?.abort();
+        if (abortRef.current) {
+            if (typeof abortRef.current === 'function') {
+                abortRef.current();
+            } else {
+                abortRef.current.abort();
+            }
+        }
         setIsUploading(false);
         setUploadProg(null);
     };
 
-    const handleUpload = async (e: React.FormEvent) => {
-    e.preventDefault();
-    // Use 'id' as per your provided snippet
-    if (!file || !user || typeof id !== "string") return;
+        try {
+            // 1. Versioning Logic
+            const q = query(
+                collection(db, "revisions"),
+                where("projectId", "==", id)
+            );
+            const snap = await getDocs(q);
+            let nextVersion = 1;
+            if (!snap.empty) {
+                // Sort in memory by version (descending) and get the latest
+                const revisions = snap.docs.map(doc => doc.data() as Revision);
+                const latest = revisions.sort((a, b) => (b.version || 0) - (a.version || 0))[0];
+                nextVersion = (latest.version || 0) + 1;
+            }
 
-    if (file.size > MAX_FILE_SIZE_BYTES) {
-        toast.error(`File is too large. Max size allowed is ${MAX_FILE_SIZE_GB}GB.`);
-        return;
-    }
+            const revisionRef = doc(collection(db, "revisions"));
+            const revisionId = revisionRef.id;
 
-    setIsUploading(true);
-    setUploadProg(null);
+            // 1. Create the Revision document
+            const newRevision: Revision = {
+                id: revisionId,
+                projectId: id,
+                version: nextVersion,
+                videoUrl: "", // Use playbackId instead for Mux
+                status: "active",
+                uploadedBy: user.uid,
+                createdAt: Date.now(),
+                description,
+            };
 
-    const controller = new AbortController();
-    abortRef.current = controller;
+            await setDoc(revisionRef, newRevision);
 
-    try {
-        // 1. Versioning Logic (Keep your existing Firestore query)
-        const q = query(
-            collection(db, "revisions"),
-            where("projectId", "==", id)
-        );
-        const snap = await getDocs(q);
-        let nextVersion = 1;
-        if (!snap.empty) {
-            const revisions = snap.docs.map(doc => doc.data() as Revision);
-            const latest = revisions.sort((a, b) => (b.version || 0) - (a.version || 0))[0];
-            nextVersion = latest.version + 1;
-        }
+            // 2. Create VideoJob for tracking processing status
+            const videoJob: VideoJob = {
+                id: revisionId,
+                projectId: id,
+                revisionId,
+                status: "pending",
+                createdAt: Date.now(),
+                updatedAt: Date.now(),
+            };
+            await setDoc(doc(db, "video_jobs", revisionId), videoJob);
 
-        // 2. Cloudinary Upload Logic
-        const downloadURL = await new Promise<string>((resolve, reject) => {
-            const formData = new FormData();
-            formData.append("file", file);
-            formData.append("upload_preset", process.env.NEXT_PUBLIC_CLOUDINARY_UPLOAD_PRESET!);
-            formData.append("resource_type", "video");
-            
-            // Organized folder path
-            formData.append("folder", `editor_works/${id}`);
-
-            const xhr = new XMLHttpRequest();
-            xhr.open("POST", `https://api.cloudinary.com/v1_1/${process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME}/video/upload`);
-
-            // Attach Abort listener
-            const handleAbort = () => xhr.abort();
-            controller.signal.addEventListener("abort", handleAbort);
-
-            xhr.upload.onprogress = (event) => {
-                if (event.lengthComputable) {
-                    const progress = (event.loaded / event.total) * 100;
+            // 3. Perform the upload via Unified Upload Service
+            await UploadService.uploadFileUnified(file, {
+                projectId: id,
+                revisionId,
+                type: 'revision',
+                onProgress: (progress) => {
                     setUploadProg(progress);
+                },
+                onCancelRef: (cancel) => {
+                    abortRef.current = cancel;
                 }
-            };
+            });
 
-            xhr.onload = () => {
-                controller.signal.removeEventListener("abort", handleAbort);
-                if (xhr.status >= 200 && xhr.status < 300) {
-                    const response = JSON.parse(xhr.responseText);
-                    // playback_url is the HLS manifest link (.m3u8)
-                    resolve(response.playback_url || response.secure_url);
-                } else {
-                    reject(new Error("Cloudinary upload failed"));
-                }
-            };
-
-            xhr.onerror = () => {
-                controller.signal.removeEventListener("abort", handleAbort);
-                reject(new Error("Network error"));
-            };
-
-            xhr.send(formData);
-        });
-
-        // 3. Save Revision to Firestore
-        const newRevision: Omit<Revision, "id"> = {
-            projectId: id,
-            version: nextVersion,
-            videoUrl: downloadURL, // HLS link saved here
-            status: "active",
-            uploadedBy: user.uid,
-            createdAt: Date.now(),
-            description,
-        };
-
-        await addDoc(collection(db, "revisions"), newRevision);
-        await handleRevisionUploaded(id);
-        
-        toast.success("Revision uploaded successfully!");
-        router.push(`/dashboard/projects/${id}`);
-
-    } catch (err: unknown) {
-        if (err instanceof Error && err.name !== "AbortError") {
-            console.error("Upload failed:", err);
-            toast.error("Upload failed. Please try again.");
+            await handleRevisionUploaded(id);
+            router.push(`/dashboard/projects/${id}`);
+        } catch (err: unknown) {
+            if (err instanceof Error && err.name !== "AbortError") {
+                console.error("Upload failed:", err);
+                toast.error("Upload failed. Please try again.");
+            }
+            setIsUploading(false);
+            setUploadProg(null);
         }
         setIsUploading(false);
         setUploadProg(null);
     }
 };
+
    
     // const handleUpload = async (e: React.FormEvent) => {
     //     e.preventDefault();
@@ -247,10 +224,10 @@ export default function UploadRevisionPage() {
     // };
 
     const statusLabel = uploadProg === null
-        ? "Uploading..."
-        : uploadProg === 100
-        ? "Complete"
-        : "Uploading...";
+        ? "Initializing..."
+        : uploadProg.percent === 100
+        ? "Finalizing..."
+        : `Uploading... ${UploadService.formatSpeed(uploadProg.speedBps || 0)}`;
 
     return (
         <div className="min-h-[calc(100vh-10rem)] flex items-center justify-center p-6">
@@ -317,7 +294,7 @@ export default function UploadRevisionPage() {
                                         <FileVideo className="h-4 w-4 text-primary shrink-0" />
                                         <span className="text-[12px] font-black text-foreground truncate">{file?.name}</span>
                                         <span className="ml-auto text-[10px] font-black text-emerald-500 uppercase tracking-widest shrink-0">
-                                            {file ? formatBytes(file.size) : ""}
+                                            {file ? UploadService.formatBytes(file.size) : ""}
                                         </span>
                                     </div>
                                 </motion.div>
@@ -379,12 +356,21 @@ export default function UploadRevisionPage() {
                             >
                                 <div className="space-y-2">
                                     <div className="flex justify-between items-center">
-                                        <span className="text-[10px] font-black text-muted-foreground uppercase tracking-widest animate-pulse">{statusLabel}</span>
-                                        <span className="text-[10px] font-black text-foreground uppercase tracking-widest">{Math.round(uploadProg)}%</span>
+                                        <div className="flex flex-col gap-1">
+                                            <span className="text-[10px] font-black text-muted-foreground uppercase tracking-widest animate-pulse">
+                                                {statusLabel}
+                                            </span>
+                                            {uploadProg.eta !== undefined && uploadProg.eta > 0 && (
+                                                <span className="text-[8px] font-bold text-muted-foreground/60 uppercase tracking-tighter">
+                                                    {UploadService.formatEta(uploadProg.eta)} remaining
+                                                </span>
+                                            )}
+                                        </div>
+                                        <span className="text-[10px] font-black text-foreground uppercase tracking-widest">{Math.round(uploadProg.percent)}%</span>
                                     </div>
                                     <div className="h-2 w-full bg-muted/50 rounded-full overflow-hidden border border-border">
                                         <motion.div
-                                            animate={{ width: `${uploadProg}%` }}
+                                            animate={{ width: `${uploadProg.percent}%` }}
                                             transition={{ ease: "linear", duration: 0.2 }}
                                             className="h-full bg-primary shadow-[0_0_20px_rgba(var(--primary),0.8)]"
                                         />

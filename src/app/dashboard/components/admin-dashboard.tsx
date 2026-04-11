@@ -93,45 +93,7 @@ import { AdminPerformanceTab } from "./admin-performance";
 import { ClientDocuments } from "./client-documents";
 
 
-function IndicatorCard({ label, value, subtext, trend, trendUp, alert, icon }: any) {
-    return (
-        <motion.div 
-            initial={{ opacity: 0, y: 15 }}
-            animate={{ opacity: 1, y: 0 }}
-            whileHover={{ y: -4, transition: { duration: 0.2 } }}
-            className={cn(
-                "group relative enterprise-card p-6 md:p-8 transition-all duration-300",
-                alert && "after:absolute after:inset-0 after:rounded-xl after:ring-1 after:ring-primary/40 after:animate-pulse"
-            )}
-        >
-            <div className="flex justify-between items-start mb-6">
-                <div className="h-10 w-10 bg-muted/50 border border-border rounded-lg flex items-center justify-center text-muted-foreground group-hover:text-primary group-hover:border-primary/30 transition-all duration-300">
-                    {icon}
-                </div>
-                {alert && <div className="h-2 w-2 rounded-full bg-primary animate-pulse shadow-[0_0_10px_rgba(var(--primary),0.8)]" />}
-            </div>
-            
-            <div className="space-y-1.5">
-                <span className="text-[11px] uppercase font-bold tracking-widest text-muted-foreground group-hover:text-muted-foreground transition-colors">{label}</span>
-                <div className="flex items-end gap-3">
-                    <span className="text-3xl font-black tracking-tight text-foreground font-heading tabular-nums">{value}</span>
-                </div>
-                
-                <div className="flex items-center gap-3 pt-4 border-t border-border mt-4">
-                    {trend && (
-                        <span className={cn(
-                            "flex items-center gap-1.5 px-1.5 py-0.5 rounded text-[9px] font-bold uppercase tracking-widest", 
-                            trendUp ? "bg-emerald-500/10 text-emerald-500 border border-emerald-500/20" : "bg-card text-muted-foreground border border-border"
-                        )}>
-                            {trend}
-                        </span>
-                    )}
-                    <span className="text-muted-foreground text-[10px] font-bold uppercase tracking-wider">{subtext}</span>
-                </div>
-            </div>
-        </motion.div>
-    );
-}
+import { IndicatorCard } from "@/components/ui/indicator-card";
 
 function StatusIndicator({ status }: { status: string }) {
     const config: any = {
@@ -750,14 +712,13 @@ export function AdminDashboard() {
       const uPending = uProjects.reduce((acc, p) => acc + ((p.totalCost || 0) - (p.amountPaid || 0)), 0);
       return uPending >= (u.creditLimit || 5000);
   });
-
   const adminTransactions = projects
       .flatMap(project => (project.logs || []).map(log => ({ project, log })))
       .filter(({ log }) => ['PAYMENT_SETTLED', 'PAYMENT_MARKED'].includes(log.event))
       .sort((a, b) => b.log.timestamp - a.log.timestamp);
 
   return (
-    <div className="space-y-10 max-w-[1600px] mx-auto pb-20 pt-4">
+    <div className="space-y-10 pb-20 pt-4">
        {/* Edit Team Member Modal */}
        {isEditUserModalOpen && editUser && (
            <Modal isOpen={isEditUserModalOpen} onClose={() => { setIsEditUserModalOpen(false); setEditUser(null); }} title="Edit Team Member" maxWidth="max-w-lg">
@@ -3031,7 +2992,7 @@ export function AdminDashboard() {
                                         <h5 className="text-[11px] font-black uppercase tracking-widest text-primary flex items-center gap-2">
                                             <Activity className="h-4 w-4" /> Performance Metrics
                                         </h5>
-                                        <div className="grid grid-cols-3 gap-4">
+                                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                                             <div className="p-4 bg-card border border-border rounded-xl text-center">
                                                 <div className="text-xl font-black text-foreground">{(selectedUserDetail as any).accuracy || "98%"}</div>
                                                 <div className="text-[8px] font-black text-muted-foreground uppercase tracking-widest">Accuracy</div>
@@ -3064,7 +3025,7 @@ export function AdminDashboard() {
                                         <h5 className="text-[11px] font-black uppercase tracking-widest text-amber-500 flex items-center gap-2">
                                             <Star className="h-4 w-4" /> Skillset & Pricing
                                         </h5>
-                                        <div className="grid grid-cols-2 gap-3">
+                                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                                             {selectedUserDetail.skills?.map((skill: string, i: number) => (
                                                 <div key={i} className="p-3 bg-card border border-border rounded-xl flex flex-col hover:border-primary/20 transition-all">
                                                     <span className="text-[8px] font-black text-muted-foreground uppercase tracking-widest mb-1">{skill}</span>
@@ -3084,7 +3045,7 @@ export function AdminDashboard() {
                                         <h5 className="text-[11px] font-black uppercase tracking-widest text-blue-500 flex items-center gap-2">
                                             <Activity className="h-4 w-4" /> Operational Load
                                         </h5>
-                                        <div className="grid grid-cols-2 gap-4">
+                                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                                             <div className="p-4 bg-card border border-border rounded-xl text-center">
                                                 <div className="text-2xl font-black text-foreground">{projects.filter(p => p.assignedPMId === selectedUserDetail.uid).length}</div>
                                                 <div className="text-[8px] font-black text-muted-foreground uppercase tracking-widest">Managed Stacks</div>
@@ -3148,7 +3109,7 @@ export function AdminDashboard() {
                                         <Activity className="h-4 w-4" /> Project History
                                     </h5>
                                     <div className="bg-card border border-border rounded-xl p-3 relative z-10 overflow-x-auto">
-                                        <table className="w-full min-w-[820px]">
+                                        <table className="w-full min-w-[800px]">
                                             <thead>
                                                 <tr className="border-b border-border/70">
                                                     <th className="text-left py-2 px-2 text-[9px] font-black uppercase tracking-widest text-muted-foreground">Project</th>
@@ -3338,7 +3299,7 @@ export function AdminDashboard() {
                         {/* LEFT COLUMN: 8 Units */}
                         <div className="lg:col-span-8 space-y-6">
                             {/* Row 1: Technical & Metrics */}
-                            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
                                 {[
                                     { label: 'Video Type', value: inspectProject.videoType || 'N/A', icon: <Layers className="h-3.5 w-3.5" /> },
                                     { label: 'Format', value: inspectProject.videoFormat || 'N/A', icon: <Monitor className="h-3.5 w-3.5" /> },
@@ -3374,7 +3335,7 @@ export function AdminDashboard() {
                                                 </a>
                                             )}
                                         </div>
-                                        <div className="grid grid-cols-4 gap-3">
+                                        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
                                             {[
                                                 { label: 'Raw Files', count: inspectProject.rawFiles?.length || 0 },
                                                 { label: 'Scripts', count: inspectProject.scripts?.length || 0 },
@@ -3626,7 +3587,7 @@ export function AdminDashboard() {
                           className="w-full h-11 bg-black/5 dark:bg-black/40 border border-border rounded-lg px-4 text-sm text-foreground focus:outline-none focus:border-primary/50 transition-colors"
                       />
                   </div>
-                  <div className="grid grid-cols-2 gap-4">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                       <div className="space-y-1.5">
                           <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest ml-1">Location (Optional)</label>
                           <input 

@@ -234,7 +234,7 @@ export default function AutoAssignPage() {
                     <Settings2 className="w-5 h-5 text-muted-foreground" />
                     <h2 className="text-lg font-bold text-foreground">Global Settings</h2>
                 </div>
-                <div className="grid grid-cols-2 gap-6">
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                     <div>
                         <label className="text-sm font-medium text-muted-foreground mb-2 block">
                             Default Max Projects Per Editor
@@ -424,7 +424,7 @@ export default function AutoAssignPage() {
                 {availableEditors.length === 0 ? (
                     <p className="text-sm text-muted-foreground">All editors are already in the auto-assign pool.</p>
                 ) : (
-                    <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+                    <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
                         {availableEditors.map(editor => {
                             const workload = getEditorWorkload(editor.uid);
                             const status = editor.availabilityStatus || 'offline';

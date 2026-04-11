@@ -4,7 +4,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { Modal } from "@/components/ui/modal";
 import { db } from "@/lib/firebase/config";
 import { useAuth } from "@/lib/context/auth-context";
-import { addDoc, collection, doc, getDocs, onSnapshot, query, updateDoc, where, deleteDoc } from "firebase/firestore";
+import { addDoc, collection, doc, getDocs, onSnapshot, query, updateDoc, where, deleteDoc, limit } from "firebase/firestore";
 import { Loader2, MessageSquare, Upload, Share2, Copy, Download, Star, X, Send, Image as ImageIcon, Clock, Users, Play } from "lucide-react";
 import { toast } from "sonner";
 import { registerDownload, submitEditorRating } from "@/app/actions/project-actions";
@@ -13,6 +13,7 @@ import { PaymentButton } from "@/components/payment-button";
 import { uploadCommentImage } from "@/lib/firebase/storage-utils";
 import { DashboardVideo } from "@/components/dashboard-video-optimizer";
 import { warmVideoInMemory } from "@/lib/video-preload";
+import MuxPlayer from "@mux/mux-player-react";
 
 
 type ReviewProject = {
@@ -34,7 +35,8 @@ type RevisionDoc = {
     id: string;
     projectId: string;
     version?: number;
-    videoUrl?: string;
+    videoUrl?: string; // Legacy
+    playbackId?: string; // New: Mux Playback ID
     hlsUrl?: string;
     fileSize?: number;
     description?: string;
@@ -614,36 +616,106 @@ const startDownload = async () => {
         setRevisions([]);
         setSelectedRevisionId("");
 
-        (async () => {
-            try {
-                const q = query(collection(db, "revisions"), where("projectId", "==", project.id));
-                const snap = await getDocs(q);
+        const q = query(collection(db, "revisions"), where("projectId", "==", project.id));
+        const unsubRevisions = onSnapshot(
+            q,
+            (snap) => {
                 const next = snap.docs
                     .map((doc) => ({ id: doc.id, ...(doc.data() as any) } as RevisionDoc))
                     .sort((a, b) => (b.version || 0) - (a.version || 0));
 
-                console.log('[ReviewSystemModal] Fetched revisions:', next);
+                console.log('[ReviewSystemModal] Fetched live revisions:', next);
                 setRevisions(next);
                 
                 // Preheat all parsed videos for instant playback with blob caching
                 next.forEach(r => {
-                    const videoSrc = r.hlsUrl || r.videoUrl;
+                    const videoSrc = r.playbackId ? `https://stream.mux.com/${r.playbackId}.m3u8` : (r.hlsUrl || r.videoUrl);
                     if (videoSrc) warmVideoInMemory(videoSrc);
                 });
 
                 if (next.length > 0) {
-                    const defaultRev = defaultRevisionId && next.find(r => r.id === defaultRevisionId) ? defaultRevisionId : next[0].id;
-                    console.log('[ReviewSystemModal] Setting revision as selected:', defaultRev);
-                    setSelectedRevisionId(defaultRev);
+                    setSelectedRevisionId(currentSelected => {
+                        if (currentSelected && next.find(r => r.id === currentSelected)) {
+                            return currentSelected;
+                        }
+                        const defaultRev = defaultRevisionId && next.find(r => r.id === defaultRevisionId) ? defaultRevisionId : next[0].id;
+                        console.log('[ReviewSystemModal] Setting revision as selected:', defaultRev);
+                        return defaultRev;
+                    });
+                } else {
+                    setSelectedRevisionId("");
                 }
-            } catch (error) {
-                console.error("Failed loading revisions:", error);
-                toast.error("Unable to load revisions.");
-            } finally {
+                setLoadingRevisions(false);
+            },
+            (error) => {
+                console.error("Failed syncing revisions:", error);
+                toast.error("Unable to sync revisions.");
                 setLoadingRevisions(false);
             }
-        })();
-    }, [isOpen, project?.id]);
+        );
+
+        return () => unsubRevisions();
+    }, [isOpen, project?.id, defaultRevisionId]);
+
+    // Manual sync for Mux when webhooks fail (e.g. localhost)
+    useEffect(() => {
+        if (!isOpen || !selectedRevisionId) return;
+
+        const rev = revisions.find(r => r.id === selectedRevisionId);
+        if (!rev || rev.playbackId || rev.hlsUrl || rev.videoUrl) return;
+
+        let isPolling = true;
+
+        const checkMuxStatus = async () => {
+            if (!isPolling) return;
+            try {
+                // Find uploadId from video_jobs. UploadDraftModal creates a duplicate job with doc.id = revisionId,
+                // while UploadService creates one with doc.id = mux uploadId.
+                const q = query(collection(db, "video_jobs"), where("revisionId", "==", selectedRevisionId));
+                const snap = await getDocs(q);
+                if (snap.empty) return;
+                
+                // Firebase IDs are precisely 20 characters long. Mux IDs are usually differently length or pattern.
+                // We also know UploadDraftModal uses revisionId as doc.id, so we filter that out.
+                const muxJobDoc = snap.docs.find(doc => doc.id !== selectedRevisionId && doc.id.length !== 20);
+                if (!muxJobDoc) {
+                    // Try to safely fall back to checking if there's any other doc
+                    const fallbackDoc = snap.docs.find(doc => doc.id !== selectedRevisionId);
+                    if (!fallbackDoc) {
+                        console.log("[ReviewSystemModal] Waiting for Mux video_job to be created...");
+                        if (isPolling) setTimeout(checkMuxStatus, 3000);
+                        return;
+                    }
+                }
+                
+                const uploadId = muxJobDoc ? muxJobDoc.id : snap.docs.find(doc => doc.id !== selectedRevisionId)?.id;
+                if (!uploadId) return;
+
+                
+                const res = await fetch("/api/syncMuxVideo", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ uploadId, revisionId: selectedRevisionId })
+                });
+                
+                const data = await res.json();
+                if (data.success && data.playbackId) {
+                    // Update successfully handled by the backend, onSnapshot will pick it up
+                    isPolling = false;
+                }
+            } catch (err) {
+                console.error("[ReviewSystemModal] Polling sync error:", err);
+            }
+
+            if (isPolling) {
+                setTimeout(checkMuxStatus, 5000); // Poll every 5 seconds
+            }
+        };
+
+        checkMuxStatus();
+
+        return () => { isPolling = false; };
+    }, [isOpen, selectedRevisionId, revisions]);
 
     // Sync live payment/feedback state
     useEffect(() => {
@@ -773,30 +845,42 @@ const startDownload = async () => {
                                             <Loader2 className="h-5 w-5 animate-spin" />
                                             Loading drafts...
                                         </div>
-                                    ) : selectedRevision?.hlsUrl || selectedRevision?.videoUrl ? (
-                                        <OptimizedHLSPlayerView
-                                            hlsUrl={selectedRevision.hlsUrl}
-                                            videoUrl={selectedRevision.videoUrl}
-                                            projectName={project?.name || "Review"}
-                                            fileSize={selectedRevision.fileSize}
-                                            onTimeUpdate={(currentTime, duration) => {
-                                                setCurrentTime(currentTime);
-                                                setDuration(duration);
-                                            }}
-                                        />
-                                    ) : selectedRevision?.videoUrl ? (
-                                        <video
-                                            src={selectedRevision.videoUrl}
-                                            controls
-                                            className="w-full h-full bg-black rounded-xl"
-                                            onTimeUpdate={(e) => {
-                                                setCurrentTime(e.currentTarget.currentTime);
-                                                setDuration(e.currentTarget.duration);
-                                            }}
-                                        />
+                                    ) : revisions.length === 0 ? (
+                                        <div className="h-full w-full flex flex-col items-center justify-center text-muted-foreground gap-2">
+                                            <Upload className="h-8 w-8 opacity-20" />
+                                            <span className="text-sm">No uploaded draft available for this project.</span>
+                                        </div>
+                                    ) : selectedRevision?.playbackId || selectedRevision?.hlsUrl || selectedRevision?.videoUrl ? (
+                                        selectedRevision.playbackId ? (
+                                            <MuxPlayer
+                                                playbackId={selectedRevision.playbackId}
+                                                streamType="on-demand"
+                                                style={{ width: "100%", height: "100%", aspectRatio: "16/9" }}
+                                                autoPlay={false}
+                                                playsInline
+                                                accentColor="#6366f1"
+                                                onTimeUpdate={(e: Event) => {
+                                                    const v = (e.target as HTMLVideoElement);
+                                                    if (v) { setCurrentTime(v.currentTime); setDuration(v.duration); }
+                                                }}
+                                            />
+                                        ) : (
+                                            <OptimizedHLSPlayerView
+                                                hlsUrl={selectedRevision.hlsUrl}
+                                                videoUrl={selectedRevision.videoUrl}
+                                                projectName={project?.name || "Review"}
+                                                fileSize={selectedRevision.fileSize}
+                                                onTimeUpdate={(currentTime, duration) => {
+                                                    setCurrentTime(currentTime);
+                                                    setDuration(duration);
+                                                }}
+                                            />
+                                        )
                                     ) : (
-                                        <div className="h-full w-full flex items-center justify-center text-muted-foreground text-sm">
-                                            No uploaded draft available for this project.
+                                        <div className="h-full w-full flex flex-col items-center justify-center text-muted-foreground gap-3 bg-muted/10">
+                                            <Loader2 className="h-6 w-6 animate-spin text-primary" />
+                                            <div className="text-sm font-bold uppercase tracking-widest text-primary">Processing Video on Mux</div>
+                                            <div className="text-[10px] uppercase tracking-widest opacity-70">Securing high-quality playback format...</div>
                                         </div>
                                     )}
                                 </div>
@@ -1306,30 +1390,42 @@ const startDownload = async () => {
                                     <Loader2 className="h-4 w-4 animate-spin" />
                                     Loading drafts...
                                 </div>
-                            ) : selectedRevision?.hlsUrl || selectedRevision?.videoUrl ? (
-                                <OptimizedHLSPlayerView
-                                    hlsUrl={selectedRevision.hlsUrl}
-                                    videoUrl={selectedRevision.videoUrl}
-                                    projectName={project?.name || "Review"}
-                                    fileSize={selectedRevision.fileSize}
-                                    onTimeUpdate={(currentTime, duration) => {
-                                        setCurrentTime(currentTime);
-                                        setDuration(duration);
-                                    }}
-                                />
-                            ) : selectedRevision?.videoUrl ? (
-                                <video
-                                    src={selectedRevision.videoUrl}
-                                    controls
-                                    className="w-full h-full bg-black rounded-xl"
-                                    onTimeUpdate={(e) => {
-                                        setCurrentTime(e.currentTarget.currentTime);
-                                        setDuration(e.currentTarget.duration);
-                                    }}
-                                />
+                            ) : revisions.length === 0 ? (
+                                <div className="h-full w-full flex flex-col items-center justify-center text-muted-foreground gap-2">
+                                    <Upload className="h-6 w-6 opacity-20" />
+                                    <span className="text-xs">No uploaded draft available for this project.</span>
+                                </div>
+                            ) : selectedRevision?.playbackId || selectedRevision?.hlsUrl || selectedRevision?.videoUrl ? (
+                                selectedRevision.playbackId ? (
+                                    <MuxPlayer
+                                        playbackId={selectedRevision.playbackId}
+                                        streamType="on-demand"
+                                        style={{ width: "100%", height: "100%", aspectRatio: "16/9" }}
+                                        autoPlay={false}
+                                        playsInline
+                                        accentColor="#6366f1"
+                                        onTimeUpdate={(e: Event) => {
+                                            const v = (e.target as HTMLVideoElement);
+                                            if (v) { setCurrentTime(v.currentTime); setDuration(v.duration); }
+                                        }}
+                                    />
+                                ) : (
+                                    <OptimizedHLSPlayerView
+                                        hlsUrl={selectedRevision.hlsUrl}
+                                        videoUrl={selectedRevision.videoUrl}
+                                        projectName={project?.name || "Review"}
+                                        fileSize={selectedRevision.fileSize}
+                                        onTimeUpdate={(currentTime, duration) => {
+                                            setCurrentTime(currentTime);
+                                            setDuration(duration);
+                                        }}
+                                    />
+                                )
                             ) : (
-                                <div className="h-full w-full flex items-center justify-center text-muted-foreground text-sm">
-                                    No uploaded draft available for this project.
+                                <div className="h-full w-full flex flex-col items-center justify-center text-muted-foreground gap-3 bg-muted/10">
+                                    <Loader2 className="h-5 w-5 animate-spin text-primary" />
+                                    <div className="text-xs font-bold uppercase tracking-widest text-primary">Processing Video on Mux</div>
+                                    <div className="text-[9px] uppercase tracking-widest opacity-70">Securing high-quality playback format...</div>
                                 </div>
                             )}
                         </div>
