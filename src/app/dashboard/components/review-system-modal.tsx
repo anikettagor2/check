@@ -658,8 +658,9 @@ const startDownload = async () => {
     }, [isOpen, project?.id, defaultRevisionId]);
 
     // Manual sync for Mux when webhooks fail (e.g. localhost)
+    // Only run for authenticated users — video_jobs requires auth. Guests cannot upload so no need.
     useEffect(() => {
-        if (!isOpen || !selectedRevisionId) return;
+        if (!isOpen || !selectedRevisionId || !user) return;
 
         const rev = revisions.find(r => r.id === selectedRevisionId);
         if (!rev || rev.playbackId || rev.hlsUrl || rev.videoUrl) return;
