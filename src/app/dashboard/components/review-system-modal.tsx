@@ -177,6 +177,10 @@ export function ReviewSystemModal({ isOpen, onClose, project, guestPreview = fal
         () => revisions.find((r) => r.id === selectedRevisionId) || null,
         [revisions, selectedRevisionId]
     );
+    const selectedMuxSource = useMemo(
+        () => getMuxPlaybackSource(selectedRevision),
+        [selectedRevision]
+    );
 
     // Image upload handler
     const handleImageSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -858,10 +862,10 @@ const startDownload = async () => {
                                             <Film className="h-8 w-8 opacity-20" />
                                             <span className="text-sm">No uploaded draft available for this project.</span>
                                         </div>
-                                    ) : getMuxPlaybackSource(selectedRevision) ? (
+                                    ) : (selectedRevision && selectedMuxSource) ? (
                                         <VideoPlayer
                                             playbackId={selectedRevision.playbackId}
-                                            videoPath={getMuxPlaybackSource(selectedRevision)}
+                                            videoPath={selectedMuxSource}
                                             title={project?.name + " - V" + (selectedRevision.version || "Draft")}
                                             metadata={{
                                                 video_id: selectedRevision.id,
@@ -1389,10 +1393,10 @@ const startDownload = async () => {
                                     <Film className="h-6 w-6 opacity-20" />
                                     <span className="text-xs">No uploaded draft available for this project.</span>
                                 </div>
-                            ) : getMuxPlaybackSource(selectedRevision) ? (
+                            ) : (selectedRevision && selectedMuxSource) ? (
                                 <VideoPlayer
                                     playbackId={selectedRevision.playbackId}
-                                    videoPath={getMuxPlaybackSource(selectedRevision)}
+                                    videoPath={selectedMuxSource}
                                     title={project?.name + " - V" + (selectedRevision.version || "Draft")}
                                     metadata={{
                                         video_id: selectedRevision.id,
