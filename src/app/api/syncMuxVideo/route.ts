@@ -32,9 +32,10 @@ export async function POST(request: NextRequest) {
             if (asset.status === "ready") {
                 const playbackId = asset.playback_ids?.[0]?.id;
                 if (playbackId) {
-                    // 3. Update Firestore
+                    // 3. Update Firestore revision with both playbackId and hlsUrl for maximum compatibility
                     await adminDb.collection("revisions").doc(revisionId).update({
                         playbackId,
+                        hlsUrl: `https://stream.mux.com/${playbackId}.m3u8`,
                         status: "ready",
                         updatedAt: Date.now(),
                     });

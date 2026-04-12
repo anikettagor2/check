@@ -275,8 +275,12 @@ export default function GuestReviewPageClient({ revisionId }: GuestReviewPageCli
 
     // ── Main review view ──────────────────────────────────────────────────────
     const videoTitle = `${project?.name || "Project"} · V${revision.version || "Draft"}`;
-    const hasVideo = !!(revision.playbackId || revision.hlsUrl || revision.videoUrl);
-    const isProcessing = revision.videoUrl?.startsWith("mux://") && !revision.playbackId;
+    // Only use Mux sources for streaming — ignore raw Firebase Storage videoUrl
+    const isFirebaseUrl = !!(revision.videoUrl && revision.videoUrl.includes('firebasestorage'));
+    const hasMuxSource = !!(revision.playbackId || revision.hlsUrl);
+    const hasVideo = hasMuxSource || (!!revision.videoUrl && !isFirebaseUrl);
+    // Show processing state if: video is a mux:// placeholder OR it's a Firebase URL with no playbackId (migration needed)
+    const isProcessing = (revision.videoUrl?.startsWith("mux://") && !revision.playbackId) || (isFirebaseUrl && !hasMuxSource);
 
     return (
         <div className="min-h-screen bg-[#0a0a0a] text-foreground">
@@ -320,7 +324,7 @@ export default function GuestReviewPageClient({ revisionId }: GuestReviewPageCli
                             ) : hasVideo ? (
                                 <VideoPlayer
                                     playbackId={revision.playbackId}
-                                    videoPath={revision.hlsUrl || revision.videoUrl || ""}
+                                    videoPath={revision.hlsUrl || ""}
                                     title={videoTitle}
                                     metadata={{
                                         video_id: revision.id,
@@ -334,7 +338,7 @@ export default function GuestReviewPageClient({ revisionId }: GuestReviewPageCli
                                     onLoadedMetadata={(dur) => {
                                         if (dur && !isNaN(dur)) setDuration(dur);
                                     }}
-                                    primaryColor="#6366f1"
+                                    primaryColor="#ffffff"
                                     className="w-full h-full"
                                 />
                             ) : (

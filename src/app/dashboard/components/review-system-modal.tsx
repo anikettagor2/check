@@ -663,7 +663,9 @@ const startDownload = async () => {
         if (!isOpen || !selectedRevisionId || !user) return;
 
         const rev = revisions.find(r => r.id === selectedRevisionId);
-        if (!rev || rev.playbackId || rev.hlsUrl || rev.videoUrl) return;
+        // Skip polling if already has a Mux source; DO NOT skip just because videoUrl is set (it may be a legacy Firebase URL)
+        const hasMuxSource = !!(rev?.playbackId || rev?.hlsUrl);
+        if (!rev || hasMuxSource) return;
 
         let isPolling = true;
 
@@ -851,10 +853,10 @@ const startDownload = async () => {
                                             <Upload className="h-8 w-8 opacity-20" />
                                             <span className="text-sm">No uploaded draft available for this project.</span>
                                         </div>
-                                    ) : selectedRevision?.playbackId || selectedRevision?.hlsUrl || selectedRevision?.videoUrl ? (
+                                    ) : (selectedRevision?.playbackId || selectedRevision?.hlsUrl) ? (
                                         <VideoPlayer
                                             playbackId={selectedRevision.playbackId}
-                                            videoPath={selectedRevision.hlsUrl || selectedRevision.videoUrl || ""}
+                                            videoPath={selectedRevision.hlsUrl || ""}
                                             title={project?.name + " - V" + (selectedRevision.version || "Draft")}
                                             metadata={{
                                                 video_id: selectedRevision.id,
@@ -868,7 +870,7 @@ const startDownload = async () => {
                                             onLoadedMetadata={(duration) => {
                                                 if (duration && !isNaN(duration)) setDuration(duration);
                                             }}
-                                            primaryColor="#6366f1"
+                                            primaryColor="#ffffff"
                                             className="w-full h-full"
                                         />
                                     ) : (
@@ -1390,10 +1392,10 @@ const startDownload = async () => {
                                     <Upload className="h-6 w-6 opacity-20" />
                                     <span className="text-xs">No uploaded draft available for this project.</span>
                                 </div>
-                            ) : selectedRevision?.playbackId || selectedRevision?.hlsUrl || selectedRevision?.videoUrl ? (
+                            ) : (selectedRevision?.playbackId || selectedRevision?.hlsUrl) ? (
                                 <VideoPlayer
                                     playbackId={selectedRevision.playbackId}
-                                    videoPath={selectedRevision.hlsUrl || selectedRevision.videoUrl || ""}
+                                    videoPath={selectedRevision.hlsUrl || ""}
                                     title={project?.name + " - V" + (selectedRevision.version || "Draft")}
                                     metadata={{
                                         video_id: selectedRevision.id,
@@ -1407,7 +1409,7 @@ const startDownload = async () => {
                                     onLoadedMetadata={(duration) => {
                                         if (duration && !isNaN(duration)) setDuration(duration);
                                     }}
-                                    primaryColor="#6366f1"
+                                    primaryColor="#ffffff"
                                     className="w-full h-full"
                                 />
                             ) : (

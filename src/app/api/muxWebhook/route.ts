@@ -17,9 +17,10 @@ export async function POST(request: NextRequest) {
 
             if (playbackId) {
                 if (uploadType === "revision" && revisionId) {
-                    // Update revision document
+                    // Update revision document with both playbackId and hlsUrl for maximum compatibility
                     await adminDb.collection("revisions").doc(revisionId).update({
                         playbackId,
+                        hlsUrl: `https://stream.mux.com/${playbackId}.m3u8`,
                         status: "ready",
                         updatedAt: Date.now(),
                     });
