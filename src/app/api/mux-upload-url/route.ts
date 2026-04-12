@@ -15,8 +15,15 @@ export async function POST(request: NextRequest) {
 
         const { projectId, revisionId, type } = await request.json();
         const origin = request.headers.get("origin");
-        // Ensure origin is never null/empty for Mux cors_origin
-        const finalOrigin = origin && origin !== 'null' ? origin : "*";
+        const forwardedProto = request.headers.get("x-forwarded-proto");
+        const forwardedHost = request.headers.get("x-forwarded-host") || request.headers.get("host");
+        const derivedOrigin =
+            forwardedProto && forwardedHost
+                ? `${forwardedProto}://${forwardedHost}`
+                : request.nextUrl.origin;
+        // Mux direct uploads need an explicit origin for tus HEAD/PATCH CORS.
+        // Returning "*" here can cause the resume HEAD request to fail in-browser.
+        const finalOrigin = origin && origin !== "null" ? origin : derivedOrigin;
 
         console.log(`[Mux] Creating Direct Upload:`, {
             projectId,
@@ -43,8 +50,9 @@ export async function POST(request: NextRequest) {
             uploadId: upload.id,
             origin: origin, // Return for debugging
         });
-    } catch (error: any) {
+    } catch (error: unknown) {
         console.error("[Mux] Create Upload Error:", error);
-        return NextResponse.json({ error: error.message }, { status: 500 });
+        const message = error instanceof Error ? error.message : "Failed to create Mux upload";
+        return NextResponse.json({ error: message }, { status: 500 });
     }
 }

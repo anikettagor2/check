@@ -5,13 +5,12 @@ import { Modal } from "@/components/ui/modal";
 import { db } from "@/lib/firebase/config";
 import { useAuth } from "@/lib/context/auth-context";
 import { addDoc, collection, doc, getDocs, onSnapshot, query, updateDoc, where, deleteDoc, limit } from "firebase/firestore";
-import { Loader2, MessageSquare, Upload, Share2, Copy, Download, Star, X, Send, Image as ImageIcon, Clock, Users, Play } from "lucide-react";
+import { Loader2, MessageSquare, Share2, Copy, Download, Star, X, Send, Image as ImageIcon, Clock, Users, Play, Film } from "lucide-react";
 import { toast } from "sonner";
 import { registerDownload, submitEditorRating } from "@/app/actions/project-actions";
 import { handleNewComment } from "@/app/actions/notification-actions";
 import { PaymentButton } from "@/components/payment-button";
 import { uploadCommentImage } from "@/lib/firebase/storage-utils";
-import { DashboardVideo } from "@/components/dashboard-video-optimizer";
 import { warmVideoInMemory } from "@/lib/video-preload";
 import { VideoPlayer } from "@/components/video-player";
 import { safeJsonParse } from "@/lib/utils";
@@ -30,6 +29,7 @@ type ReviewProject = {
     clientId?: string;
     assignedEditorId?: string;
     assignedPMId?: string;
+    createdAt?: number;
 };
 
 type RevisionDoc = {
@@ -82,7 +82,6 @@ interface ReviewSystemModalProps {
     isOpen: boolean;
     onClose: () => void;
     project: ReviewProject | null;
-    allowUploadDraft?: boolean;
     guestPreview?: boolean;
     guestName?: string;
     defaultRevisionId?: string;
@@ -105,10 +104,15 @@ function formatDate(timestamp: number): string {
     return date.toLocaleDateString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
 }
 
+function getMuxPlaybackSource(revision: RevisionDoc | null | undefined): string {
+    if (!revision) return "";
+    if (revision.playbackId) return `https://stream.mux.com/${revision.playbackId}.m3u8`;
+    return revision.hlsUrl || "";
+}
 
 import { VideoManagerProvider } from "@/components/video-manager";
 
-export function ReviewSystemModal({ isOpen, onClose, project, allowUploadDraft = false, guestPreview = false, guestName, defaultRevisionId }: ReviewSystemModalProps) {
+export function ReviewSystemModal({ isOpen, onClose, project, guestPreview = false, guestName, defaultRevisionId }: ReviewSystemModalProps) {
     const { user } = useAuth();
     const fileInputRef = useRef<HTMLInputElement | null>(null);
     const videoSeekRef = useRef<HTMLVideoElement>(null);
@@ -626,11 +630,12 @@ const startDownload = async () => {
 
                 console.log('[ReviewSystemModal] Fetched live revisions:', next);
                 setRevisions(next);
-                
-                // Preheat all parsed videos for instant playback with blob caching
+
                 next.forEach(r => {
-                    const videoSrc = r.playbackId ? `https://stream.mux.com/${r.playbackId}.m3u8` : (r.hlsUrl || r.videoUrl);
-                    if (videoSrc) warmVideoInMemory(videoSrc);
+                    const videoSrc = getMuxPlaybackSource(r);
+                    if (videoSrc) {
+                        warmVideoInMemory(videoSrc);
+                    }
                 });
 
                 if (next.length > 0) {
@@ -672,14 +677,13 @@ const startDownload = async () => {
         const checkMuxStatus = async () => {
             if (!isPolling) return;
             try {
-                // Find uploadId from video_jobs. UploadDraftModal creates a duplicate job with doc.id = revisionId,
-                // while UploadService creates one with doc.id = mux uploadId.
+                // Find uploadId from video_jobs.
+                // Revisions may have associated video_jobs for transcoding.
                 const q = query(collection(db, "video_jobs"), where("revisionId", "==", selectedRevisionId));
                 const snap = await getDocs(q);
                 if (snap.empty) return;
                 
-                // Firebase IDs are precisely 20 characters long. Mux IDs are usually differently length or pattern.
-                // We also know UploadDraftModal uses revisionId as doc.id, so we filter that out.
+                // We filter out any jobs that match the revision ID to find the actual Mux job.
                 const muxJobDoc = snap.docs.find(doc => doc.id !== selectedRevisionId && doc.id.length !== 20);
                 if (!muxJobDoc) {
                     // Try to safely fall back to checking if there's any other doc
@@ -850,13 +854,13 @@ const startDownload = async () => {
                                         </div>
                                     ) : revisions.length === 0 ? (
                                         <div className="h-full w-full flex flex-col items-center justify-center text-muted-foreground gap-2">
-                                            <Upload className="h-8 w-8 opacity-20" />
+                                            <Film className="h-8 w-8 opacity-20" />
                                             <span className="text-sm">No uploaded draft available for this project.</span>
                                         </div>
-                                    ) : (selectedRevision?.playbackId || selectedRevision?.hlsUrl) ? (
+                                    ) : getMuxPlaybackSource(selectedRevision) ? (
                                         <VideoPlayer
                                             playbackId={selectedRevision.playbackId}
-                                            videoPath={selectedRevision.hlsUrl || ""}
+                                            videoPath={getMuxPlaybackSource(selectedRevision)}
                                             title={project?.name + " - V" + (selectedRevision.version || "Draft")}
                                             metadata={{
                                                 video_id: selectedRevision.id,
@@ -1293,15 +1297,7 @@ const startDownload = async () => {
                         <div className="lg:col-span-8 space-y-3">
                             <div className="flex items-center justify-between gap-3">
                                 <div className="text-xs text-muted-foreground font-bold uppercase tracking-widest">Draft Versions</div>
-                                {allowUploadDraft && !guestPreview && project?.id && (
-                                    <a
-                                        href={`/dashboard/projects/${project.id}/upload`}
-                                        className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg bg-amber-500/10 border border-amber-500/20 text-amber-500 text-xs font-bold uppercase tracking-widest hover:bg-amber-500/20"
-                                    >
-                                        <Upload className="h-3.5 w-3.5" />
-                                        Upload New Draft
-                                    </a>
-                                )}
+
                             </div>
 
                             <div className="flex flex-wrap items-center justify-between gap-2">
@@ -1389,13 +1385,13 @@ const startDownload = async () => {
                                 </div>
                             ) : revisions.length === 0 ? (
                                 <div className="h-full w-full flex flex-col items-center justify-center text-muted-foreground gap-2">
-                                    <Upload className="h-6 w-6 opacity-20" />
+                                    <Film className="h-6 w-6 opacity-20" />
                                     <span className="text-xs">No uploaded draft available for this project.</span>
                                 </div>
-                            ) : (selectedRevision?.playbackId || selectedRevision?.hlsUrl) ? (
+                            ) : getMuxPlaybackSource(selectedRevision) ? (
                                 <VideoPlayer
                                     playbackId={selectedRevision.playbackId}
-                                    videoPath={selectedRevision.hlsUrl || ""}
+                                    videoPath={getMuxPlaybackSource(selectedRevision)}
                                     title={project?.name + " - V" + (selectedRevision.version || "Draft")}
                                     metadata={{
                                         video_id: selectedRevision.id,
@@ -1415,8 +1411,12 @@ const startDownload = async () => {
                             ) : (
                                 <div className="h-full w-full flex flex-col items-center justify-center text-muted-foreground gap-3 bg-muted/10">
                                     <Loader2 className="h-5 w-5 animate-spin text-primary" />
-                                    <div className="text-xs font-bold uppercase tracking-widest text-primary">Processing Video on Mux</div>
-                                    <div className="text-[9px] uppercase tracking-widest opacity-70">Securing high-quality playback format...</div>
+                                    <div className="text-xs font-bold uppercase tracking-widest text-primary">
+                                        Processing Video on Mux
+                                    </div>
+                                    <div className="text-[9px] uppercase tracking-widest opacity-70">
+                                        {(project?.createdAt || 0) < 1775952000000 ? "Retrieving from legacy storage..." : "Securing high-quality playback format..."}
+                                    </div>
                                 </div>
                             )}
                         </div>

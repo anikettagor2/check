@@ -2,8 +2,6 @@ import { storage, db } from "@/lib/firebase/config";
 import { ref, uploadBytesResumable, getDownloadURL } from "firebase/storage";
 import { doc, setDoc, collection, getDoc } from "firebase/firestore";
 import { VideoJob } from "@/types/schema";
-import * as tus from "tus-js-client";
-import { safeJsonParse } from "@/lib/utils";
 
 export interface UploadProgress {
   percent: number;
@@ -55,25 +53,24 @@ export class UploadService {
     }
 
     // ROUTING LOGIC:
-    // 1. Raw videos and other assets (uploaded by client/pm) -> Firebase Storage
-    // 2. Drafts/Revisions (uploaded by editor) -> 
-    //    - Mux Storage for projects created on or after 12/04/2026
-    //    - Firebase Storage for older projects
+    // 1. Revisions/Drafts (uploaded by editor) -> ALWAYS Mux (per user request for high-performance)
+    // 2. Others (uploaded by client/pm) -> Firebase Storage (unless project is new)
     console.log(`[UploadService] Unified Upload Start: ${file.name} (${file.size} bytes), Type: ${options.type}, isVideo: ${isVideo}`);
 
     if (options.type === 'revision' && isVideo) {
-      const useMux = await this.shouldProjectUseMux(options.projectId);
-      if (useMux) {
-        console.log(`[UploadService] Routing to Mux (Draft/Revision Video)`);
-        return this.uploadToMux(file, options);
-      } else {
-        console.log(`[UploadService] Routing to Firebase (Legacy Project Revision)`);
-        return this.uploadToFirebase(file, options);
-      }
-    } else {
-      console.log(`[UploadService] Routing to Firebase (${options.type}${isVideo ? ' Video' : ''})`);
-      return this.uploadToFirebase(file, options);
+      console.log(`[UploadService] Routing Draft/Revision upload to MUX for project ${options.projectId}`);
+      return this.uploadToMux(file, options);
+    } 
+    
+    // For other types, check project date
+    const useMux = await this.shouldProjectUseMux(options.projectId);
+    if (useMux && isVideo && (options.type === 'raw' || options.type === 'asset')) {
+      console.log(`[UploadService] Routing ${options.type} to Mux (New Project)`);
+      return this.uploadToMux(file, options);
     }
+
+    console.log(`[UploadService] Routing to Firebase (${options.type}${isVideo ? ' Video' : ''})`);
+    return this.uploadToFirebase(file, options);
   }
 
   /**
@@ -145,7 +142,9 @@ export class UploadService {
   }
 
   /**
-   * Optimized Direct Upload to Mux using tus-js-client (Resumable, Chunked)
+   * Direct upload to Mux using the signed upload URL.
+   * Mux's browser docs support a plain PUT upload to the direct upload URL.
+   * This avoids the tus HEAD preflight that is currently failing CORS in-browser.
    */
   private static async uploadToMux(file: File, options: UploadOptions): Promise<string> {
     const { projectId, revisionId, onProgress, onCancelRef } = options;
@@ -180,6 +179,10 @@ export class UploadService {
     }
 
     const { uploadUrl, uploadId } = await response.json();
+    console.log(`[UploadService] Mux Upload session created:`, {
+        uploadId,
+        targetHost: new URL(uploadUrl).host
+    });
 
     // 2. Track the job in Firestore
     const videoJob: VideoJob = {
@@ -192,58 +195,71 @@ export class UploadService {
     };
     await setDoc(doc(db, "video_jobs", uploadId), videoJob);
 
-    // 3. Start TUS upload
+    // 3. Upload directly to the signed Mux URL
     const startTime = Date.now();
     return new Promise((resolve, reject) => {
-      const upload = new tus.Upload(file, {
-        endpoint: uploadUrl,
-        retryDelays: [0, 3000, 5000, 10000, 20000],
-        metadata: {
-          filename: file.name,
-          filetype: file.type || "video/mp4"
-        },
-        // Mux handles the URL specifically, tus-js-client should just use it
-        uploadUrl: uploadUrl, 
-        onError: (error) => {
-          console.error("[MuxUpload] TUS Error:", error);
-          reject(error);
-        },
-        onProgress: (bytesSent, bytesTotal) => {
-          if (onProgress) {
-            const now = Date.now();
-            const elapsed = (now - startTime) / 1000;
-            const speedBps = elapsed > 0 ? bytesSent / elapsed : 0;
-            const remainingBytes = bytesTotal - bytesSent;
-            const eta = speedBps > 0 ? remainingBytes / speedBps : 0;
+      const xhr = new XMLHttpRequest();
 
-            onProgress({
-              percent: (bytesSent / bytesTotal) * 100,
-              transferred: bytesSent,
-              total: bytesTotal,
-              speedBps,
-              eta,
-              status: 'uploading'
-            });
-          }
-        },
-        onSuccess: () => {
+      xhr.open("PUT", uploadUrl, true);
+      xhr.setRequestHeader("Content-Type", file.type || "application/octet-stream");
+
+      xhr.upload.onprogress = (event) => {
+        if (!onProgress || !event.lengthComputable) return;
+
+        const now = Date.now();
+        const elapsed = (now - startTime) / 1000;
+        const bytesSent = event.loaded;
+        const bytesTotal = event.total;
+        const speedBps = elapsed > 0 ? bytesSent / elapsed : 0;
+        const remainingBytes = bytesTotal - bytesSent;
+        const eta = speedBps > 0 ? remainingBytes / speedBps : 0;
+
+        onProgress({
+          percent: (bytesSent / bytesTotal) * 100,
+          transferred: bytesSent,
+          total: bytesTotal,
+          speedBps,
+          eta,
+          status: 'uploading'
+        });
+      };
+
+      xhr.onload = () => {
+        if (xhr.status >= 200 && xhr.status < 300) {
           if (onProgress) {
             onProgress({
               percent: 100,
               transferred: file.size,
               total: file.size,
-              status: 'complete'
+              status: 'processing'
             });
           }
           resolve(uploadId);
+          return;
         }
-      });
+
+        console.error("[MuxUpload] PUT failed:", {
+          status: xhr.status,
+          statusText: xhr.statusText,
+          responseText: xhr.responseText?.slice(0, 500)
+        });
+        reject(new Error(`Mux upload failed with status ${xhr.status} ${xhr.statusText}`));
+      };
+
+      xhr.onerror = () => {
+        console.error("[MuxUpload] Network error during direct upload");
+        reject(new Error("Mux upload failed due to a network or CORS error."));
+      };
+
+      xhr.onabort = () => {
+        reject(new Error("Upload cancelled"));
+      };
 
       if (onCancelRef) {
-        onCancelRef(() => upload.abort());
+        onCancelRef(() => xhr.abort());
       }
 
-      upload.start();
+      xhr.send(file);
     });
   }
 
