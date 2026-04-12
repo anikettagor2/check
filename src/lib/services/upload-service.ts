@@ -108,8 +108,9 @@ export class UploadService {
         createdAt = new Date(rawCreatedAt).getTime();
       }
 
-      // Cutoff: April 12, 2026 00:00:00 UTC (1744416000000)
-      const MUX_CUTOFF = 1744416000000; 
+      // Cutoff is April 12, 2026
+      // 12/04/2026 formatted as timestamp: 1775952000000
+      const MUX_CUTOFF = 1775952000000; 
       
       // If no date found, it's safer to treat it as a new project (Mux)
       if (!createdAt) {
@@ -123,9 +124,9 @@ export class UploadService {
           createdAt,
           cutoff: MUX_CUTOFF,
           isLegacy,
-          dateStr: new Date(createdAt).toISOString()
+          action: isLegacy ? 'FIREBASE' : 'MUX'
       });
-      
+
       return !isLegacy;
     } catch (error) {
       console.error("[UploadService] Error checking project date:", error);
