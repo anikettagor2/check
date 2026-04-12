@@ -290,7 +290,13 @@ export default function UploadRevisionPage() {
                                     className="relative rounded-[2rem] overflow-hidden border border-primary/40 shadow-xl bg-black"
                                 >
                                     {/* eslint-disable-next-line jsx-a11y/media-has-caption */}
-                                    <video src={previewUrl} controls playsInline className="w-full max-h-[320px] object-contain" />
+                                    <video 
+                                        src={previewUrl} 
+                                        type={file?.type}
+                                        controls 
+                                        playsInline 
+                                        className="w-full max-h-[320px] object-contain" 
+                                    />
                                     {!isUploading && (
                                         <label className="absolute inset-0 flex items-end justify-center pb-4 bg-gradient-to-t from-black/60 to-transparent cursor-pointer opacity-0 hover:opacity-100 transition-opacity">
                                             <input type="file" accept="video/*" className="hidden" onChange={handleFileChange} />

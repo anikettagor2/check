@@ -35,7 +35,7 @@ export function VideoPlayer({
   onError,
   playbackId,
   metadata,
-  primaryColor = "#6366f1",
+  primaryColor = "#ffffff",
   playbackRates = [0.5, 0.75, 1, 1.25, 1.5, 2],
   forwardSeekOffset = 10,
   backwardSeekOffset = 10,
@@ -65,8 +65,34 @@ export function VideoPlayer({
         </div>
       )}
 
-      {/* Actual MuxPlayer Component */}
-      {!isProcessing && (
+      {/* Regular Video Element for Blob URLs or non-Mux sources when MuxPlayer is not strictly needed */}
+      {!isProcessing && videoPath?.startsWith('blob:') ? (
+        <video
+          src={videoPath}
+          controls
+          playsInline
+          className="w-full h-full"
+          onPlay={onPlaying}
+          onPause={onPause}
+          onTimeUpdate={(e) => {
+            const video = e.target as HTMLVideoElement;
+            if (video) {
+              onTimeUpdate?.(video.currentTime, video.duration);
+            }
+          }}
+          onLoadedMetadata={(e) => {
+            const video = e.target as HTMLVideoElement;
+            if (video) {
+              onLoadedMetadata?.(video.duration);
+            }
+          }}
+          onError={(e) => {
+            console.error("VideoPlayer Blob Error:", e);
+            setError("Failed to load local video");
+            onError?.(new Error("Video playback error"));
+          }}
+        />
+      ) : !isProcessing && (
         <MuxPlayer
           playbackId={playbackId}
           src={effectiveSrc}
