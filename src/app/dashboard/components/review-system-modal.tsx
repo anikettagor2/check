@@ -82,6 +82,7 @@ interface ReviewSystemModalProps {
     isOpen: boolean;
     onClose: () => void;
     project: ReviewProject | null;
+    allowUploadDraft?: boolean;
     guestPreview?: boolean;
     guestName?: string;
     defaultRevisionId?: string;
