@@ -854,11 +854,11 @@ const startDownload = async () => {
                                         <VideoPlayer
                                             playbackId={selectedRevision.playbackId}
                                             videoPath={selectedRevision.hlsUrl || selectedRevision.videoUrl || ""}
-                                            title={project?.name + " - V" + selectedRevision.version}
+                                            title={project?.name + " - V" + (selectedRevision.version || "Draft")}
                                             metadata={{
                                                 video_id: selectedRevision.id,
-                                                video_title: project?.name + " - V" + selectedRevision.version,
-                                                viewer_id: user?.uid || "guest",
+                                                video_title: project?.name + " - V" + (selectedRevision.version || "Draft"),
+                                                viewer_user_id: user?.uid || guestName || "guest",
                                             }}
                                             onTimeUpdate={(currentTime, duration) => {
                                                 setCurrentTime(currentTime);
@@ -1395,12 +1395,19 @@ const startDownload = async () => {
                                     videoPath={selectedRevision.hlsUrl || selectedRevision.videoUrl || ""}
                                     title={project?.name + " - V" + (selectedRevision.version || "Draft")}
                                     metadata={{
-                                        viewer_user_id: user?.uid || "guest"
+                                        video_id: selectedRevision.id,
+                                        video_title: project?.name + " - V" + (selectedRevision.version || "Draft"),
+                                        viewer_user_id: user?.uid || guestName || "guest",
                                     }}
                                     onTimeUpdate={(currentTime, duration) => {
                                         setCurrentTime(currentTime);
-                                        setDuration(duration);
+                                        if (duration && !isNaN(duration)) setDuration(duration);
                                     }}
+                                    onLoadedMetadata={(duration) => {
+                                        if (duration && !isNaN(duration)) setDuration(duration);
+                                    }}
+                                    primaryColor="#6366f1"
+                                    className="w-full h-full"
                                 />
                             ) : (
                                 <div className="h-full w-full flex flex-col items-center justify-center text-muted-foreground gap-3 bg-muted/10">
