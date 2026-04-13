@@ -182,7 +182,7 @@ export async function registerDownload(projectId: string, revisionId: string) {
         let downloadUrl = data.videoUrl || "";
 
         try {
-            if (downloadUrl.includes('firebasestorage.googleapis.com')) {
+            if (downloadUrl && downloadUrl.includes('firebasestorage.googleapis.com')) {
                 // Extract path from Firebase Storage URL
                 const pathParts = downloadUrl.split('/o/');
                 if (pathParts.length > 1) {
@@ -210,13 +210,6 @@ export async function registerDownload(projectId: string, revisionId: string) {
                         downloadUrl = signedUrlResponse[0];
                     }
                 }
-            } else if (data.playbackId) {
-                // MUX video - use high-quality MP4 export
-                const projectName = projectData?.name || "Video";
-                const safeName = projectName.replace(/[^a-z0-9]/gi, '_').toLowerCase();
-                const filename = `${safeName}_v${data.version || '1'}.mp4`;
-                // Generate MUX high-quality download URL
-                downloadUrl = `https://stream.mux.com/${data.playbackId}/low.mp4`;
             }
         } catch (err: any) {
             console.error("[registerDownload] Signed URL generation failed:", err);
