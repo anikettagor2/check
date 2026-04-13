@@ -1,9 +1,9 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useAuth } from "@/lib/context/auth-context";
 import { db } from "@/lib/firebase/config";
-import { collection, query, where, orderBy, onSnapshot, doc, updateDoc, getDocs, limit } from "firebase/firestore";
+import { collection, query, where, orderBy, onSnapshot, doc, updateDoc, getDocs, limit, setDoc } from "firebase/firestore";
 import { Project } from "@/types/schema";
 import { cn } from "@/lib/utils";
 import { 
@@ -16,8 +16,6 @@ import {
     MessageCircle,
     Film,
     Check,
-    X as XIcon,
-    Upload,
     Download,
     FileStack,
     Zap,
@@ -40,18 +38,29 @@ import {
     ArrowRight,
     ExternalLink,
     Copy,
-    ImageIcon
+    ImageIcon,
+    UploadCloud,
+    ChevronRight,
+    Gauge,
+    Timer,
+    Layers,
+    ShieldCheck
 } from "lucide-react";
 import { toast } from "sonner";
 import { motion, AnimatePresence } from "framer-motion";
 import { X } from "lucide-react";
-import { UploadDraftModal } from "./upload-draft-modal";
 import { ReviewSystemModal } from "./review-system-modal";
 import { preloadVideosIntoMemory, warmVideoInMemory } from "@/lib/video-preload";
 import { FilePreview } from "@/components/file-preview";
 import { useVideoTranscodeStatus } from "@/hooks/use-video-transcode-status";
 import { IndicatorCard } from "@/components/ui/indicator-card";
 import { VideoPlayer } from "@/components/video-player";
+import { UploadService, UploadProgress } from "@/lib/services/upload-service";
+import { Revision, VideoJob } from "@/types/schema";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import { MAX_FILE_SIZE_BYTES, MAX_FILE_SIZE_GB } from "@/lib/constants";
+import { handleRevisionUploaded } from "@/app/actions/notification-actions";
 
 
 function isVideoResource(resource?: string) {
@@ -75,8 +84,6 @@ export function EditorDashboardV2() {
     const [selectedProjectAssets, setSelectedProjectAssets] = useState<any>(null);
     const [selectedProjectDetails, setSelectedProjectDetails] = useState<Project | null>(null);
     const [allUsers, setAllUsers] = useState<any>({});
-    const [isUploadModalOpen, setIsUploadModalOpen] = useState(false);
-    const [selectedUploadProject, setSelectedUploadProject] = useState<Project | null>(null);
     const [projectRevisions, setProjectRevisions] = useState<Record<string, any>>({});
     const [isReviewSystemOpen, setIsReviewSystemOpen] = useState(false);
     const [reviewProject, setReviewProject] = useState<Project | null>(null);
@@ -84,6 +91,132 @@ export function EditorDashboardV2() {
     const [projectTimers, setProjectTimers] = useState<Record<string, number>>({});
     const [totalPaid, setTotalPaid] = useState(0);
     const [pendingEarnings, setPendingEarnings] = useState(0);
+
+    // Upload State
+    const [isUploadModalOpen, setIsUploadModalOpen] = useState(false);
+    const [uploadProject, setUploadProject] = useState<Project | null>(null);
+    const [uploadFile, setUploadFile] = useState<File | null>(null);
+    const [uploadPreviewUrl, setUploadPreviewUrl] = useState<string | null>(null);
+    const [uploadDescription, setUploadDescription] = useState("");
+    const [isUploading, setIsUploading] = useState(false);
+    const [uploadProg, setUploadProg] = useState<UploadProgress | null>(null);
+    const abortRef = useRef<AbortController | (() => void) | null>(null);
+
+    useEffect(() => {
+        return () => {
+            if (uploadPreviewUrl) URL.revokeObjectURL(uploadPreviewUrl);
+        };
+    }, [uploadPreviewUrl]);
+
+    const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const f = e.target.files?.[0];
+        if (!f) return;
+        setUploadFile(f);
+        if (uploadPreviewUrl) URL.revokeObjectURL(uploadPreviewUrl);
+        setUploadPreviewUrl(URL.createObjectURL(f));
+    };
+
+    const handleCancelUpload = () => {
+        if (abortRef.current) {
+            if (typeof abortRef.current === 'function') {
+                abortRef.current();
+            } else {
+                abortRef.current.abort();
+            }
+        }
+        setIsUploading(false);
+        setUploadProg(null);
+    };
+
+    const handleStartUpload = async () => {
+        if (!uploadFile || !user || !uploadProject) {
+            toast.error("Please select a file first.");
+            return;
+        }
+
+        if (uploadFile.size > MAX_FILE_SIZE_BYTES) {
+            toast.error(`File is too large. Max size allowed is ${MAX_FILE_SIZE_GB}GB.`);
+            return;
+        }
+
+        setIsUploading(true);
+        setUploadProg(null);
+
+        try {
+            const projectId = uploadProject.id;
+            
+            // 1. Versioning Logic
+            const q = query(
+                collection(db, "revisions"),
+                where("projectId", "==", projectId)
+            );
+            const snap = await getDocs(q);
+            let nextVersion = 1;
+            if (!snap.empty) {
+                const revisions = snap.docs.map(doc => doc.data() as Revision);
+                const latest = revisions.sort((a, b) => (b.version || 0) - (a.version || 0))[0];
+                nextVersion = (latest.version || 0) + 1;
+            }
+
+            const revisionRef = doc(collection(db, "revisions"));
+            const revisionId = revisionRef.id;
+
+            // 2. Create the Revision document
+            const newRevision: Revision = {
+                id: revisionId,
+                projectId: projectId,
+                version: nextVersion,
+                videoUrl: "", 
+                status: "active",
+                uploadedBy: user.uid,
+                createdAt: Date.now(),
+                description: uploadDescription,
+            };
+
+            await setDoc(revisionRef, newRevision);
+
+            // 3. Create VideoJob
+            const videoJob: VideoJob = {
+                id: revisionId,
+                projectId: projectId,
+                revisionId,
+                status: "pending",
+                createdAt: Date.now(),
+                updatedAt: Date.now(),
+            };
+            await setDoc(doc(db, "video_jobs", revisionId), videoJob);
+
+            // 4. Perform upload
+            console.log(`[Dashboard] Starting Mux upload with session: ${revisionId}`);
+            await UploadService.uploadFileUnified(uploadFile, {
+                projectId: projectId,
+                revisionId,
+                type: 'revision',
+                onProgress: (progress) => {
+                    setUploadProg(progress);
+                },
+                onCancelRef: (cancel) => {
+                    abortRef.current = cancel;
+                }
+            });
+
+            await handleRevisionUploaded(projectId);
+            toast.success("Draft uploaded successfully!");
+            setIsUploadModalOpen(false);
+            setUploadFile(null);
+            setUploadDescription("");
+            if (uploadPreviewUrl) URL.revokeObjectURL(uploadPreviewUrl);
+            setUploadPreviewUrl(null);
+        } catch (err: unknown) {
+            if (err instanceof Error && err.name !== "AbortError") {
+                console.error("Upload failed:", err);
+                toast.error("Upload failed. Please try again.");
+            }
+        } finally {
+            setIsUploading(false);
+            setUploadProg(null);
+        }
+    };
 
     useEffect(() => {
         if (!user) return;
@@ -368,13 +501,10 @@ export function EditorDashboardV2() {
                         </div>
                     )}
 
-                    <VideoPlayer
-                        videoPath={effectiveUrl}
-                        className="w-full h-full"
-                        title={file.name}
-                        primaryColor="#6366f1"
-                        playbackRates={[0.5, 0.75, 1, 1.25, 1.5, 2]}
-                    />
+                    <div className="flex flex-col items-center justify-center h-full w-full text-white/50 gap-3">
+                        <FileVideo className="h-10 w-10 opacity-20" />
+                        <span className="text-sm">Video Preview Removed</span>
+                    </div>
                 </motion.div>
             </motion.div>
         );
@@ -656,7 +786,7 @@ export function EditorDashboardV2() {
                                     onClick={() => setSelectedProjectAssets(null)} 
                                     className="h-10 w-10 bg-muted/30 hover:bg-muted/50 text-foreground rounded-lg flex items-center justify-center transition-colors cursor-pointer active:scale-95"
                                 >
-                                    <XIcon className="h-5 w-5" />
+                                    <X className="h-5 w-5" />
                                 </button>
                             </div>
 
@@ -711,7 +841,7 @@ export function EditorDashboardV2() {
                                     onClick={() => setSelectedProjectDetails(null)}
                                     className="h-9 w-9 rounded-lg bg-muted/40 hover:bg-muted/70 text-muted-foreground hover:text-foreground flex items-center justify-center transition-all"
                                 >
-                                    <XIcon className="h-4 w-4" />
+                                    <X className="h-4 w-4" />
                                 </button>
                             </div>
 
@@ -1093,7 +1223,7 @@ export function EditorDashboardV2() {
                                                         borderColor = 'border-blue-500/20';
                                                         iconBg = 'bg-blue-500/20 text-blue-500';
                                                         dotColor = 'bg-blue-500';
-                                                        icon = <Upload className="h-3.5 w-3.5" />;
+                                                        icon = <UploadCloud className="h-3.5 w-3.5" />;
                                                     } else if (isStatusChange) {
                                                         bgColor = 'bg-amber-500/10';
                                                         borderColor = 'border-amber-500/20';
@@ -1190,7 +1320,7 @@ export function EditorDashboardV2() {
                                                     onClick={() => handleRejectProject(selectedProjectDetails.id)}
                                                     className="h-10 inline-flex items-center justify-center gap-2 rounded-lg bg-red-500/20 border border-red-500/40 text-red-500 hover:bg-red-500/30 hover:border-red-500/60 text-[10px] font-bold uppercase tracking-widest transition-all active:scale-95"
                                                 >
-                                                    <XIcon className="h-4 w-4" />
+                                                    <X className="h-4 w-4" />
                                                     Reject
                                                 </button>
                                             </div>
@@ -1549,26 +1679,17 @@ export function EditorDashboardV2() {
                                                                             Chat PM
                                                                         </button>
 
-                                                                        <a
-                                                                            onClick={(e) => {
-                                                                                e.preventDefault();
-                                                                                e.stopPropagation();
-                                                                                if (isAccepted) {
-                                                                                    setSelectedUploadProject(project);
-                                                                                    setIsUploadModalOpen(true);
-                                                                                }
+                                                                        <button
+                                                                            onClick={() => {
+                                                                                setUploadProject(project);
+                                                                                setIsUploadModalOpen(true);
                                                                             }}
-                                                                            className={cn(
-                                                                                "h-8 px-3 inline-flex items-center justify-center gap-1 rounded-lg border text-[10px] font-bold uppercase tracking-widest transition-all whitespace-nowrap cursor-pointer",
-                                                                                isAccepted
-                                                                                    ? "bg-amber-500/10 border-amber-500/20 text-amber-500 hover:bg-amber-500/20"
-                                                                                    : "bg-muted/20 border-border text-muted-foreground cursor-not-allowed"
-                                                                            )}
-                                                                            title={isAccepted ? "Upload draft files for this project" : "Accept assignment to upload draft"}
+                                                                            className="h-8 px-3 inline-flex items-center justify-center gap-1 rounded-lg bg-orange-500/10 border border-orange-500/20 text-orange-500 hover:bg-orange-500/20 text-[10px] font-bold uppercase tracking-widest transition-all whitespace-nowrap"
+                                                                            title="Upload new draft version"
                                                                         >
-                                                                            <Upload className="h-3.5 w-3.5" />
-                                                                            Upload
-                                                                        </a>
+                                                                            <UploadCloud className="h-3.5 w-3.5" />
+                                                                            Upload Draft
+                                                                        </button>
                                                                     </div>
                                                                 )}
                                                             </td>
@@ -1809,25 +1930,183 @@ export function EditorDashboardV2() {
                     name: reviewProject.name,
                     clientName: (reviewProject as any).clientName || reviewProject.name,
                     paymentStatus: reviewProject.paymentStatus,
-                    editorRating: reviewProject.editorRating
+                    editorRating: reviewProject.editorRating,
+                    createdAt: (reviewProject as any).createdAt
                 } : null}
-                allowUploadDraft={true}
             />
 
             {/* Upload Draft Modal */}
-            <UploadDraftModal
-                isOpen={isUploadModalOpen}
-                projectId={selectedUploadProject?.id || ""}
-                projectName={selectedUploadProject?.name || ""}
-                onClose={() => {
-                    setIsUploadModalOpen(false);
-                    setSelectedUploadProject(null);
-                }}
-                onSuccess={() => {
-                    // Refresh projects after upload
-                    setProjects([...projects]);
-                }}
-            />
+            <AnimatePresence>
+                {isUploadModalOpen && (
+                    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+                        <motion.div
+                            initial={{ opacity: 0 }}
+                            animate={{ opacity: 1 }}
+                            exit={{ opacity: 0 }}
+                            onClick={() => !isUploading && setIsUploadModalOpen(false)}
+                            className="absolute inset-0 bg-background/80 backdrop-blur-sm"
+                        />
+                        
+                        <motion.div
+                            initial={{ opacity: 0, scale: 0.95, y: 20 }}
+                            animate={{ opacity: 1, scale: 1, y: 0 }}
+                            exit={{ opacity: 0, scale: 0.95, y: 20 }}
+                            className="relative w-full max-w-2xl glass-panel !rounded-[2.5rem] overflow-hidden shadow-2xl border-white/10"
+                        >
+                            {/* Header */}
+                            <div className="p-8 border-b border-white/5 flex items-center justify-between bg-white/[0.02]">
+                                <div className="space-y-1">
+                                    <div className="flex items-center gap-2">
+                                        <div className="h-2 w-2 rounded-full bg-orange-500 animate-pulse" />
+                                        <span className="text-[10px] font-black text-orange-500 uppercase tracking-widest">Handover Protocol v2.0</span>
+                                    </div>
+                                    <h2 className="text-2xl font-black text-foreground">
+                                        Upload Draft <span className="text-muted-foreground">/ {uploadProject?.name}</span>
+                                    </h2>
+                                </div>
+                                <button
+                                    onClick={() => !isUploading && setIsUploadModalOpen(false)}
+                                    className="h-10 w-10 rounded-xl bg-white/5 hover:bg-white/10 flex items-center justify-center border border-white/10 transition-colors"
+                                >
+                                    <X className="h-5 w-5" />
+                                </button>
+                            </div>
+
+                            {/* Body */}
+                            <div className="p-8 space-y-8 max-h-[70vh] overflow-y-auto custom-scrollbar">
+                                <div className="space-y-6">
+                                    <Label className="text-[11px] font-black uppercase tracking-[0.3em] text-muted-foreground ml-1">
+                                        Master Video File
+                                    </Label>
+                                    
+                                    <AnimatePresence mode="wait">
+                                        {uploadPreviewUrl ? (
+                                            <motion.div
+                                                key="preview"
+                                                className="relative rounded-[2rem] overflow-hidden border border-orange-500/40 shadow-xl bg-black"
+                                            >
+                                                <video 
+                                                    src={uploadPreviewUrl} 
+                                                    controls 
+                                                    playsInline 
+                                                    className="w-full max-h-[240px] object-contain" 
+                                                />
+                                                {!isUploading && (
+                                                    <label className="absolute inset-0 flex items-end justify-center pb-4 bg-gradient-to-t from-black/60 to-transparent cursor-pointer opacity-0 hover:opacity-100 transition-opacity">
+                                                        <input type="file" accept="video/*" className="hidden" onChange={handleFileChange} />
+                                                        <span className="text-[10px] font-black text-white uppercase tracking-widest bg-white/20 backdrop-blur px-4 py-2 rounded-xl border border-white/30">
+                                                            Change File
+                                                        </span>
+                                                    </label>
+                                                )}
+                                                <div className="px-6 py-4 bg-muted/10 border-t border-border flex items-center gap-3">
+                                                    <FileVideo className="h-4 w-4 text-orange-500 shrink-0" />
+                                                    <span className="text-[12px] font-black text-foreground truncate">{uploadFile?.name}</span>
+                                                    <span className="ml-auto text-[10px] font-black text-emerald-500 uppercase tracking-widest shrink-0">
+                                                        {uploadFile ? UploadService.formatBytes(uploadFile.size) : ""}
+                                                    </span>
+                                                </div>
+                                            </motion.div>
+                                        ) : (
+                                            <motion.div
+                                                key="picker"
+                                                className={cn(
+                                                    "group relative border-2 border-dashed border-border rounded-[2.5rem] bg-muted/30",
+                                                    "hover:bg-muted/50 hover:border-orange-500/50 transition-all duration-700",
+                                                    "min-h-[160px] flex flex-col items-center justify-center text-center cursor-pointer p-8"
+                                                )}
+                                            >
+                                                <input
+                                                    type="file"
+                                                    accept="video/*"
+                                                    className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-20"
+                                                    onChange={handleFileChange}
+                                                />
+                                                <div className="space-y-3">
+                                                    <div className="h-14 w-14 bg-muted/50 rounded-2xl flex items-center justify-center mx-auto border border-border group-hover:scale-110 group-hover:border-orange-500/40 transition-all duration-500">
+                                                        <UploadCloud className="h-7 w-7 text-muted-foreground group-hover:text-orange-500 transition-colors" />
+                                                    </div>
+                                                    <div className="space-y-1">
+                                                        <p className="text-sm font-black text-muted-foreground">SELECT_VIDEO_PAYLOAD</p>
+                                                        <p className="text-[9px] font-black text-muted-foreground uppercase tracking-widest">MP4 · MOV · WEBM // MAX {MAX_FILE_SIZE_GB} GB</p>
+                                                    </div>
+                                                </div>
+                                            </motion.div>
+                                        )}
+                                    </AnimatePresence>
+                                </div>
+
+                                <div className="space-y-4">
+                                    <Label className="text-[11px] font-black uppercase tracking-[0.3em] text-muted-foreground ml-1">
+                                        Operational Notes
+                                    </Label>
+                                    <Textarea
+                                        placeholder="What's new in this version?"
+                                        className="bg-muted/30 border-border focus:border-orange-500/50 rounded-2xl font-bold min-h-[100px] text-foreground"
+                                        value={uploadDescription}
+                                        onChange={(e) => setUploadDescription(e.target.value)}
+                                        disabled={isUploading}
+                                    />
+                                </div>
+
+                                {isUploading && uploadProg && (
+                                    <div className="space-y-4 p-6 rounded-[2rem] bg-orange-500/5 border border-orange-500/20">
+                                        <div className="flex justify-between items-center">
+                                            <div className="flex flex-col">
+                                                <span className="text-[10px] font-black text-orange-500 uppercase tracking-widest animate-pulse">
+                                                    {uploadProg.percent === 100 ? "Finalizing..." : "Active Stream..."}
+                                                </span>
+                                                <span className="text-[8px] font-bold text-muted-foreground uppercase">
+                                                    {UploadService.formatSpeed(uploadProg.speedBps || 0)} · {UploadService.formatEta(uploadProg.eta || 0)} LEFT
+                                                </span>
+                                            </div>
+                                            <span className="text-xl font-black text-foreground italic">{Math.round(uploadProg.percent)}%</span>
+                                        </div>
+                                        <div className="h-1.5 w-full bg-muted/50 rounded-full overflow-hidden">
+                                            <motion.div
+                                                animate={{ width: `${uploadProg.percent}%` }}
+                                                className="h-full bg-orange-500 shadow-[0_0_15px_rgba(249,115,22,0.5)]"
+                                            />
+                                        </div>
+                                    </div>
+                                )}
+                            </div>
+
+                            {/* Footer */}
+                            <div className="p-8 bg-white/[0.02] border-t border-white/5 flex gap-3">
+                                {isUploading ? (
+                                    <button
+                                        onClick={handleCancelUpload}
+                                        className="h-14 px-6 rounded-2xl bg-white/5 border border-white/10 text-muted-foreground text-[10px] font-black uppercase tracking-widest hover:bg-destructive/10 hover:text-destructive transition-all flex items-center gap-2"
+                                    >
+                                        <X className="h-4 w-4" />
+                                        Abort
+                                    </button>
+                                ) : (
+                                    <button
+                                        onClick={() => setIsUploadModalOpen(false)}
+                                        className="h-14 px-6 rounded-2xl bg-white/5 border border-white/10 text-muted-foreground text-[10px] font-black uppercase tracking-widest hover:bg-white/10 transition-all"
+                                    >
+                                        Cancel
+                                    </button>
+                                )}
+                                <button
+                                    onClick={handleStartUpload}
+                                    disabled={!uploadFile || isUploading}
+                                    className="flex-1 h-14 rounded-2xl bg-orange-500 text-white text-[10px] font-black uppercase tracking-[0.2em] hover:bg-orange-600 transition-all flex items-center justify-center gap-3 shadow-lg shadow-orange-500/20 disabled:opacity-30"
+                                >
+                                    {isUploading ? (
+                                        <><Loader2 className="h-4 w-4 animate-spin" /> Transmission Active</>
+                                    ) : (
+                                        <>Initiate Handover <ChevronRight className="h-4 w-4" /></>
+                                    )}
+                                </button>
+                            </div>
+                        </motion.div>
+                    </div>
+                )}
+            </AnimatePresence>
+
         </>
     );
 }

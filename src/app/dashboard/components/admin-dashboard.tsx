@@ -3244,7 +3244,8 @@ export function AdminDashboard() {
                 id: reviewProject.id, 
                 name: reviewProject.name,
                 paymentStatus: reviewProject.paymentStatus,
-                editorRating: reviewProject.editorRating
+                editorRating: reviewProject.editorRating,
+                createdAt: reviewProject.createdAt
             } : null}
         />
 

@@ -900,11 +900,10 @@ export function ClientDashboard() {
                                     {previewFile.type.startsWith("image/") || /\.(jpg|jpeg|png|gif|webp)$/i.test(previewFile.name) ? (
                                         <img src={previewFile.url} alt={previewFile.name} className="max-w-full max-h-full object-contain" />
                                     ) : previewFile.type.startsWith("video/") || /\.(mp4|webm|mov)$/i.test(previewFile.name) ? (
-                                        <VideoPlayer
-                                            videoPath={previewFile.url}
-                                            className="w-full h-full"
-                                            title={previewFile.name}
-                                        />
+                                        <div className="flex flex-col items-center justify-center h-64 w-full text-white/50 gap-3">
+                                            <FileVideo className="h-10 w-10 opacity-20" />
+                                            <span className="text-sm">Video Preview Removed</span>
+                                        </div>
                                     ) : (
                                         <div className="text-center text-white">
                                             <FileVideo className="h-12 w-12 mx-auto mb-4 opacity-50" />
@@ -930,7 +929,8 @@ export function ClientDashboard() {
                     amountPaid: selectedProject.amountPaid,
                     paymentStatus: selectedProject.paymentStatus,
                     editorRating: selectedProject.editorRating,
-                    editorReview: selectedProject.editorReview
+                    editorReview: selectedProject.editorReview,
+                    createdAt: selectedProject.createdAt
                 } : null}
             />
         </div>

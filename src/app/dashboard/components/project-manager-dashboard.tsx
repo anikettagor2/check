@@ -2025,13 +2025,10 @@ export function ProjectManagerDashboard() {
                                     {previewFile.type.startsWith('image/') || /\.(jpg|jpeg|png|gif|webp)$/i.test(previewFile.name) ? (
                                         <img src={previewFile.url} alt={previewFile.name} className="w-full h-full object-contain" />
                                     ) : previewFile.type.startsWith('video/') || /\.(mp4|webm|mov)$/i.test(previewFile.name) ? (
-                                        <VideoPlayer 
-                                            videoPath={previewFile.url} 
-                                            className="w-full h-full object-contain" 
-                                            title={previewFile.name}
-                                            playbackRates={[0.5, 0.75, 1, 1.25, 1.5, 2]}
-                                            primaryColor="#6366f1"
-                                        />
+                                        <div className="flex flex-col items-center justify-center h-full text-white/50 gap-3">
+                                            <FileVideo className="h-10 w-10 opacity-20" />
+                                            <span className="text-sm">Video Preview Removed</span>
+                                        </div>
                                     ) : (
                                         <div className="text-center text-white">
                                             <FileVideo className="h-12 w-12 mx-auto mb-4 opacity-50" />
@@ -2054,7 +2051,8 @@ export function ProjectManagerDashboard() {
                     name: reviewProject.name,
                     clientName: reviewProject.clientName || reviewProject.name,
                     paymentStatus: reviewProject.paymentStatus,
-                    editorRating: reviewProject.editorRating
+                    editorRating: reviewProject.editorRating,
+                    createdAt: reviewProject.createdAt
                 } : null}
             />
 
