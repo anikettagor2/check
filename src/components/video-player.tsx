@@ -133,14 +133,7 @@ export function VideoPlayer({
       {watermark && !isProcessing && (
         <div className="absolute inset-0 z-30 flex items-center justify-center pointer-events-none">
           <div className="text-center space-y-2">
-            <div className="flex items-center justify-center gap-2">
-              <div className="h-3 w-3 rounded-full bg-primary" />
-              <span className="text-2xl font-bold text-white uppercase tracking-widest drop-shadow-lg">
-                {watermark}
-              </span>
-              <div className="h-3 w-3 rounded-full bg-primary" />
-            </div>
-            <span className="text-sm text-white/70 font-medium uppercase tracking-wider drop-shadow-lg">
+            <span className="text-3xl font-bold text-white uppercase tracking-widest drop-shadow-lg">
               Client Preview
             </span>
           </div>
