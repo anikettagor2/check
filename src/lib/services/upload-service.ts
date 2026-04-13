@@ -53,14 +53,14 @@ export class UploadService {
     }
 
     // ROUTING LOGIC:
-    // 1. Revisions/Drafts (uploaded by editor) -> ALWAYS Mux (high-performance streaming)
-    // 2. Raw videos (uploaded by client) -> ALWAYS Firebase Storage (default for raw asset storage)
-    // 3. Other assets (new projects) -> Mux if appropriate, else Firebase
+    // 1. Revisions/Drafts (uploaded by editor) -> FIREBASE Storage (for both streaming + downloads)
+    // 2. Raw videos (uploaded by client) -> FIREBASE Storage (default for raw asset storage)
+    // 3. Other assets (new projects) -> Firebase Storage (simpler, faster, cheaper)
     console.log(`[UploadService] Unified Upload Start: ${file.name} (${file.size} bytes), Type: ${options.type}, isVideo: ${isVideo}`);
 
     if (options.type === 'revision' && isVideo) {
-      console.log(`[UploadService] Routing Draft/Revision upload to MUX for project ${options.projectId}`);
-      return this.uploadToMux(file, options);
+      console.log(`[UploadService] Routing Draft/Revision upload to Firebase Storage (for both streaming & downloads)`);
+      return this.uploadToFirebase(file, options);
     } 
     
     // Raw videos from clients ALWAYS go to Firebase Storage (optimized for speed)
@@ -69,14 +69,8 @@ export class UploadService {
       return this.uploadToFirebase(file, options);
     }
     
-    // For other asset types, check project date
-    const useMux = await this.shouldProjectUseMux(options.projectId);
-    if (useMux && isVideo && options.type === 'asset') {
-      console.log(`[UploadService] Routing asset video to Mux (New Project)`);
-      return this.uploadToMux(file, options);
-    }
-
-    console.log(`[UploadService] Routing to Firebase (${options.type}${isVideo ? ' Video' : ''})`);
+    // All other uploads go to Firebase (simpler architecture)
+    console.log(`[UploadService] Routing to Firebase Storage (${options.type}${isVideo ? ' Video' : ''})`);
     return this.uploadToFirebase(file, options);
   }
 
