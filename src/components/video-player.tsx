@@ -88,7 +88,6 @@ export function VideoPlayer({
           autoPlay={false}
           playsInline
           minResolution="480p"
-          maxResolution="auto"
           onPlay={onPlaying}
           onPause={onPause}
           onTimeUpdate={(e) => {
