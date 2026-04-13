@@ -1,6 +1,5 @@
 "use client";
 
-import Hls from "hls.js";
 import React, { useState, useRef, useEffect } from "react";
 import { Play, Loader2, AlertCircle, Pause, Volume2, VolumeX } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -72,37 +71,11 @@ export function VideoPlayer({
         </div>
       )}
 
-      {/* Regular Video Element for Blob URLs or non-Mux sources when MuxPlayer is not strictly needed */}
-      {!isProcessing && videoPath?.startsWith('blob:') ? (
-        <video
-          src={videoPath}
-          controls
-          playsInline
-          className="w-full h-full"
-          onPlay={onPlaying}
-          onPause={onPause}
-          onTimeUpdate={(e) => {
-            const video = e.target as HTMLVideoElement;
-            if (video) {
-              onTimeUpdate?.(video.currentTime, video.duration);
-            }
-          }}
-          onLoadedMetadata={(e) => {
-            const video = e.target as HTMLVideoElement;
-            if (video) {
-              onLoadedMetadata?.(video.duration);
-            }
-          }}
-          onError={(e) => {
-            console.error("VideoPlayer Blob Error:", e);
-            setError("Failed to load local video");
-            onError?.(new Error("Video playback error"));
-          }}
-        />
-      ) : !isProcessing && (
+      {/* Using MuxPlayer for all sources for consistent UI */}
+      {!isProcessing && (
         <MuxPlayer
           playbackId={resolvedPlaybackId}
-          src={effectiveSrc}
+          src={effectiveSrc || (videoPath?.startsWith('blob:') ? videoPath : undefined)}
           metadata={{ 
             video_title: title, 
             ...metadata 

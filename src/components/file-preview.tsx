@@ -18,7 +18,7 @@ import Image from "next/image";
 import { warmVideoInMemory } from "@/lib/video-preload";
 import { useIntersectionObserver } from "@/hooks/use-intersection-observer";
 import { useVideoTranscodeStatus, TranscodeStatus } from "@/hooks/use-video-transcode-status";
-import Hls from "hls.js";
+import { VideoPlayer } from "@/components/video-player";
 
 interface FilePreviewProps {
   file: {
@@ -37,7 +37,6 @@ export function FilePreview({ file, index }: FilePreviewProps) {
   const [previewError, setPreviewError] = useState(false);
   const [isVideoLoaded, setIsVideoLoaded] = useState(false);
   const videoRef = React.useRef<HTMLVideoElement>(null);
-  const hlsRef = React.useRef<Hls | null>(null);
 
   // Monitor transcoding status for .mov files
   const transcodeState = useVideoTranscodeStatus(file.storagePath, file.name);
@@ -87,52 +86,12 @@ export function FilePreview({ file, index }: FilePreviewProps) {
     }
   };
 
-  // Initialize HLS streaming for videos
+  // Monitor intersecting for lazy loading
   useEffect(() => {
-    if (getFileType(file.name) === 'video' && file.hlsUrl && videoRef.current && isIntersecting) {
-      const video = videoRef.current;
-
-      if (Hls.isSupported()) {
-        const hls = new Hls({
-          enableWorker: true,
-          lowLatencyMode: true,
-          backBufferLength: 90,
-        });
-
-        hlsRef.current = hls;
-        hls.loadSource(file.hlsUrl);
-        hls.attachMedia(video);
-
-        hls.on(Hls.Events.MANIFEST_PARSED, () => {
-          setIsVideoLoaded(true);
-          // Warm up video in memory for instant playback
-          warmVideoInMemory(file.hlsUrl!);
-        });
-
-        hls.on(Hls.Events.ERROR, (event, data) => {
-          console.error('HLS Error:', data);
-          setPreviewError(true);
-        });
-
-        return () => {
-          hls.destroy();
-        };
-      } else if (video.canPlayType('application/vnd.apple.mpegurl')) {
-        // Native HLS support (Safari)
-        video.src = file.hlsUrl!;
-        setIsVideoLoaded(true);
-      }
+    if (getFileType(file.name) === 'video' && isIntersecting) {
+        warmVideoInMemory(file.hlsUrl || file.url);
     }
-  }, [file.hlsUrl, file.name, isIntersecting]);
-
-  // Cleanup HLS on unmount
-  useEffect(() => {
-    return () => {
-      if (hlsRef.current) {
-        hlsRef.current.destroy();
-      }
-    };
-  }, []);
+  }, [file.hlsUrl, file.url, file.name, isIntersecting]);
 
   const fileType = getFileType(file.name);
   const ext = getFileExtension(file.name);
@@ -221,24 +180,15 @@ export function FilePreview({ file, index }: FilePreviewProps) {
                 </div>
               ) : (
                 <>
-                  <video
-                    ref={videoRef}
-                    poster={`data:image/svg+xml;charset=utf-8,${encodeURIComponent(`
-                      <svg xmlns="http://www.w3.org/2000/svg" width="320" height="180" viewBox="0 0 320 180">
-                        <rect width="320" height="180" fill="#1a1a1a"/>
-                        <circle cx="160" cy="90" r="25" fill="rgba(255,255,255,0.1)"/>
-                        <polygon points="145,75 145,105 175,90" fill="rgba(255,255,255,0.8)"/>
-                      </svg>
-                    `)}`}
-                    preload="metadata"
-                    playsInline
-                    muted
-                    className="w-full h-full object-cover"
-                    onError={() => setPreviewError(true)}
-                  />
+                  <div className="w-full h-full pointer-events-none">
+                    <VideoPlayer
+                      videoPath={file.url}
+                      className="w-full h-full object-cover"
+                    />
+                  </div>
                   <button
                     onClick={() => setShowPreview(true)}
-                    className="absolute flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-300"
+                    className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-300 z-10"
                     title="Play video"
                   >
                     <div className="h-12 w-12 rounded-full bg-primary/90 flex items-center justify-center shadow-lg hover:bg-primary">
@@ -398,13 +348,10 @@ export function FilePreview({ file, index }: FilePreviewProps) {
               </div>
             )}
 
-            <video
-              src={effectiveVideoUrl}
-              controls
-              preload="auto"
-              playsInline
-              autoPlay
-              className="w-full max-h-[80vh] rounded-lg shadow-2xl"
+            <VideoPlayer
+              videoPath={effectiveVideoUrl}
+              title={file.name}
+              className="w-full aspect-video rounded-lg shadow-2xl"
               onError={() => setPreviewError(true)}
             />
           </div>

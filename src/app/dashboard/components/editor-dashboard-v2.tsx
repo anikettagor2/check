@@ -414,12 +414,10 @@ export function EditorDashboardV2() {
                             <span className="text-[10px] text-white font-bold uppercase tracking-tighter">Optimizing...</span>
                         </div>
                     )}
-                    <video 
-                        src={effectiveUrl} 
-                        controls
-                        preload="metadata"
-                        playsInline
-                        className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" 
+                    <VideoPlayer 
+                        videoPath={effectiveUrl} 
+                        className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                        title={file.name || "Video Preview"}
                     />
                     <button
                         onClick={onPreview}
@@ -1985,10 +1983,8 @@ export function EditorDashboardV2() {
                                                 key="preview"
                                                 className="relative rounded-[2rem] overflow-hidden border border-orange-500/40 shadow-xl bg-black"
                                             >
-                                                <video 
-                                                    src={uploadPreviewUrl} 
-                                                    controls 
-                                                    playsInline 
+                                                <VideoPlayer 
+                                                    videoPath={uploadPreviewUrl} 
                                                     className="w-full max-h-[240px] object-contain" 
                                                 />
                                                 {!isUploading && (

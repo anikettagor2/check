@@ -241,10 +241,8 @@ export function UploadDraftModal({
                                             exit={{ opacity: 0, scale: 0.97 }}
                                             className="relative rounded-xl overflow-hidden border border-primary/40 shadow-lg bg-black"
                                         >
-                                            <video
-                                                src={previewUrl || ""}
-                                                controls
-                                                playsInline
+                                            <VideoPlayer
+                                                videoPath={previewUrl || ""}
                                                 className="w-full h-[240px] object-contain"
                                             />
                                             {!isUploading && (
