@@ -40,9 +40,14 @@ export function DashboardHeader({ onMenuClick }: DashboardHeaderProps) {
                 priority
               />
             ) : (
-                <div className="flex items-center gap-1.5 h-full">
-                    <div className="w-5 h-5 rounded bg-primary flex items-center justify-center font-bold text-black italic text-[10px]">E</div>
-                    <span className="text-xs font-heading font-black tracking-tighter">EDITO_HUB</span>
+                <div className="relative h-8 w-24">
+                  <Image 
+                    src="/logo.png" 
+                    alt="EditoHub Logo" 
+                    fill 
+                    className="object-contain object-left"
+                    priority
+                  />
                 </div>
             )}
           </div>

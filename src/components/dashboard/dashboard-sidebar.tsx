@@ -196,8 +196,14 @@ export function DashboardSidebar({ collapsed = false, onToggle }: DashboardSideb
                 priority
               />
             ) : (
-              <div className="flex items-center h-full overflow-hidden">
-                <span className="text-xl font-heading font-black tracking-tighter text-white">EDITO_HUB</span>
+              <div className={cn("relative h-10 overflow-hidden transition-all duration-500 ease-out", effectiveCollapsed ? "w-10" : "w-40")}>
+                <Image 
+                  src="/logo.png" 
+                  alt="EditoHub Logo" 
+                  fill 
+                  className={cn("object-contain transition-all duration-500 ease-out", effectiveCollapsed ? "object-center scale-95" : "object-left scale-100")}
+                  priority
+                />
               </div>
             )}
           </div>

@@ -23,10 +23,15 @@ export function Footer() {
                     className="object-contain object-left"
                  />
                ) : (
-                <div className="flex items-center gap-2 h-full">
-                    <div className="w-8 h-8 rounded bg-primary flex items-center justify-center font-bold text-black italic">E</div>
-                    <span className="text-xl font-heading font-black tracking-tighter">EDITO_HUB</span>
-                </div>
+                 <div className="relative h-12 w-48 flex items-center">
+                   <Image 
+                      src="/logo.png" 
+                      alt="EditoHub Logo" 
+                      fill 
+                      className="object-contain object-left"
+                      priority
+                   />
+                 </div>
                )}
             </Link>
             <p className="text-muted-foreground leading-relaxed text-sm">
@@ -79,7 +84,7 @@ export function Footer() {
         </div>
 
         <div className="mt-16 pt-8 border-t border-black/10 flex flex-col md:flex-row items-center justify-between text-sm text-muted-foreground premium-light-surface rounded-2xl px-5 py-4">
-          <p>© 2025 EDITOHUB. All rights reserved.</p>
+          <p>© {new Date().getFullYear()} EditoHub. All rights reserved.</p>
           <div className="flex space-x-6 mt-4 md:mt-0">
             <Link href="#" className="hover:text-primary transition-colors">Privacy Policy</Link>
             <Link href="#" className="hover:text-primary transition-colors">Terms of Service</Link>

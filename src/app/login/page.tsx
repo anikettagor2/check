@@ -138,9 +138,14 @@ export default function LoginPage() {
                   priority
                 />
               ) : (
-                <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-xl bg-primary flex items-center justify-center font-bold text-primary-foreground italic text-xl shadow-[0_0_20px_rgba(var(--primary),0.3)]">E</div>
-                    <span className="text-3xl font-heading font-black tracking-tighter">EDITO_HUB</span>
+                <div className="relative h-16 w-full flex items-center justify-center">
+                  <Image 
+                    src="/logo.png" 
+                    alt="EditoHub Logo" 
+                    fill 
+                    className="object-contain"
+                    priority
+                  />
                 </div>
               )}
             </div>
