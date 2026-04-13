@@ -1328,3 +1328,10 @@ export async function assignClientPM(clientId: string, pmId: string) {
         return { success: false, error: error.message };
     }
 }
+
+/**
+ * Sets the download limit to 3 in system settings
+ */
+export async function setDownloadLimitToThree() {
+    return await updateSystemSettings({ downloadLimit: 3 });
+}

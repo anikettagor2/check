@@ -53,14 +53,14 @@ export class UploadService {
     }
 
     // ROUTING LOGIC:
-    // 1. Revisions/Drafts (uploaded by editor) -> FIREBASE Storage (for both streaming + downloads)
-    // 2. Raw videos (uploaded by client) -> FIREBASE Storage (default for raw asset storage)
-    // 3. Other assets (new projects) -> Firebase Storage (simpler, faster, cheaper)
+    // 1. Revisions/Drafts (uploaded by editor) -> ALWAYS Mux (high-performance streaming)
+    // 2. Raw videos (uploaded by client) -> ALWAYS Firebase Storage (default for raw asset storage)
+    // 3. Other assets (new projects) -> Mux if appropriate, else Firebase
     console.log(`[UploadService] Unified Upload Start: ${file.name} (${file.size} bytes), Type: ${options.type}, isVideo: ${isVideo}`);
 
     if (options.type === 'revision' && isVideo) {
-      console.log(`[UploadService] Routing Draft/Revision upload to Firebase Storage (for both streaming & downloads)`);
-      return this.uploadToFirebase(file, options);
+      console.log(`[UploadService] Routing Draft/Revision upload to MUX for project ${options.projectId}`);
+      return this.uploadToMux(file, options);
     } 
     
     // Raw videos from clients ALWAYS go to Firebase Storage (optimized for speed)
@@ -69,8 +69,14 @@ export class UploadService {
       return this.uploadToFirebase(file, options);
     }
     
-    // All other uploads go to Firebase (simpler architecture)
-    console.log(`[UploadService] Routing to Firebase Storage (${options.type}${isVideo ? ' Video' : ''})`);
+    // For other asset types, check project date
+    const useMux = await this.shouldProjectUseMux(options.projectId);
+    if (useMux && isVideo && options.type === 'asset') {
+      console.log(`[UploadService] Routing asset video to Mux (New Project)`);
+      return this.uploadToMux(file, options);
+    }
+
+    console.log(`[UploadService] Routing to Firebase (${options.type}${isVideo ? ' Video' : ''})`);
     return this.uploadToFirebase(file, options);
   }
 
@@ -308,22 +314,13 @@ export class UploadService {
             throw new Error('MUX upload failed');
           }
 
-          // CRITICAL: Update revision with Firebase backup URL for downloads
-          // This ensures videoUrl is always available, even if initial save missed it
+          // Update revision with both URLs for complete functionality
           if (firebaseUrl) {
-            console.log(`[UploadService] Saving Firebase backup URL to revision ${finalRevisionId}`);
-            try {
-              await setDoc(doc(db, "revisions", finalRevisionId), {
-                videoUrl: firebaseUrl,
-                updatedAt: Date.now()
-              }, { merge: true });
-              console.log(`[UploadService] Firebase backup URL saved successfully for downloads`);
-            } catch (updateErr) {
-              console.error(`[UploadService] Failed to save Firebase URL to revision:`, updateErr);
-              // Log but don't fail - MUX upload already succeeded
-            }
-          } else {
-            console.warn(`[UploadService] Firebase backup returned no URL - downloads may not work for this revision`);
+            console.log(`[UploadService] Updating revision with Firebase backup URL for downloads`);
+            await setDoc(doc(db, "revisions", finalRevisionId), {
+              videoUrl: firebaseUrl,
+              updatedAt: Date.now()
+            }, { merge: true });
           }
 
           return muxResult;
