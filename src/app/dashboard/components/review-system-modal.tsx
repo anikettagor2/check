@@ -590,6 +590,7 @@ export function ReviewSystemModal({ isOpen, onClose, project, guestPreview = fal
                         videoPath={videoSource}
                         playbackId={selectedRevision?.playbackId}
                         title={`Revision v${selectedRevision?.version}`}
+                        watermark={project?.clientName || project?.name}
                         onTimeUpdate={setCurrentTime}
                         onLoadedMetadata={setDuration}
                         className="w-full h-full"
