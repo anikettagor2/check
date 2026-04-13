@@ -617,7 +617,7 @@ export function ReviewSystemModal({ isOpen, onClose, project, guestPreview = fal
             </div>
 
             {/* Right Column: Comments */}
-            <div className="lg:col-span-4 flex flex-col gap-4 h-[70vh] lg:h-auto">
+            <div className="lg:col-span-4 flex flex-col gap-4 h-[70vh] lg:h-auto min-h-0">
                 <div className="flex gap-1 p-1 bg-muted/40 rounded-xl border border-border/50">
                     <button
                         onClick={() => setActiveTab('timeline')}
@@ -639,7 +639,7 @@ export function ReviewSystemModal({ isOpen, onClose, project, guestPreview = fal
                     </button>
                 </div>
 
-                <div className="flex-1 overflow-y-auto space-y-4 pr-1 scrollbar-thin">
+                <div className="flex-1 overflow-y-auto space-y-4 pr-1 scrollbar-thin min-h-0">
                     {(activeTab === 'timeline' ? comments : directConnections).length === 0 ? (
                         <div className="flex flex-col items-center justify-center py-12 text-center">
                             <div className="h-12 w-12 rounded-full bg-muted/30 flex items-center justify-center mb-4">
@@ -671,65 +671,113 @@ export function ReviewSystemModal({ isOpen, onClose, project, guestPreview = fal
                                         <button onClick={() => handleDeleteComment(c.id)} className="opacity-0 group-hover:opacity-100 p-1.5 text-muted-foreground hover:text-destructive transition-all">
                                             <X className="h-4 w-4" />
                                         </button>
-                {/* Comment Input */}
-                <div className="p-4 rounded-2xl bg-muted/30 border border-border/50 space-y-3">
-                    <div className="relative">
-                        <textarea
-                            value={newComment}
-                            onChange={(e) => setNewComment(e.target.value)}
-                            placeholder={activeTab === 'timeline' ? "Type a comment at this timestamp..." : "Message editor directly..."}
-                            className="w-full text-sm bg-transparent border-none resize-none focus:outline-none min-h-[60px]"
-                        />
-                        {activeTab === 'timeline' && (
-                            <div className="absolute right-0 bottom-0 text-[10px] font-black text-primary bg-primary/10 px-2 py-1 rounded-md mb-2 mr-2">
-                                {formatTime(currentTime)}
-                            </div>
-                        )}
-                    </div>
-                            </div>
-                        )}
-                    </div>
+                                    )}
+                                </div>
+                                
+                                <div className="text-sm text-foreground whitespace-pre-wrap leading-relaxed pl-1">
+                                    {c.content}
+                                </div>
 
-                    {selectedImagePreview && (
-                        <div className="relative rounded-xl border border-border/50 overflow-hidden bg-black/20 p-2">
-                            <img src={annotatedImagePreview || selectedImagePreview} className="max-h-32 rounded-lg mx-auto" />
-                            <button onClick={clearImageSelection} className="absolute top-3 right-3 p-1 rounded-full bg-black/60 text-white hover:bg-black"><X className="h-3 w-3" /></button>
-                            <input 
-                                type="text"
-                                value={imageOverlayText}
-                                onChange={(e) => setImageOverlayText(e.target.value)}
-                                placeholder="Add text overlay..."
-                                className="w-full mt-2 text-[10px] bg-background/50 border border-border/30 rounded-lg p-2 focus:outline-none"
-                            />
-                        </div>
+                                {c.imageUrl && (
+                                    <div className="relative rounded-xl border border-border/50 overflow-hidden bg-black/5 flex justify-center">
+                                        <img src={c.imageUrl} className="max-h-60 object-contain w-full" alt="Comment attachment" />
+                                        <a href={c.imageUrl} target="_blank" rel="noreferrer" className="absolute top-2 right-2 p-1.5 rounded-full bg-black/60 text-white hover:bg-black transition-all">
+                                            <Download className="h-3.5 w-3.5" />
+                                        </a>
+                                    </div>
+                                )}
+
+                                {c.replies && c.replies.length > 0 && (
+                                    <div className="mt-3 pl-4 border-l-2 border-border/30 space-y-3">
+                                        {c.replies.map((reply) => (
+                                            <div key={reply.id} className="space-y-1">
+                                                <div className="flex items-center gap-2">
+                                                    <span className="text-[10px] font-black text-foreground">{reply.userName}</span>
+                                                    <span className="text-[9px] text-muted-foreground uppercase">{formatDate(reply.createdAt)}</span>
+                                                </div>
+                                                <p className="text-xs text-muted-foreground">{reply.content}</p>
+                                            </div>
+                                        ))}
+                                    </div>
+                                )}
+                            </div>
+                        ))
                     )}
 
-                    <div className="flex items-center justify-between border-t border-border/30 pt-3">
-                        <div className="flex items-center gap-1">
-                            <button
-                                onClick={() => fileInputRef.current?.click()}
-                                className="p-2 rounded-lg hover:bg-muted text-muted-foreground transition-colors"
-                                title="Attach screenshot"
-                            >
-                                <ImageIcon className="h-4 w-4" />
-                            </button>
-                            <input type="file" ref={fileInputRef} className="hidden" accept="image/*" onChange={handleImageSelect} />
+                    {/* Pending comments being queued */}
+                    {pendingComments.filter(p => p.isDirectConnection === (activeTab === 'direct')).map((pc) => (
+                        <div key={pc.id} className="p-4 rounded-2xl bg-primary/5 border border-primary/20 space-y-3 opacity-70">
+                            <div className="flex items-center justify-between">
+                                <div className="flex items-center gap-2">
+                                    <div className="h-6 w-6 rounded-full bg-primary/10 flex items-center justify-center text-[10px] font-black text-primary uppercase">Q</div>
+                                    <div className="text-[10px] font-bold text-primary uppercase tracking-wider">Queued Comment {pc.timestamp > 0 && `@ ${formatTime(pc.timestamp)}`}</div>
+                                </div>
+                                <button onClick={() => setPendingComments(p => p.filter(x => x.id !== pc.id))} className="text-muted-foreground hover:text-destructive"><X className="h-3.5 w-3.5" /></button>
+                            </div>
+                            {pc.content && <p className="text-xs text-foreground/80">{pc.content}</p>}
+                            {pc.imagePreview && <img src={pc.imagePreview} className="max-h-24 rounded-lg" />}
                         </div>
-                        <div className="flex items-center gap-2">
-                            <button
-                                onClick={handleQueueComment}
-                                className="h-8 px-4 rounded-lg text-[10px] font-black uppercase tracking-wider text-muted-foreground hover:bg-muted transition-colors"
-                            >
-                                Queue
-                            </button>
-                            <button
-                                onClick={handleSendQueuedComments}
-                                disabled={savingComment || (!newComment.trim() && !selectedImage && pendingComments.length === 0)}
-                                className="h-8 px-5 rounded-lg bg-primary text-primary-foreground text-[10px] font-black uppercase tracking-widest hover:brightness-110 active:scale-95 transition-all flex items-center gap-2 disabled:opacity-50"
-                            >
-                                {savingComment ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Send className="h-3.5 w-3.5" />}
-                                Send {pendingComments.length > 0 ? `(${pendingComments.length + (newComment.trim() || selectedImage ? 1 : 0)})` : ""}
-                            </button>
+                    ))}
+                </div>
+
+                {/* Comment Input Area */}
+                <div className="space-y-3 pt-3 border-t border-border/50">
+                    <div className="p-4 rounded-2xl bg-muted/30 border border-border/50 space-y-3">
+                        <div className="relative">
+                            <textarea
+                                value={newComment}
+                                onChange={(e) => setNewComment(e.target.value)}
+                                placeholder={activeTab === 'timeline' ? "Type a comment at this timestamp..." : "Message editor directly..."}
+                                className="w-full text-sm bg-transparent border-none resize-none focus:outline-none min-h-[60px]"
+                            />
+                            {activeTab === 'timeline' && (
+                                <div className="absolute right-0 bottom-0 text-[10px] font-black text-primary bg-primary/10 px-2 py-1 rounded-md mb-2 mr-2">
+                                    {formatTime(currentTime)}
+                                </div>
+                            )}
+                        </div>
+
+                        {selectedImagePreview && (
+                            <div className="relative rounded-xl border border-border/50 overflow-hidden bg-black/20 p-2">
+                                <img src={annotatedImagePreview || selectedImagePreview} className="max-h-32 rounded-lg mx-auto" />
+                                <button onClick={clearImageSelection} className="absolute top-3 right-3 p-1 rounded-full bg-black/60 text-white hover:bg-black"><X className="h-3 w-3" /></button>
+                                <input 
+                                    type="text"
+                                    value={imageOverlayText}
+                                    onChange={(e) => setImageOverlayText(e.target.value)}
+                                    placeholder="Add text overlay..."
+                                    className="w-full mt-2 text-[10px] bg-background/50 border border-border/30 rounded-lg p-2 focus:outline-none"
+                                />
+                            </div>
+                        )}
+
+                        <div className="flex items-center justify-between border-t border-border/30 pt-3">
+                            <div className="flex items-center gap-1">
+                                <button
+                                    onClick={() => fileInputRef.current?.click()}
+                                    className="p-2 rounded-lg hover:bg-muted text-muted-foreground transition-colors"
+                                    title="Attach screenshot"
+                                >
+                                    <ImageIcon className="h-4 w-4" />
+                                </button>
+                                <input type="file" ref={fileInputRef} className="hidden" accept="image/*" onChange={handleImageSelect} />
+                            </div>
+                            <div className="flex items-center gap-2">
+                                <button
+                                    onClick={handleQueueComment}
+                                    className="h-8 px-4 rounded-lg text-[10px] font-black uppercase tracking-wider text-muted-foreground hover:bg-muted transition-colors"
+                                >
+                                    Queue
+                                </button>
+                                <button
+                                    onClick={handleSendQueuedComments}
+                                    disabled={savingComment || (!newComment.trim() && !selectedImage && pendingComments.length === 0)}
+                                    className="h-8 px-5 rounded-lg bg-primary text-primary-foreground text-[10px] font-black uppercase tracking-widest hover:brightness-110 active:scale-95 transition-all flex items-center gap-2 disabled:opacity-50"
+                                >
+                                    {savingComment ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Send className="h-3.5 w-3.5" />}
+                                    Send {pendingComments.length > 0 ? `(${pendingComments.length + (newComment.trim() || selectedImage ? 1 : 0)})` : ""}
+                                </button>
+                            </div>
                         </div>
                     </div>
                 </div>

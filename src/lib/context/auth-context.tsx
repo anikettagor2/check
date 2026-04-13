@@ -19,7 +19,6 @@ import { doc, getDoc, setDoc, onSnapshot } from "firebase/firestore";
 import { User, UserRole } from "@/types/schema";
 import { useRouter } from "next/navigation";
 import { clearVideoBlobCache } from "@/components/dashboard-video-optimizer";
-import { clearSegmentCache } from "@/lib/streaming/segment-cache";
 
 interface AuthContextType {
   user: User | null;
@@ -395,9 +394,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       
       // Clear video cache from browser memory
       clearVideoBlobCache();
-      
-      // Clear segment cache from IndexedDB (HLS streaming)
-      await clearSegmentCache();
       
       // Sign out from Firebase (this will trigger onAuthStateChanged)
       await signOut(auth);
