@@ -178,42 +178,19 @@ export async function registerDownload(projectId: string, revisionId: string) {
             await purgeProjectAssets(projectId, projectData);
         }
 
-        // Return a signed URL with force-download headers
-        let downloadUrl = data.videoUrl || "";
+        // Return download URL to be streamed by /api/download endpoint
+        // The frontend will POST this URL to /api/download which handles both Firebase and MUX
+        let downloadUrl = "";
 
-        try {
-            if (downloadUrl && downloadUrl.includes('firebasestorage.googleapis.com')) {
-                // Extract path from Firebase Storage URL
-                const pathParts = downloadUrl.split('/o/');
-                if (pathParts.length > 1) {
-                    const encodedPath = pathParts[1].split('?')[0];
-                    const fullPath = decodeURIComponent(encodedPath);
-
-                    const bucket = adminStorage.bucket();
-                    const file = bucket.file(fullPath);
-
-                    // Fetch project name for the filename
-                    const projectName = projectData?.name || "Video";
-                    const safeName = projectName.replace(/[^a-z0-9]/gi, '_').toLowerCase();
-                    const filename = `${safeName}_v${data.version || '1'}.mp4`;
-
-                    // Generate signed URL that expires in 1 hour and forces download
-                    const signedUrlResponse = await file.getSignedUrl({
-                        version: 'v4',
-                        action: 'read',
-                        expires: Date.now() + 60 * 60 * 1000, // 1 hour
-                        promptSaveAs: filename,
-                        responseDisposition: `attachment; filename="${filename}"`
-                    });
-
-                    if (Array.isArray(signedUrlResponse) && signedUrlResponse.length > 0) {
-                        downloadUrl = signedUrlResponse[0];
-                    }
-                }
-            }
-        } catch (err: any) {
-            console.error("[registerDownload] Signed URL generation failed:", err);
-            // Fallback to original URL is handled by the check below
+        // Prefer videoUrl (Firebase Storage - high quality original)
+        if (data.videoUrl) {
+            downloadUrl = data.videoUrl;
+            console.log(`[registerDownload] Using Firebase Storage URL for download`);
+        }
+        // Fallback to Mux playback URL (for streaming/download)
+        else if (data.playbackId) {
+            downloadUrl = `https://stream.mux.com/${data.playbackId}`;
+            console.log(`[registerDownload] Using MUX playback URL for download`);
         }
 
         if (!downloadUrl) {

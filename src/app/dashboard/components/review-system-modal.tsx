@@ -251,26 +251,46 @@ export function ReviewSystemModal({ isOpen, onClose, project, guestPreview = fal
         if (!project?.id || !selectedRevisionId || !selectedRevision) return;
         setIsDownloading(true);
         try {
+            // First, register the download and get the URL
             const res = await registerDownload(project.id, selectedRevisionId);
-            if (res.success && res.downloadUrl) {
-                let finalUrl = res.downloadUrl;
-                // Firebase URLs need alt=media for direct download
-                if (finalUrl.includes('firebasestorage.googleapis.com') && !finalUrl.includes('alt=media')) {
-                    finalUrl += (finalUrl.includes('?') ? '&' : '?') + 'alt=media';
-                }
-                const link = document.createElement("a");
-                link.href = finalUrl;
-                link.setAttribute("download", `${project.name || 'video'}_v${selectedRevision.version || 1}.mp4`);
-                document.body.appendChild(link);
-                link.click();
-                document.body.removeChild(link);
-                toast.success("Download started in your browser.");
-            } else {
+            if (!res.success || !res.downloadUrl) {
                 toast.error(res.error || "Failed to start download.");
+                setIsDownloading(false);
+                return;
             }
+
+            // Now stream the file through /api/download endpoint
+            const downloadResponse = await fetch('/api/download', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    url: res.downloadUrl,
+                    fileName: `${project.name || 'video'}_v${selectedRevision.version || 1}.mp4`
+                })
+            });
+
+            if (!downloadResponse.ok) {
+                const errorData = await downloadResponse.json().catch(() => ({}));
+                toast.error(errorData.error || "Failed to download video.");
+                setIsDownloading(false);
+                return;
+            }
+
+            // Get the blob and create download link
+            const blob = await downloadResponse.blob();
+            const url = window.URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            link.href = url;
+            link.setAttribute('download', `${project.name || 'video'}_v${selectedRevision.version || 1}.mp4`);
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            window.URL.revokeObjectURL(url);
+            
+            toast.success("Download started in your browser.");
         } catch (error) {
             console.error("Download error:", error);
-            toast.error("An error occurred.");
+            toast.error("An error occurred while downloading.");
         } finally {
             setIsDownloading(false);
         }
