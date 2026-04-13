@@ -53,8 +53,9 @@ export class UploadService {
     }
 
     // ROUTING LOGIC:
-    // 1. Revisions/Drafts (uploaded by editor) -> ALWAYS Mux (per user request for high-performance)
-    // 2. Others (uploaded by client/pm) -> Firebase Storage (unless project is new)
+    // 1. Revisions/Drafts (uploaded by editor) -> ALWAYS Mux (high-performance streaming)
+    // 2. Raw videos (uploaded by client) -> ALWAYS Firebase Storage (default for raw asset storage)
+    // 3. Other assets (new projects) -> Mux if appropriate, else Firebase
     console.log(`[UploadService] Unified Upload Start: ${file.name} (${file.size} bytes), Type: ${options.type}, isVideo: ${isVideo}`);
 
     if (options.type === 'revision' && isVideo) {
@@ -62,10 +63,16 @@ export class UploadService {
       return this.uploadToMux(file, options);
     } 
     
-    // For other types, check project date
+    // Raw videos from clients ALWAYS go to Firebase Storage (optimized for speed)
+    if (options.type === 'raw' && isVideo) {
+      console.log(`[UploadService] Routing raw client video to Firebase Storage (optimized for fast uploads)`);
+      return this.uploadToFirebase(file, options);
+    }
+    
+    // For other asset types, check project date
     const useMux = await this.shouldProjectUseMux(options.projectId);
-    if (useMux && isVideo && (options.type === 'raw' || options.type === 'asset')) {
-      console.log(`[UploadService] Routing ${options.type} to Mux (New Project)`);
+    if (useMux && isVideo && options.type === 'asset') {
+      console.log(`[UploadService] Routing asset video to Mux (New Project)`);
       return this.uploadToMux(file, options);
     }
 
@@ -280,28 +287,40 @@ export class UploadService {
     const uploadTask = uploadBytesResumable(storageRef, file);
 
     const startTime = Date.now();
+    let lastProgressUpdate = 0;
+    const PROGRESS_THROTTLE_MS = 200; // Throttle progress updates to reduce callback overhead
+    
     return new Promise((resolve, reject) => {
       uploadTask.on(
         "state_changed",
         (snapshot) => {
-          if (onProgress) {
-            const now = Date.now();
-            const elapsed = (now - startTime) / 1000;
-            const speedBps = elapsed > 0 ? snapshot.bytesTransferred / elapsed : 0;
-            const remainingBytes = snapshot.totalBytes - snapshot.bytesTransferred;
-            const eta = speedBps > 0 ? remainingBytes / speedBps : 0;
-
-            onProgress({
-              percent: (snapshot.bytesTransferred / snapshot.totalBytes) * 100,
-              transferred: snapshot.bytesTransferred,
-              total: snapshot.totalBytes,
-              speedBps,
-              eta,
-              status: 'uploading'
-            });
+          if (!onProgress) return;
+          
+          // Throttle progress callbacks to avoid reducing upload speed
+          const now = Date.now();
+          if (now - lastProgressUpdate < PROGRESS_THROTTLE_MS && snapshot.bytesTransferred < snapshot.totalBytes) {
+            return;
           }
+          lastProgressUpdate = now;
+
+          const elapsed = (now - startTime) / 1000;
+          const speedBps = elapsed > 0 ? snapshot.bytesTransferred / elapsed : 0;
+          const remainingBytes = snapshot.totalBytes - snapshot.bytesTransferred;
+          const eta = speedBps > 0 ? remainingBytes / speedBps : 0;
+
+          onProgress({
+            percent: (snapshot.bytesTransferred / snapshot.totalBytes) * 100,
+            transferred: snapshot.bytesTransferred,
+            total: snapshot.totalBytes,
+            speedBps,
+            eta,
+            status: 'uploading'
+          });
         },
-        (error) => reject(error),
+        (error) => {
+          console.error(`[UploadService] Firebase upload error for ${file.name}:`, error);
+          reject(error);
+        },
         async () => {
           try {
             const downloadUrl = await getDownloadURL(uploadTask.snapshot.ref);
@@ -334,15 +353,20 @@ export class UploadService {
                 status: 'complete'
               });
             }
+            console.log(`[UploadService] Firebase upload complete: ${file.name} (${this.formatBytes(file.size)})`);
             resolve(downloadUrl);
           } catch (err) {
+            console.error(`[UploadService] Error finalizing upload for ${file.name}:`, err);
             reject(err);
           }
         }
       );
 
       if (onCancelRef) {
-        onCancelRef(() => uploadTask.cancel());
+        onCancelRef(() => {
+          console.log(`[UploadService] Upload cancelled: ${file.name}`);
+          uploadTask.cancel();
+        });
       }
     });
   }

@@ -115,7 +115,7 @@ const ASPECT_RATIOS = [
 
 const DEFAULT_URGENT_PRICE = 500;
 const BASE_PROJECT_PRICE = 1000;
-const MAX_CONCURRENT_UPLOADS = 3; // Upload up to 3 files simultaneously
+const MAX_CONCURRENT_UPLOADS = 6; // Upload up to 6 files simultaneously for faster raw video upload speeds
 const DESCRIPTION_WORD_LIMIT = 500;
 
 export default function NewProjectPage() {
