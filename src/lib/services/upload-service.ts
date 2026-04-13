@@ -152,68 +152,163 @@ export class UploadService {
    * Direct upload to Mux using the signed upload URL.
    * Mux's browser docs support a plain PUT upload to the direct upload URL.
    * This avoids the tus HEAD preflight that is currently failing CORS in-browser.
+   * 
+   * OPTIMIZATIONS FOR LIGHTNING SPEED:
+   * - Progress throttling (200ms) to reduce callback overhead
+   * - Aggressive timeout configuration (30s)
+   * - Retry logic with exponential backoff for transient failures
+   * - Minimal header overhead
    */
   private static async uploadToMux(file: File, options: UploadOptions): Promise<string> {
     const { projectId, revisionId, onProgress, onCancelRef } = options;
     const finalRevisionId = revisionId || doc(collection(db, 'upload_sessions')).id;
+    const MAX_RETRIES = 3;
+    const INITIAL_RETRY_DELAY = 1000; // 1 second
+    const MUX_UPLOAD_TIMEOUT = 30000; // 30 seconds for connection timeout
 
-    // 1. Get Direct Upload URL from Mux via our API
-    const response = await fetch("/api/mux-upload-url", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ projectId, revisionId: finalRevisionId, type: options.type }),
-    });
+    let lastAttemptError: Error | null = null;
 
-    if (!response.ok) {
-      const errorText = await response.text();
-      console.error("[UploadService] API Error:", {
-        status: response.status,
-        statusText: response.statusText,
-        bodySnippet: errorText.substring(0, 500)
-      });
-      
-      if (errorText.includes('<!DOCTYPE html>')) {
-        throw new Error(`Server returned HTML instead of JSON. Check if /api/mux-upload-url exists and is working. (Status: ${response.status})`);
-      }
-      
-      let errorData;
+    for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
       try {
-        errorData = JSON.parse(errorText);
-      } catch {
-        throw new Error(`Failed to create upload: ${response.status} ${response.statusText}`);
+        // 1. Get Direct Upload URL from Mux via our API
+        let uploadUrl: string;
+        let uploadId: string;
+        
+        try {
+          const response = await fetch("/api/mux-upload-url", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ projectId, revisionId: finalRevisionId, type: options.type }),
+            signal: AbortSignal.timeout(10000) // 10s timeout for API call
+          });
+
+          if (!response.ok) {
+            const errorText = await response.text();
+            console.error("[UploadService] API Error:", {
+              status: response.status,
+              statusText: response.statusText,
+              attempt,
+              bodySnippet: errorText.substring(0, 500)
+            });
+            
+            if (errorText.includes('<!DOCTYPE html>')) {
+              throw new Error(`Server returned HTML instead of JSON. Check if /api/mux-upload-url exists and is working. (Status: ${response.status})`);
+            }
+            
+            let errorData;
+            try {
+              errorData = JSON.parse(errorText);
+            } catch {
+              throw new Error(`Failed to create upload: ${response.status} ${response.statusText}`);
+            }
+            throw new Error(errorData.error || `Failed to create upload: ${response.status} ${response.statusText}`);
+          }
+
+          const data = await response.json();
+          uploadUrl = data.uploadUrl;
+          uploadId = data.uploadId;
+        } catch (err) {
+          // Retry on API errors (network issues, timeouts, etc)
+          if (attempt < MAX_RETRIES) {
+            const delay = INITIAL_RETRY_DELAY * Math.pow(2, attempt);
+            console.warn(`[UploadService] API call failed, retrying in ${delay}ms...`, err);
+            await new Promise(resolve => setTimeout(resolve, delay));
+            continue;
+          }
+          throw err;
+        }
+
+        console.log(`[UploadService] Mux Upload session created:`, {
+            uploadId,
+            targetHost: new URL(uploadUrl).host,
+            attempt: attempt + 1
+        });
+
+        // 2. Track the job in Firestore
+        const videoJob: VideoJob = {
+          id: uploadId,
+          projectId,
+          revisionId: finalRevisionId,
+          status: "pending",
+          createdAt: Date.now(),
+          updatedAt: Date.now(),
+        };
+        await setDoc(doc(db, "video_jobs", uploadId), videoJob);
+
+        // 3. Upload directly to the signed Mux URL with optimizations
+        const uploadSuccess = await this.performMuxUpload(file, uploadUrl, uploadId, onProgress, onCancelRef, MUX_UPLOAD_TIMEOUT);
+        return uploadSuccess;
+
+      } catch (err: any) {
+        lastAttemptError = err;
+        
+        // Check if error is retryable
+        const isRetryable = err.message?.includes('Network error') || 
+                           err.message?.includes('timeout') ||
+                           err.message?.includes('ECONNRESET');
+        
+        if (isRetryable && attempt < MAX_RETRIES) {
+          const delay = INITIAL_RETRY_DELAY * Math.pow(2, attempt);
+          console.warn(`[UploadService] Retryable error on attempt ${attempt + 1}, retrying in ${delay}ms:`, err.message);
+          await new Promise(resolve => setTimeout(resolve, delay));
+          continue;
+        }
+
+        // Non-retryable error or max retries exceeded
+        console.error(`[UploadService] Mux upload failed after ${attempt + 1} attempt(s):`, err);
+        throw err;
       }
-      throw new Error(errorData.error || `Failed to create upload: ${response.status} ${response.statusText}`);
     }
 
-    const { uploadUrl, uploadId } = await response.json();
-    console.log(`[UploadService] Mux Upload session created:`, {
-        uploadId,
-        targetHost: new URL(uploadUrl).host
-    });
+    throw lastAttemptError || new Error('Mux upload failed after maximum retries');
+  }
 
-    // 2. Track the job in Firestore
-    const videoJob: VideoJob = {
-      id: uploadId,
-      projectId,
-      revisionId: finalRevisionId,
-      status: "pending",
-      createdAt: Date.now(),
-      updatedAt: Date.now(),
-    };
-    await setDoc(doc(db, "video_jobs", uploadId), videoJob);
-
-    // 3. Upload directly to the signed Mux URL
+  /**
+   * Perform the actual file upload to Mux with progress tracking and timeout handling
+   */
+  private static performMuxUpload(
+    file: File,
+    uploadUrl: string,
+    uploadId: string,
+    onProgress: ((progress: UploadProgress) => void) | undefined,
+    onCancelRef: ((cancel: () => void) => void) | undefined,
+    timeout: number
+  ): Promise<string> {
     const startTime = Date.now();
+    let lastProgressUpdate = 0;
+    const PROGRESS_THROTTLE_MS = 200; // Throttle to reduce callback overhead and improve network performance
+    let timeoutHandle: NodeJS.Timeout | null = null;
+
     return new Promise((resolve, reject) => {
       const xhr = new XMLHttpRequest();
 
+      // Set up timeout handler
+      const handleTimeout = () => {
+        console.error("[MuxUpload] Upload timeout after", timeout, "ms");
+        xhr.abort();
+        reject(new Error(`Mux upload timeout after ${timeout}ms`));
+      };
+      
+      timeoutHandle = setTimeout(handleTimeout, timeout);
+
       xhr.open("PUT", uploadUrl, true);
+      
+      // Optimized headers for speed
       xhr.setRequestHeader("Content-Type", file.type || "application/octet-stream");
+      
+      // Performance headers
+      xhr.setRequestHeader("Connection", "keep-alive");
 
       xhr.upload.onprogress = (event) => {
         if (!onProgress || !event.lengthComputable) return;
 
+        // Throttle progress updates to reduce overhead
         const now = Date.now();
+        if (now - lastProgressUpdate < PROGRESS_THROTTLE_MS && event.loaded < event.total) {
+          return;
+        }
+        lastProgressUpdate = now;
+
         const elapsed = (now - startTime) / 1000;
         const bytesSent = event.loaded;
         const bytesTotal = event.total;
@@ -231,8 +326,20 @@ export class UploadService {
         });
       };
 
+      xhr.onreadystatechange = () => {
+        // Reset timeout on any state change
+        if (timeoutHandle) clearTimeout(timeoutHandle);
+        if (xhr.readyState === XMLHttpRequest.LOADING) {
+          timeoutHandle = setTimeout(handleTimeout, timeout);
+        }
+      };
+
       xhr.onload = () => {
+        if (timeoutHandle) clearTimeout(timeoutHandle);
+
         if (xhr.status >= 200 && xhr.status < 300) {
+          console.log(`[MuxUpload] Upload successful for ${uploadId}, finalizing...`);
+          
           if (onProgress) {
             onProgress({
               percent: 100,
@@ -248,24 +355,34 @@ export class UploadService {
         console.error("[MuxUpload] PUT failed:", {
           status: xhr.status,
           statusText: xhr.statusText,
+          uploadId,
           responseText: xhr.responseText?.slice(0, 500)
         });
         reject(new Error(`Mux upload failed with status ${xhr.status} ${xhr.statusText}`));
       };
 
       xhr.onerror = () => {
-        console.error("[MuxUpload] Network error during direct upload");
+        if (timeoutHandle) clearTimeout(timeoutHandle);
+        console.error("[MuxUpload] Network error during direct upload", uploadId);
         reject(new Error("Mux upload failed due to a network or CORS error."));
       };
 
       xhr.onabort = () => {
+        if (timeoutHandle) clearTimeout(timeoutHandle);
+        console.log("[MuxUpload] Upload cancelled:", uploadId);
         reject(new Error("Upload cancelled"));
       };
 
       if (onCancelRef) {
-        onCancelRef(() => xhr.abort());
+        onCancelRef(() => {
+          if (timeoutHandle) clearTimeout(timeoutHandle);
+          console.log("[MuxUpload] Cancel requested:", uploadId);
+          xhr.abort();
+        });
       }
 
+      // Send file with minimal overhead
+      console.log(`[MuxUpload] Starting PUT upload: ${file.name} (${this.formatBytes(file.size)}) to Mux`);
       xhr.send(file);
     });
   }
