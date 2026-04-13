@@ -1,7 +1,8 @@
 
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
 import { useAuth } from "@/lib/context/auth-context";
 import { Button } from "@/components/ui/button";
 import { motion } from "framer-motion";
@@ -27,9 +28,17 @@ function isValidIdentifier(identifier: string): boolean {
 }
 
 export default function LoginPage() {
-  const { signInWithGoogle, loginWithEmail, loading } = useAuth();
+  const { user, firebaseUser, signInWithGoogle, loginWithEmail, loading } = useAuth();
   const { logoUrl } = useBranding();
+  const router = useRouter();
   const [isLoggingIn, setIsLoggingIn] = useState(false);
+
+  // Auto-redirect if already logged in
+  useEffect(() => {
+    if (!loading && (user || firebaseUser)) {
+      router.push("/dashboard");
+    }
+  }, [user, firebaseUser, loading, router]);
   const [error, setError] = useState<string | null>(null);
   
   // Form state

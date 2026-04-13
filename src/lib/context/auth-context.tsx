@@ -50,28 +50,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [firebaseUser, setFirebaseUser] = useState<FirebaseUser | null>(null);
   const [loading, setLoading] = useState(true);
-  const [authInitialized, setAuthInitialized] = useState(false);
   const router = useRouter();
 
-  // Initialize Firebase Auth Persistence on mount
+  // Auth state listener with token refresh handling
   useEffect(() => {
-    const initializePersistence = async () => {
-      try {
-        await setPersistence(auth, browserLocalPersistence);
-        console.log("✅ Firebase Auth Persistence enabled (browserLocalPersistence)");
-      } catch (error) {
-        console.error("⚠️ Failed to set persistence:", error);
-      }
-      setAuthInitialized(true);
-    };
-
-    initializePersistence();
-  }, []);
-
-  // Main auth state listener with token refresh handling
-  useEffect(() => {
-    if (!authInitialized) return;
-
     let unsubProfile: (() => void) | null = null;
     let unsubTokenRefresh: (() => void) | null = null;
     let tokenRefreshTimeout: NodeJS.Timeout | null = null;
@@ -145,11 +127,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       if (unsubTokenRefresh) unsubTokenRefresh();
       if (tokenRefreshTimeout) clearTimeout(tokenRefreshTimeout);
     };
-  }, [authInitialized]);
+  }, []);
 
   const signInWithGoogle = async (selectedRole?: UserRole, initialPassword?: string, metadata?: any) => {
     try {
       console.log("🔐 Google Sign-In initiated...");
+      
+      // Ensure local persistence is reinforced before sign-in
+      await setPersistence(auth, browserLocalPersistence);
+      
       const provider = new GoogleAuthProvider();
       const result = await signInWithPopup(auth, provider);
       
@@ -276,8 +262,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
 
       try {
+          // Reinforce persistence for email login as well
+          await setPersistence(auth, browserLocalPersistence);
+          
           await signInWithEmailAndPassword(auth, email, password);
-          console.log("✅ Email Login Successful - Session authenticated");
+          console.log("✅ Email Login Successful - Session authenticated (Persistent)");
           router.push("/dashboard");
       } catch (error: any) {
           console.error("❌ Error signing in with Email/Pass", error);

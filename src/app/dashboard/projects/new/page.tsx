@@ -502,25 +502,12 @@ export default function NewProjectPage() {
 
     if (fileToRemove.status === 'complete' && data?.url) {
         const path = data.storagePath;
-        
-        // BETTER CHECK: Does the URL contain "cloudinary.com"?
-        const isCloudinaryFile = data.url.includes('cloudinary.com');
 
         try {
-            if (isCloudinaryFile) {
-                // --- CLOUDINARY DELETE ---
-                await fetch('/api/cloudinary/video/delete', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ publicId: path }),
-                });
-                toast.success("Removed from Cloudinary");
-            } else {
-                // --- FIREBASE DELETE ---
-                const storageRef = ref(storage, path);
-                await deleteObject(storageRef);
-                toast.success("Removed from Firebase");
-            }
+            // All videos are now stored in Firebase
+            const storageRef = ref(storage, path);
+            await deleteObject(storageRef);
+            toast.success("Video removed successfully");
         } catch (error) {
             console.error("Cleanup error:", error);
         }

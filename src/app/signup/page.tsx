@@ -1,6 +1,7 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
 import { useAuth } from "@/lib/context/auth-context";
 import { Button } from "@/components/ui/button";
 import { motion } from "framer-motion";
@@ -16,9 +17,17 @@ import Image from "next/image";
 import { useBranding } from "@/lib/context/branding-context";
 
 export default function SignupPage() {
-  const { signInWithGoogle, signupWithEmail, loading } = useAuth();
+  const { user, firebaseUser, signInWithGoogle, signupWithEmail, loading } = useAuth();
   const { logoUrl } = useBranding();
+  const router = useRouter();
   const [isSigningUp, setIsSigningUp] = useState(false);
+
+  // Auto-redirect if already logged in
+  useEffect(() => {
+    if (!loading && (user || firebaseUser)) {
+      router.push("/dashboard");
+    }
+  }, [user, firebaseUser, loading, router]);
   const [selectedRole, setSelectedRole] = useState<UserRole>("client");
   const [error, setError] = useState<string | null>(null);
 

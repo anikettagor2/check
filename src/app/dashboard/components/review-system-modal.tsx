@@ -38,9 +38,9 @@ type RevisionDoc = {
     id: string;
     projectId: string;
     version?: number;
-    videoUrl?: string; // Legacy Firebase Storage
+    videoUrl?: string; // Firebase Storage
     playbackId?: string; // Mux Playback ID
-    hlsUrl?: string; // Mux or Cloudinary HLS
+    hlsUrl?: string; // Mux HLS URL
     fileSize?: number;
     description?: string;
     createdAt?: number;
@@ -254,11 +254,8 @@ export function ReviewSystemModal({ isOpen, onClose, project, guestPreview = fal
             const res = await registerDownload(project.id, selectedRevisionId);
             if (res.success && res.downloadUrl) {
                 let finalUrl = res.downloadUrl;
-                if (finalUrl.includes('cloudinary.com')) {
-                    finalUrl = finalUrl.replace(/\.m3u8$/, '.mp4').replace(/\/sp_[^\/]+\//, '/').replace('/upload/', '/upload/fl_attachment/');
-                } else if (finalUrl.includes('firebasestorage.googleapis.com')) {
-                    if (!finalUrl.includes('alt=media')) finalUrl += (finalUrl.includes('?') ? '&' : '?') + 'alt=media';
-                }
+                // MUX videos - use direct download
+                if (!finalUrl.includes('alt=media')) finalUrl += (finalUrl.includes('?') ? '&' : '?') + 'alt=media';
                 const link = document.createElement("a");
                 link.href = finalUrl;
                 link.setAttribute("download", `${project.name || 'video'}_v${selectedRevision.version || 1}.mp4`);

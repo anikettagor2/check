@@ -592,6 +592,49 @@ export async function togglePayLater(uid: string, payLater: boolean) {
 }
 
 /**
+ * Bulk settles client payments for multiple projects
+ */
+export async function bulkSettleClientPayments(projectIds: string[], user: { uid: string, displayName: string, role: string }) {
+    try {
+        const batch = adminDb.batch();
+        const now = Date.now();
+
+        for (const pid of projectIds) {
+            const ref = adminDb.collection('projects').doc(pid);
+            const snap = await ref.get();
+            if (!snap.exists) continue;
+            const data = snap.data();
+            const cost = data?.totalCost || 0;
+
+            batch.update(ref, {
+                paymentStatus: 'full_paid',
+                amountPaid: cost,
+                paymentOption: 'pay_later',
+                updatedAt: now
+            });
+
+            batch.update(ref, {
+                logs: admin.firestore.FieldValue.arrayUnion({
+                    event: 'PAYMENT_SETTLED',
+                    user: user.uid,
+                    userName: user.displayName,
+                    designation: user.role === 'admin' ? 'Admin' : 'Project Manager',
+                    timestamp: now,
+                    details: 'Client payment settled manually via bulk action.'
+                })
+            });
+        }
+
+        await batch.commit();
+        revalidatePath('/dashboard');
+        return { success: true };
+    } catch (error: any) {
+        console.error('Error in bulk client settlement:', error);
+        return { success: false, error: error.message };
+    }
+}
+
+/**
  * Updates a client's credit limit
  */
 export async function updateClientCreditLimit(uid: string, creditLimit: number) {
